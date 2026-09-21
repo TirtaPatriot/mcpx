@@ -17,6 +17,25 @@ docker compose logs -f
 
 Tanpa Docker: `bun install && bun run dev` (env di-load otomatis dari `.env`).
 
+### Deploy hanya dengan Dockerfile
+
+Gateway hanya membaca environment variable (`process.env`), tidak memerlukan file `.env`, dan `.env` tidak ikut masuk image (`.dockerignore`). Cukup build `Dockerfile` lalu set variabel di platform deploy (Coolify, Portainer, Dokploy, `docker run -e`, dan sebagainya):
+
+```bash
+docker build -t oauth-gateway .
+docker run -d -p 3000:3000 \
+  --add-host host.docker.internal:host-gateway \
+  -e CLIENT_ID=gemini-mcp \
+  -e CLIENT_SECRET=$(openssl rand -hex 32) \
+  -e 'MCP_SERVERS={"filesystem":"http://host.docker.internal:3001"}' \
+  oauth-gateway
+```
+
+- `MCP_SERVERS` diisi JSON mentah; kutip tunggal hanya diperlukan oleh shell, bukan oleh platform yang punya kolom env.
+- `PORT` mengikuti variabel platform bila di-set (default `3000`), dan healthcheck ikut menyesuaikan.
+- Variabel wajib yang kosong membuat container berhenti saat start dengan pesan jelas (`[config] CLIENT_ID belum di-set`), bukan jalan setengah-setengah.
+- `docker-compose.yml` juga membaca variabel dari shell host, jadi `CLIENT_ID=... CLIENT_SECRET=... MCP_SERVERS=... docker compose up -d` bekerja tanpa `.env`.
+
 ## Konfigurasi
 
 | Env | Wajib | Keterangan |
