@@ -42,6 +42,7 @@ docker run -d -p 3000:3000 \
 |---|---|---|
 | `CLIENT_ID`, `CLIENT_SECRET` | ya | Kredensial yang dimasukkan ke konfigurasi custom app Gemini. |
 | `MCP_SERVERS` | ya | JSON sebaris `{"nama":"http://host:port[/base]"}`. Untuk server yang butuh header auth: `{"nama":{"url":"http://host:port","headers":{"Authorization":"Bearer ..."}}}`. |
+| `PUBLIC_URL` | disarankan | URL publik gateway, origin saja (`https://gateway.example.com`). Dipakai di metadata OAuth discovery. Bila kosong diturunkan dari header `Host`/`X-Forwarded-Proto`/`X-Forwarded-Host`, yang bisa salah di balik proxy/tunnel. |
 | `ALLOWED_REDIRECT_HOSTS` | tidak | Host `redirect_uri` yang diizinkan (subdomain ikut), default `google.com`. Wajib https. |
 | `ACCESS_TOKEN_TTL` | tidak | Detik, default `3600`. |
 | `LOG_SSE_CHUNKS` | tidak | `true` (default) mencatat isi tiap chunk SSE, dipotong 200 karakter. |
@@ -52,6 +53,7 @@ docker run -d -p 3000:3000 \
 - `GET  /oauth/authorize` — halaman persetujuan; tombol "Izinkan Akses" mengirim `POST /oauth/authorize` yang me-redirect ke `redirect_uri` dengan `code` dan `state`. PKCE (`S256`) divalidasi bila `code_challenge` dikirim.
 - `POST /oauth/token` — `authorization_code` dan `refresh_token`; kredensial klien dari body (form/JSON) atau HTTP Basic.
 - `ALL  /mcp/:serverName/*` — proxy streaming (SSE) dengan `Authorization: Bearer <access_token>`. `401` tanpa token valid, `404` server tidak dikenal, `502` upstream mati.
+- `GET  /.well-known/oauth-protected-resource[/mcp/<server>/...]` (RFC 9728) dan `GET /.well-known/oauth-authorization-server` (RFC 8414, juga di `/.well-known/openid-configuration`) — discovery yang dibutuhkan klien MCP seperti Gemini. Respons `401` dari `/mcp/*` menyertakan `resource_metadata` yang menunjuk ke sini.
 - `GET  /health` — untuk healthcheck.
 
 ## Catatan

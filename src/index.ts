@@ -25,6 +25,19 @@ const ALLOWED_REDIRECT_HOSTS = (process.env.ALLOWED_REDIRECT_HOSTS ?? "google.co
   .filter(Boolean);
 const DEFAULT_REDIRECT_URI = "https://google.com";
 
+// URL publik gateway (origin saja) untuk metadata discovery. Bila kosong, diturunkan dari header Host/X-Forwarded-*.
+const PUBLIC_URL = (() => {
+  const raw = process.env.PUBLIC_URL?.trim();
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    if (url.pathname !== "/" || url.search || url.hash) throw new Error("hanya origin, tanpa path");
+    return url.origin;
+  } catch (err) {
+    return fatal(`PUBLIC_URL tidak valid (contoh: https://gateway.example.com): ${(err as Error).message}`);
+  }
+})();
+
 interface McpServer {
   url: URL;
   /** Header tetap yang dikirim ke server ini (mis. Authorization milik server MCP). */
@@ -204,6 +217,16 @@ function parseRedirectUri(raw: string): URL | null {
   return allowed ? url : null;
 }
 
+/** Origin publik gateway: PUBLIC_URL, atau diturunkan dari header request (di belakang reverse proxy/tunnel). */
+function publicOrigin(request: Request): string {
+  if (PUBLIC_URL) return PUBLIC_URL;
+  const first = (name: string) => request.headers.get(name)?.split(",")[0]?.trim() || undefined;
+  const url = new URL(request.url);
+  const proto = first("x-forwarded-proto") ?? url.protocol.replace(":", "");
+  const host = first("x-forwarded-host") ?? first("host") ?? url.host;
+  return `${proto}://${host}`;
+}
+
 function verifyPkce(verifier: string | undefined, challenge: string): boolean {
   if (!verifier) return false;
   const computed = createHash("sha256").update(verifier).digest("base64url");
@@ -357,6 +380,48 @@ function tapSse(body: ReadableStream<Uint8Array>, id: string, startedAt: number)
   });
 }
 
+const metadataHeaders = { "Access-Control-Allow-Origin": "*" };
+
+function oauthProtectedResource({ request }: { request: Request }): Response {
+  const { id } = metaOf(request);
+  const origin = publicOrigin(request);
+  const suffix = new URL(request.url).pathname.slice("/.well-known/oauth-protected-resource".length);
+
+  // Tanpa suffix = gateway secara umum; dengan suffix harus menunjuk /mcp/<server yang dikenal>/...
+  if (suffix) {
+    const serverName = suffix.match(/^\/mcp\/([^/]+)/)?.[1];
+    if (!serverName || !MCP_SERVERS.has(safeDecode(serverName))) {
+      log(id, `✗ 404 resource metadata untuk path tidak dikenal: ${suffix}`);
+      return json({ error: "not_found" }, 404, metadataHeaders);
+    }
+  }
+  log(id, `• discovery: protected resource ${origin}${suffix}`);
+  return json(
+    { resource: `${origin}${suffix}`, authorization_servers: [origin], bearer_methods_supported: ["header"] },
+    200,
+    metadataHeaders,
+  );
+}
+
+function oauthServerMetadata({ request }: { request: Request }): Response {
+  const { id } = metaOf(request);
+  const origin = publicOrigin(request);
+  log(id, `• discovery: authorization server metadata issuer=${origin}`);
+  return json(
+    {
+      issuer: origin,
+      authorization_endpoint: `${origin}/oauth/authorize`,
+      token_endpoint: `${origin}/oauth/token`,
+      response_types_supported: ["code"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
+      code_challenge_methods_supported: ["S256"],
+      token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
+    },
+    200,
+    metadataHeaders,
+  );
+}
+
 async function proxy(ctx: { request: Request; server: Bun.Server<unknown> | null }): Promise<Response> {
   const { request, server } = ctx;
   const { id, startedAt } = metaOf(request);
@@ -365,8 +430,11 @@ async function proxy(ctx: { request: Request; server: Bun.Server<unknown> | null
   if (!isValidBearer(request.headers.get("authorization"))) {
     const hasToken = request.headers.has("authorization");
     log(id, `✗ 401 ${hasToken ? "access_token tidak valid/kedaluwarsa" : "tidak ada Authorization header"}`);
+    // resource_metadata (RFC 9728) menuntun klien MCP ke discovery OAuth.
+    const metadataUrl = `${publicOrigin(request)}/.well-known/oauth-protected-resource${url.pathname}`;
     return json({ error: "invalid_token", error_description: "Bearer token diperlukan" }, 401, {
-      "WWW-Authenticate": `Bearer realm="mcp-gateway"${hasToken ? ', error="invalid_token"' : ""}`,
+      "WWW-Authenticate":
+        `Bearer realm="mcp-gateway"${hasToken ? ', error="invalid_token"' : ""}, resource_metadata="${metadataUrl}"`,
     });
   }
 
@@ -489,6 +557,13 @@ const app = new Elysia()
   })
 
   .get("/health", () => ({ status: "ok", servers: [...MCP_SERVERS.keys()] }))
+
+  // ── OAuth discovery (RFC 9728 & RFC 8414) ─────────────────────────────────
+  // Protected resource metadata: /.well-known/oauth-protected-resource[/mcp/<server>/...]
+  .get("/.well-known/oauth-protected-resource", oauthProtectedResource)
+  .get("/.well-known/oauth-protected-resource/*", oauthProtectedResource)
+  .get("/.well-known/oauth-authorization-server", oauthServerMetadata)
+  .get("/.well-known/openid-configuration", oauthServerMetadata)
 
   // ── OAuth: halaman persetujuan ────────────────────────────────────────────
   .get("/oauth/authorize", ({ request }) => {
@@ -614,4 +689,9 @@ for (const [name, { url, headers }] of MCP_SERVERS) {
   const injected = names.length ? ` (+header: ${names.join(", ")})` : "";
   console.log(`   /mcp/${name}/*  ⇒  ${url.origin}${url.pathname}${injected}`);
 }
+console.log(
+  PUBLIC_URL
+    ? `   PUBLIC_URL: ${PUBLIC_URL}`
+    : "   ⚠ PUBLIC_URL belum di-set: URL discovery diturunkan dari header Host/X-Forwarded-*. Set PUBLIC_URL agar pasti benar.",
+);
 console.log(`   redirect_uri diizinkan: ${ALLOWED_REDIRECT_HOSTS.join(", ")} | log chunk SSE: ${LOG_SSE_CHUNKS}`);

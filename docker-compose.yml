@@ -11,6 +11,8 @@ services:
       CLIENT_SECRET: ${CLIENT_SECRET:?CLIENT_SECRET wajib di-set (lihat .env.example)}
       # JSON sebaris: {"nama":"http://host.docker.internal:PORT"}
       MCP_SERVERS: ${MCP_SERVERS:?MCP_SERVERS wajib di-set (lihat .env.example)}
+      # URL publik gateway (https, origin saja) untuk OAuth discovery; kosong = ikut header Host/X-Forwarded-*
+      PUBLIC_URL: ${PUBLIC_URL:-}
       # Host tujuan redirect (subdomain ikut diizinkan), dipisah koma
       ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com}
       ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-3600}
