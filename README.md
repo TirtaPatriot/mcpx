@@ -1,15 +1,42 @@
-# Elysia with Bun runtime
+# OAuth 2.1 MCP Gateway
 
-## Getting Started
-To get started with this template, simply paste this command into your terminal:
-```bash
-bun create elysia ./elysia-example
+Reverse proxy berbasis Bun + ElysiaJS yang menaruh OAuth 2.1 di depan beberapa server MCP lokal, agar bisa dipakai sebagai custom app Google Gemini.
+
+```
+Gemini ──OAuth──▶ /oauth/authorize, /oauth/token
+Gemini ──Bearer─▶ /mcp/:serverName/*  ──▶  server MCP (MCP_SERVERS[serverName])
 ```
 
-## Development
-To start the development server run:
+## Menjalankan
+
 ```bash
-bun run dev
+cp .env.example .env      # isi CLIENT_ID, CLIENT_SECRET, MCP_SERVERS
+docker compose up -d --build
+docker compose logs -f
 ```
 
-Open http://localhost:3000/ with your browser to see the result.
+Tanpa Docker: `bun install && bun run dev` (env di-load otomatis dari `.env`).
+
+## Konfigurasi
+
+| Env | Wajib | Keterangan |
+|---|---|---|
+| `CLIENT_ID`, `CLIENT_SECRET` | ya | Kredensial yang dimasukkan ke konfigurasi custom app Gemini. |
+| `MCP_SERVERS` | ya | JSON sebaris `{"nama":"http://host:port[/base]"}`. |
+| `ALLOWED_REDIRECT_HOSTS` | tidak | Host `redirect_uri` yang diizinkan (subdomain ikut), default `google.com`. Wajib https. |
+| `ACCESS_TOKEN_TTL` | tidak | Detik, default `3600`. |
+| `LOG_SSE_CHUNKS` | tidak | `true` (default) mencatat isi tiap chunk SSE, dipotong 200 karakter. |
+| `PORT` | tidak | Default `3000`. |
+
+## Endpoint
+
+- `GET  /oauth/authorize` — halaman persetujuan; tombol "Izinkan Akses" mengirim `POST /oauth/authorize` yang me-redirect ke `redirect_uri` dengan `code` dan `state`. PKCE (`S256`) divalidasi bila `code_challenge` dikirim.
+- `POST /oauth/token` — `authorization_code` dan `refresh_token`; kredensial klien dari body (form/JSON) atau HTTP Basic.
+- `ALL  /mcp/:serverName/*` — proxy streaming (SSE) dengan `Authorization: Bearer <access_token>`. `401` tanpa token valid, `404` server tidak dikenal, `502` upstream mati.
+- `GET  /health` — untuk healthcheck.
+
+## Catatan
+
+- Code dan token disimpan di memori; restart gateway berarti Gemini harus otorisasi ulang.
+- Header `Authorization` tidak diteruskan ke server MCP.
+- Endpoint authorize tidak meminta login: siapa pun yang bisa membuka halamannya dan tahu `CLIENT_ID` bisa menyetujui, tetapi menukar `code` tetap membutuhkan `CLIENT_SECRET`. Jangan ekspos gateway ini ke internet tanpa `CLIENT_SECRET` yang kuat.

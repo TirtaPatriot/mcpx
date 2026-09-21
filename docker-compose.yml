@@ -1,0 +1,21 @@
+services:
+  oauth-gateway:
+    build: .
+    container_name: oauth-gateway
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      PORT: "3000"
+      CLIENT_ID: ${CLIENT_ID:?CLIENT_ID wajib di-set (lihat .env.example)}
+      CLIENT_SECRET: ${CLIENT_SECRET:?CLIENT_SECRET wajib di-set (lihat .env.example)}
+      # JSON sebaris: {"nama":"http://host.docker.internal:PORT"}
+      MCP_SERVERS: ${MCP_SERVERS:?MCP_SERVERS wajib di-set (lihat .env.example)}
+      # Host tujuan redirect (subdomain ikut diizinkan), dipisah koma
+      ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-3600}
+      # true = log isi tiap chunk SSE (dipotong 200 karakter); false untuk mematikan
+      LOG_SSE_CHUNKS: ${LOG_SSE_CHUNKS:-true}
+    extra_hosts:
+      # Agar container bisa memanggil server MCP yang jalan di host (Linux)
+      - "host.docker.internal:host-gateway"
