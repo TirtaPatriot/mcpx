@@ -120,8 +120,8 @@ const elapsed = (startedAt: number) => `${(performance.now() - startedAt).toFixe
 
 interface AuthCode {
   clientId: string;
-  redirectUri: string;
-  redirectUriExplicit: boolean;
+  /** redirect_uri persis seperti dikirim klien (undefined bila tidak dikirim); dibandingkan apa adanya di /oauth/token. */
+  redirectUri?: string;
   codeChallenge?: string;
   expiresAt: number;
 }
@@ -236,7 +236,8 @@ function verifyPkce(verifier: string | undefined, challenge: string): boolean {
 interface AuthorizeParams {
   clientId: string;
   redirectUri: URL;
-  redirectUriExplicit: boolean;
+  /** String redirect_uri mentah dari klien; undefined bila memakai default. */
+  redirectUriRaw?: string;
   state?: string;
   scope?: string;
   codeChallenge?: string;
@@ -262,7 +263,7 @@ function parseAuthorizeParams(get: (key: string) => string | undefined): Authori
   return {
     clientId,
     redirectUri,
-    redirectUriExplicit: rawRedirect !== undefined,
+    redirectUriRaw: rawRedirect,
     state: get("state"),
     scope: get("scope"),
     codeChallenge,
@@ -297,7 +298,7 @@ function consentPage(p: AuthorizeParams) {
   const hidden: Record<string, string | undefined> = {
     response_type: "code",
     client_id: p.clientId,
-    redirect_uri: p.redirectUriExplicit ? p.redirectUri.toString() : undefined,
+    redirect_uri: p.redirectUriRaw,
     state: p.state,
     scope: p.scope,
     code_challenge: p.codeChallenge,
@@ -599,8 +600,7 @@ const app = new Elysia()
     const code = newSecret();
     authCodes.set(code, {
       clientId: params.clientId,
-      redirectUri: params.redirectUri.toString(),
-      redirectUriExplicit: params.redirectUriExplicit,
+      redirectUri: params.redirectUriRaw,
       codeChallenge: params.codeChallenge,
       expiresAt: Date.now() + AUTH_CODE_TTL_MS,
     });
@@ -616,8 +616,16 @@ const app = new Elysia()
     const form = asRecord(body);
 
     const creds = clientCredentials(request, form);
-    if (!creds || !safeEqual(creds.id, CLIENT_ID) || !safeEqual(creds.secret, CLIENT_SECRET)) {
-      log(id, `✗ token: client tidak valid (via=${creds?.via ?? "tidak ada kredensial"})`);
+    log(
+      id,
+      `• token: grant_type=${str(form.grant_type) ?? "-"} client_auth=${creds?.via ?? "tidak ada"} client_id=${creds?.id ?? "-"} ` +
+        `redirect_uri=${str(form.redirect_uri) ?? "-"} code_verifier=${form.code_verifier ? "ada" : "tidak ada"} ` +
+        `content-type=${request.headers.get("content-type") ?? "-"}`,
+    );
+    const idOk = !!creds && safeEqual(creds.id, CLIENT_ID);
+    const secretOk = !!creds && safeEqual(creds.secret, CLIENT_SECRET);
+    if (!creds || !idOk || !secretOk) {
+      log(id, `✗ token: client tidak valid (client_id cocok=${idOk}, client_secret cocok=${secretOk})`);
       return oauthError("invalid_client", "client_id/client_secret salah", 401, {
         "WWW-Authenticate": 'Basic realm="oauth"',
       });
@@ -638,7 +646,9 @@ const app = new Elysia()
       if (record.clientId !== creds.id) return fail("code milik client lain");
 
       const redirectUri = str(form.redirect_uri);
-      if (record.redirectUriExplicit && redirectUri !== record.redirectUri) return fail("redirect_uri tidak cocok");
+      if (record.redirectUri !== undefined && redirectUri !== record.redirectUri) {
+        return fail(`redirect_uri tidak cocok (authorize=${record.redirectUri} token=${redirectUri ?? "tidak dikirim"})`);
+      }
       if (record.codeChallenge && !verifyPkce(str(form.code_verifier), record.codeChallenge)) {
         return fail("code_verifier (PKCE) tidak valid");
       }
