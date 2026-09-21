@@ -22,7 +22,7 @@ Tanpa Docker: `bun install && bun run dev` (env di-load otomatis dari `.env`).
 | Env | Wajib | Keterangan |
 |---|---|---|
 | `CLIENT_ID`, `CLIENT_SECRET` | ya | Kredensial yang dimasukkan ke konfigurasi custom app Gemini. |
-| `MCP_SERVERS` | ya | JSON sebaris `{"nama":"http://host:port[/base]"}`. |
+| `MCP_SERVERS` | ya | JSON sebaris `{"nama":"http://host:port[/base]"}`. Untuk server yang butuh header auth: `{"nama":{"url":"http://host:port","headers":{"Authorization":"Bearer ..."}}}`. |
 | `ALLOWED_REDIRECT_HOSTS` | tidak | Host `redirect_uri` yang diizinkan (subdomain ikut), default `google.com`. Wajib https. |
 | `ACCESS_TOKEN_TTL` | tidak | Detik, default `3600`. |
 | `LOG_SSE_CHUNKS` | tidak | `true` (default) mencatat isi tiap chunk SSE, dipotong 200 karakter. |
@@ -38,5 +38,5 @@ Tanpa Docker: `bun install && bun run dev` (env di-load otomatis dari `.env`).
 ## Catatan
 
 - Code dan token disimpan di memori; restart gateway berarti Gemini harus otorisasi ulang.
-- Header `Authorization` tidak diteruskan ke server MCP.
+- Header `Authorization` dari Gemini (token gateway) tidak diteruskan ke server MCP. Header milik server MCP sendiri diset lewat `headers` di `MCP_SERVERS`, menimpa header bernama sama dari klien, dan nilainya tidak pernah dicatat di log (hanya namanya).
 - Endpoint authorize tidak meminta login: siapa pun yang bisa membuka halamannya dan tahu `CLIENT_ID` bisa menyetujui, tetapi menukar `code` tetap membutuhkan `CLIENT_SECRET`. Jangan ekspos gateway ini ke internet tanpa `CLIENT_SECRET` yang kuat.

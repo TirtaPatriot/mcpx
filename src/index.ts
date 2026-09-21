@@ -25,7 +25,17 @@ const ALLOWED_REDIRECT_HOSTS = (process.env.ALLOWED_REDIRECT_HOSTS ?? "google.co
   .filter(Boolean);
 const DEFAULT_REDIRECT_URI = "https://google.com";
 
-function parseServers(raw: string | undefined): Map<string, URL> {
+interface McpServer {
+  url: URL;
+  /** Header tetap yang dikirim ke server ini (mis. Authorization milik server MCP). */
+  headers: Headers;
+}
+
+/**
+ * MCP_SERVERS: { "nama": "http://url" }
+ *           atau { "nama": { "url": "http://url", "headers": { "Authorization": "Bearer xxx" } } }
+ */
+function parseServers(raw: string | undefined): Map<string, McpServer> {
   if (!raw) return fatal('MCP_SERVERS belum di-set, contoh: {"filesystem":"http://host.docker.internal:3001"}');
 
   let parsed: unknown;
@@ -38,12 +48,22 @@ function parseServers(raw: string | undefined): Map<string, URL> {
     return fatal("MCP_SERVERS harus berupa objek JSON { nama: url }");
   }
 
-  const servers = new Map<string, URL>();
-  for (const [name, target] of Object.entries(parsed)) {
+  const servers = new Map<string, McpServer>();
+  for (const [name, entry] of Object.entries(parsed)) {
     try {
-      const url = new URL(String(target));
+      const spec: { url?: unknown; headers?: unknown } =
+        entry && typeof entry === "object" ? entry : { url: entry };
+      const url = new URL(String(spec.url));
       if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("protokol harus http/https");
-      servers.set(name, url);
+
+      const headers = new Headers();
+      const rawHeaders = spec.headers ?? {};
+      if (typeof rawHeaders !== "object" || Array.isArray(rawHeaders)) throw new Error("headers harus berupa objek");
+      for (const [key, value] of Object.entries(rawHeaders)) {
+        if (typeof value !== "string") throw new Error(`nilai header "${key}" harus string`);
+        headers.set(key, value); // melempar error bila nama/nilai header tidak valid
+      }
+      servers.set(name, { url, headers });
     } catch (err) {
       return fatal(`MCP_SERVERS["${name}"] tidak valid: ${(err as Error).message}`);
     }
@@ -352,11 +372,12 @@ async function proxy(ctx: { request: Request; server: Bun.Server<unknown> | null
 
   // /mcp/:serverName/<rest>
   const [, , serverName = "", ...restSegments] = url.pathname.split("/");
-  const base = MCP_SERVERS.get(safeDecode(serverName));
-  if (!base) {
+  const mcp = MCP_SERVERS.get(safeDecode(serverName));
+  if (!mcp) {
     log(id, `✗ 404 server MCP "${serverName}" tidak ada di MCP_SERVERS`);
     return json({ error: "unknown_server", error_description: `Server MCP "${serverName}" tidak dikenal` }, 404);
   }
+  const base = mcp.url;
 
   const target = new URL(base);
   target.pathname = base.pathname.replace(/\/+$/, "") + (restSegments.length ? `/${restSegments.join("/")}` : "");
@@ -371,6 +392,8 @@ async function proxy(ctx: { request: Request; server: Bun.Server<unknown> | null
   const contentLength = request.headers.get("content-length");
   if (contentLength && request.body) headers.set("content-length", contentLength);
   headers.set("accept-encoding", "identity"); // hindari kompresi yang merusak stream
+  // Header milik server MCP menimpa apa pun yang dikirim klien dengan nama sama.
+  mcp.headers.forEach((value, key) => headers.set(key, value));
   headers.set("x-forwarded-host", url.host);
   headers.set("x-forwarded-proto", url.protocol.replace(":", ""));
   const clientIp = server?.requestIP(request)?.address;
@@ -383,6 +406,7 @@ async function proxy(ctx: { request: Request; server: Bun.Server<unknown> | null
   log(
     id,
     `→ ${request.method} ${serverName} ⇒ ${target.origin}${target.pathname}${target.search} ` +
+      `inject=[${[...mcp.headers.keys()].join(",")}] ` +
       `accept=${request.headers.get("accept") ?? "-"} content-type=${request.headers.get("content-type") ?? "-"} ` +
       `session=${request.headers.get("mcp-session-id") ?? "-"} last-event-id=${request.headers.get("last-event-id") ?? "-"}`,
   );
@@ -585,5 +609,9 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
 }
 
 console.log(`🦊 OAuth 2.1 MCP Gateway berjalan di http://${app.server?.hostname}:${app.server?.port}`);
-for (const [name, url] of MCP_SERVERS) console.log(`   /mcp/${name}/*  ⇒  ${url.origin}${url.pathname}`);
+for (const [name, { url, headers }] of MCP_SERVERS) {
+  const names = [...headers.keys()];
+  const injected = names.length ? ` (+header: ${names.join(", ")})` : "";
+  console.log(`   /mcp/${name}/*  ⇒  ${url.origin}${url.pathname}${injected}`);
+}
 console.log(`   redirect_uri diizinkan: ${ALLOWED_REDIRECT_HOSTS.join(", ")} | log chunk SSE: ${LOG_SSE_CHUNKS}`);
