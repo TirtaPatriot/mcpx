@@ -19,7 +19,7 @@ const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
 const LOG_SSE_CHUNKS = (process.env.LOG_SSE_CHUNKS ?? "true") !== "false";
 
 // redirect_uri harus https dan hostnya (atau subdomain-nya) ada di daftar ini.
-const ALLOWED_REDIRECT_HOSTS = (process.env.ALLOWED_REDIRECT_HOSTS ?? "google.com")
+const ALLOWED_REDIRECT_HOSTS = (process.env.ALLOWED_REDIRECT_HOSTS ?? "google.com,oauth-redirect.googleusercontent.com")
   .split(",")
   .map((h) => h.trim().toLowerCase())
   .filter(Boolean);

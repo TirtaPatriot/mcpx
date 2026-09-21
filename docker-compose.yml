@@ -14,7 +14,7 @@ services:
       # URL publik gateway (https, origin saja) untuk OAuth discovery; kosong = ikut header Host/X-Forwarded-*
       PUBLIC_URL: ${PUBLIC_URL:-}
       # Host tujuan redirect (subdomain ikut diizinkan), dipisah koma
-      ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com}
+      ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com,oauth-redirect.googleusercontent.com}
       ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-3600}
       # true = log isi tiap chunk SSE (dipotong 200 karakter); false untuk mematikan
       LOG_SSE_CHUNKS: ${LOG_SSE_CHUNKS:-true}

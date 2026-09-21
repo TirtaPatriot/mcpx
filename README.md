@@ -43,7 +43,7 @@ docker run -d -p 3000:3000 \
 | `CLIENT_ID`, `CLIENT_SECRET` | ya | Kredensial yang dimasukkan ke konfigurasi custom app Gemini. |
 | `MCP_SERVERS` | ya | JSON sebaris `{"nama":"http://host:port[/base]"}`. Untuk server yang butuh header auth: `{"nama":{"url":"http://host:port","headers":{"Authorization":"Bearer ..."}}}`. |
 | `PUBLIC_URL` | disarankan | URL publik gateway, origin saja (`https://gateway.example.com`). Dipakai di metadata OAuth discovery. Bila kosong diturunkan dari header `Host`/`X-Forwarded-Proto`/`X-Forwarded-Host`, yang bisa salah di balik proxy/tunnel. |
-| `ALLOWED_REDIRECT_HOSTS` | tidak | Host `redirect_uri` yang diizinkan (subdomain ikut), default `google.com`. Wajib https. |
+| `ALLOWED_REDIRECT_HOSTS` | tidak | Host `redirect_uri` yang diizinkan (subdomain ikut), default `google.com,oauth-redirect.googleusercontent.com` (host redirect Gemini custom MCP). Wajib https. |
 | `ACCESS_TOKEN_TTL` | tidak | Detik, default `3600`. |
 | `LOG_SSE_CHUNKS` | tidak | `true` (default) mencatat isi tiap chunk SSE, dipotong 200 karakter. |
 | `PORT` | tidak | Default `3000`. |
