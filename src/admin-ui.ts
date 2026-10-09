@@ -63,6 +63,11 @@ export function renderAdminPage(request: Request): Response {
       </div>
 
       <div class="flex items-center gap-3">
+        <div id="currentUserBadge" class="hidden sm:flex items-center gap-2 bg-dark-700/80 border border-dark-600 px-3 py-1.5 rounded-xl text-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="currentUserName" class="font-medium text-slate-200">Admin</span>
+          <span id="currentUserRole" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">ADMIN</span>
+        </div>
         <a href="/.well-known/oauth-authorization-server" target="_blank" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1 bg-dark-700/60 px-2.5 py-1.5 rounded-lg border border-dark-600">
           <span>RFC 8414 Discovery</span>
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -100,6 +105,9 @@ export function renderAdminPage(request: Request): Response {
         <button onclick="switchTab('clients')" data-tab="clients" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-left">
           <span>🔑</span> Klien OAuth
         </button>
+        <button onclick="switchTab('users')" data-tab="users" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-left">
+          <span>👥</span> Pengguna
+        </button>
         <button onclick="switchTab('tokens')" data-tab="tokens" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-left">
           <span>🎫</span> Token & Sesi
         </button>
@@ -118,7 +126,7 @@ export function renderAdminPage(request: Request): Response {
       <!-- ── TAB: OVERVIEW ── -->
       <section id="tab-overview" class="tab-pane space-y-6">
         <!-- Stats Cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 shadow-sm">
             <div class="text-xs font-medium text-slate-400 mb-1">Server MCP Aktif</div>
             <div class="text-2xl font-bold text-white flex items-baseline gap-2">
@@ -126,7 +134,7 @@ export function renderAdminPage(request: Request): Response {
               <span class="text-xs font-normal text-slate-400">/ <span id="statServersTotal">0</span></span>
             </div>
             <div class="mt-2 text-[11px] text-blue-400 flex items-center gap-1">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-blue-400"></span> HTTP & Process Stdio
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-blue-400"></span> HTTP & Stdio
             </div>
           </div>
           <div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 shadow-sm">
@@ -136,21 +144,31 @@ export function renderAdminPage(request: Request): Response {
               <span class="text-xs font-normal text-slate-400">/ <span id="statClientsTotal">0</span></span>
             </div>
             <div class="mt-2 text-[11px] text-emerald-400 flex items-center gap-1">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Multi-klien & kontrol mudah
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Multi-klien AI
             </div>
           </div>
           <div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 shadow-sm">
             <div class="text-xs font-medium text-slate-400 mb-1">Access Token Aktif</div>
             <div class="text-2xl font-bold text-white" id="statTokensAccess">0</div>
             <div class="mt-2 text-[11px] text-purple-400 flex items-center gap-1">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-purple-400"></span> Sesi AI Client Aktif
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-purple-400"></span> Sesi AI Client
             </div>
           </div>
           <div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 shadow-sm">
             <div class="text-xs font-medium text-slate-400 mb-1">Refresh Token Valid</div>
             <div class="text-2xl font-bold text-white" id="statTokensRefresh">0</div>
             <div class="mt-2 text-[11px] text-amber-400 flex items-center gap-1">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-400"></span> Rotasi grace period
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-400"></span> Rotasi Grace
+            </div>
+          </div>
+          <div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 shadow-sm col-span-2 sm:col-span-1">
+            <div class="text-xs font-medium text-slate-400 mb-1">Pengguna Gateway</div>
+            <div class="text-2xl font-bold text-white flex items-baseline gap-2">
+              <span id="statUsersActive">0</span>
+              <span class="text-xs font-normal text-slate-400">/ <span id="statUsersTotal">0</span></span>
+            </div>
+            <div class="mt-2 text-[11px] text-indigo-400 flex items-center gap-1">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400"></span> Admin & Tim
             </div>
           </div>
         </div>
@@ -432,13 +450,14 @@ export function renderAdminPage(request: Request): Response {
                 <tr>
                   <th class="py-3 px-4">Token</th>
                   <th class="py-3 px-4">Client ID</th>
+                  <th class="py-3 px-4">Pengguna</th>
                   <th class="py-3 px-4">Dibuat</th>
                   <th class="py-3 px-4">Kedaluwarsa</th>
                   <th class="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody id="accessTokensBody" class="divide-y divide-dark-700/40">
-                <tr><td colspan="5" class="p-4 text-center text-slate-400">Tidak ada token</td></tr>
+                <tr><td colspan="6" class="p-4 text-center text-slate-400">Tidak ada token</td></tr>
               </tbody>
             </table>
           </div>
@@ -456,13 +475,14 @@ export function renderAdminPage(request: Request): Response {
                 <tr>
                   <th class="py-3 px-4">Token</th>
                   <th class="py-3 px-4">Client ID</th>
+                  <th class="py-3 px-4">Pengguna</th>
                   <th class="py-3 px-4">Status</th>
                   <th class="py-3 px-4">Kedaluwarsa</th>
                   <th class="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody id="refreshTokensBody" class="divide-y divide-dark-700/40">
-                <tr><td colspan="5" class="p-4 text-center text-slate-400">Tidak ada token</td></tr>
+                <tr><td colspan="6" class="p-4 text-center text-slate-400">Tidak ada token</td></tr>
               </tbody>
             </table>
           </div>
@@ -512,6 +532,41 @@ export function renderAdminPage(request: Request): Response {
               </thead>
               <tbody id="logsTableBody" class="divide-y divide-dark-700/50">
                 <tr><td colspan="6" class="p-6 text-center text-slate-400 font-sans">Memuat log...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── TAB: USERS ── -->
+      <section id="tab-users" class="tab-pane hidden space-y-6">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              <span>👥</span> Manajemen Pengguna & Tim
+            </h2>
+            <p class="text-xs text-slate-400">Kelola akun pengguna, peran administrator/user, dan hak akses gateway.</p>
+          </div>
+          <button onclick="openUserModal()" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-xs transition shadow-md shadow-blue-600/30 flex items-center gap-1.5">
+            <span>+</span> Tambah Pengguna
+          </button>
+        </div>
+
+        <div class="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-dark-900/70 border-b border-dark-700 text-slate-400 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th class="py-3 px-4">Pengguna</th>
+                  <th class="py-3 px-4">Username</th>
+                  <th class="py-3 px-4">Peran</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4">Dibuat</th>
+                  <th class="py-3 px-4 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody" class="divide-y divide-dark-700/50">
+                <tr><td colspan="6" class="p-6 text-center text-slate-400">Memuat data pengguna...</td></tr>
               </tbody>
             </table>
           </div>
@@ -915,6 +970,13 @@ export function renderAdminPage(request: Request): Response {
         </div>
 
         <div>
+          <label class="block text-slate-400 mb-1">Pengguna / Pemilik Token</label>
+          <select id="genTokenUserId" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono">
+            <option value="">Saya sendiri (akun aktif)</option>
+          </select>
+        </div>
+
+        <div>
           <label class="block text-slate-400 mb-1">Masa Berlaku Token</label>
           <select id="genTokenTtl" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
             <option value="30">30 Hari (Standar)</option>
@@ -959,6 +1021,51 @@ export function renderAdminPage(request: Request): Response {
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: USER MANAGEMENT ── -->
+  <div id="userModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-800 border border-dark-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-dark-700">
+        <h3 class="text-sm font-semibold text-white" id="userModalTitle">Tambah Pengguna Baru</h3>
+        <button onclick="closeUserModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <form onsubmit="saveUser(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="usrId">
+        <div>
+          <label class="block text-slate-400 mb-1">Username (login)</label>
+          <input type="text" id="usrUsername" required placeholder="misal: bobby atau dev-team" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Nama Lengkap</label>
+          <input type="text" id="usrName" required placeholder="misal: Bobby Pratama" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Peran (Role)</label>
+          <select id="usrRole" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+            <option value="user">User Biasa (Akses MCP & Token)</option>
+            <option value="admin">Administrator (Akses Penuh)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1" id="usrPassLabel">Password</label>
+          <input type="password" id="usrPass" placeholder="Minimal 4 karakter" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          <p id="usrPassHelp" class="text-[10px] text-slate-500 mt-1 hidden">Kosongkan jika tidak ingin mengubah password.</p>
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="usrEnabled" class="rounded bg-dark-900 border-dark-700 text-blue-600 focus:ring-0">
+          <label for="usrEnabled" class="text-slate-300">Akun Aktif (Dapat Login & Akses Gateway)</label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-dark-700">
+          <button type="button" onclick="closeUserModal()" class="px-4 py-2 rounded-xl text-slate-400 hover:text-white">Batal</button>
+          <button type="submit" id="btnSaveUser" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl transition shadow-md shadow-blue-600/30">
+            Simpan Pengguna
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1018,6 +1125,7 @@ export function renderAdminPage(request: Request): Response {
       if (tabId === 'overview') loadOverview();
       else if (tabId === 'servers') loadServers();
       else if (tabId === 'clients') loadClients();
+      else if (tabId === 'users') loadUsers();
       else if (tabId === 'tokens') loadTokens();
       else if (tabId === 'logs') loadLogs();
     }
@@ -1052,6 +1160,14 @@ export function renderAdminPage(request: Request): Response {
     async function loadOverview() {
       try {
         const me = await api('/me');
+        if (me && me.user) {
+          const badge = document.getElementById('currentUserBadge');
+          const nameEl = document.getElementById('currentUserName');
+          const roleEl = document.getElementById('currentUserRole');
+          if (badge) badge.classList.remove('hidden');
+          if (nameEl) nameEl.innerText = me.user.name;
+          if (roleEl) roleEl.innerText = me.user.role.toUpperCase();
+        }
         if (me && me.isDefaultPassword) {
           document.getElementById('defaultPassWarning').classList.remove('hidden');
         }
@@ -1064,6 +1180,10 @@ export function renderAdminPage(request: Request): Response {
           document.getElementById('statClientsTotal').innerText = data.stats.clients.total;
           document.getElementById('statTokensAccess').innerText = data.stats.tokens.access;
           document.getElementById('statTokensRefresh').innerText = data.stats.tokens.refresh;
+          if (data.stats.users) {
+            document.getElementById('statUsersActive').innerText = data.stats.users.active;
+            document.getElementById('statUsersTotal').innerText = data.stats.users.total;
+          }
 
           document.getElementById('sysDbPath').innerText = data.system.dbPath;
           const upHours = (data.system.uptime / 3600).toFixed(1);
@@ -1450,6 +1570,16 @@ export function renderAdminPage(request: Request): Response {
           \`<option value="\${c.id}" \${c.id === preselectClientId ? 'selected' : ''}>\${c.name} (\${c.id})</option>\`
         ).join('');
       }
+
+      const userSelect = document.getElementById('genTokenUserId');
+      if (userSelect) {
+        api('/users').then(uData => {
+          const users = uData.users || [];
+          userSelect.innerHTML = '<option value="">Saya sendiri (akun aktif)</option>' +
+            users.map(u => \`<option value="\${u.id}">\${u.name} (@\${u.username})</option>\`).join('');
+        }).catch(() => {});
+      }
+
       document.getElementById('genTokenResultBox').classList.add('hidden');
       document.getElementById('btnSubmitGenToken').disabled = false;
       document.getElementById('generateTokenModal').classList.remove('hidden');
@@ -1468,6 +1598,7 @@ export function renderAdminPage(request: Request): Response {
       e.preventDefault();
       const clientId = document.getElementById('genTokenClientId').value;
       const ttlDays = document.getElementById('genTokenTtl').value;
+      const userId = document.getElementById('genTokenUserId')?.value || undefined;
       if (!clientId) {
         showToast('Pilih klien terlebih dahulu', true);
         return;
@@ -1478,7 +1609,7 @@ export function renderAdminPage(request: Request): Response {
       try {
         const res = await api('/tokens/generate', {
           method: 'POST',
-          body: JSON.stringify({ clientId, ttlDays: Number(ttlDays) })
+          body: JSON.stringify({ clientId, ttlDays: Number(ttlDays), userId })
         });
 
         if (res.ok && res.token) {
@@ -1563,15 +1694,19 @@ export function renderAdminPage(request: Request): Response {
       document.getElementById('refreshTokensCount').innerText = \`\${data.refreshTokens?.length || 0} token\`;
 
       if (!data.accessTokens || data.accessTokens.length === 0) {
-        accessBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada access token aktif.</td></tr>';
+        accessBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada access token aktif.</td></tr>';
       } else {
         accessBody.innerHTML = data.accessTokens.map(t => {
           const exp = new Date(t.expires_at).toLocaleString();
           const created = new Date(t.created_at).toLocaleString();
+          const userName = t.user_username
+            ? \`<span class="font-medium text-slate-200">\${t.user_name || t.user_username}</span> <span class="text-[11px] text-slate-400 font-mono">(@\${t.user_username})</span>\`
+            : '<span class="text-slate-500 italic">Sistem / Default</span>';
           return \`
             <tr class="hover:bg-dark-900/30 transition">
               <td class="py-2.5 px-4 font-mono text-slate-300">\${t.token.slice(0, 12)}...</td>
               <td class="py-2.5 px-4 font-medium text-white">\${t.client_id}</td>
+              <td class="py-2.5 px-4 text-xs">\${userName}</td>
               <td class="py-2.5 px-4 text-slate-400">\${created}</td>
               <td class="py-2.5 px-4 text-slate-400">\${exp}</td>
               <td class="py-2.5 px-4 text-right">
@@ -1583,15 +1718,19 @@ export function renderAdminPage(request: Request): Response {
       }
 
       if (!data.refreshTokens || data.refreshTokens.length === 0) {
-        refreshBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada refresh token.</td></tr>';
+        refreshBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada refresh token.</td></tr>';
       } else {
         refreshBody.innerHTML = data.refreshTokens.map(t => {
           const exp = new Date(t.expires_at).toLocaleString();
           const isRevoked = !!t.revoked_at;
+          const userName = t.user_username
+            ? \`<span class="font-medium text-slate-200">\${t.user_name || t.user_username}</span> <span class="text-[11px] text-slate-400 font-mono">(@\${t.user_username})</span>\`
+            : '<span class="text-slate-500 italic">Sistem / Default</span>';
           return \`
             <tr class="hover:bg-dark-900/30 transition">
               <td class="py-2.5 px-4 font-mono text-slate-300">\${t.token.slice(0, 12)}...</td>
               <td class="py-2.5 px-4 font-medium text-white">\${t.client_id}</td>
+              <td class="py-2.5 px-4 text-xs">\${userName}</td>
               <td class="py-2.5 px-4">
                 \${isRevoked ? '<span class="text-amber-400">Rotated / Revoked</span>' : '<span class="text-emerald-400">● Valid</span>'}
               </td>
@@ -1679,6 +1818,149 @@ export function renderAdminPage(request: Request): Response {
       loadLogs();
     }
 
+    // ── User Management ──
+    let cachedUsers = [];
+    let isEditingUser = false;
+
+    async function loadUsers() {
+      const data = await api('/users');
+      cachedUsers = data.users || [];
+      const tbody = document.getElementById('usersTableBody');
+
+      if (!cachedUsers || cachedUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada data pengguna.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = cachedUsers.map(u => {
+        const created = new Date(u.created_at).toLocaleDateString();
+        const roleBadge = u.role === 'admin'
+          ? '<span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono font-semibold uppercase">ADMIN</span>'
+          : '<span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-mono font-medium uppercase">USER</span>';
+        const statusBadge = u.enabled
+          ? '<span class="text-emerald-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Aktif</span>'
+          : '<span class="text-slate-500 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Nonaktif</span>';
+
+        return \`
+          <tr class="hover:bg-dark-900/30 transition">
+            <td class="py-3 px-4">
+              <div class="font-medium text-white">\${u.name} \${u.isSelf ? '<span class="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 ml-1">(Anda)</span>' : ''}</div>
+              <div class="text-[11px] text-slate-400 font-mono">ID: \${u.id}</div>
+            </td>
+            <td class="py-3 px-4 font-mono text-slate-300">@\${u.username}</td>
+            <td class="py-3 px-4">\${roleBadge}</td>
+            <td class="py-3 px-4">\${statusBadge}</td>
+            <td class="py-3 px-4 text-slate-400">\${created}</td>
+            <td class="py-3 px-4 text-right space-x-2">
+              <button onclick="editUser('\${u.id}')" class="text-blue-400 hover:underline">Edit</button>
+              \${!u.isSelf ? \`
+                <button onclick="toggleUserStatus('\${u.id}')" class="\${u.enabled ? 'text-amber-400' : 'text-emerald-400'} hover:underline">
+                  \${u.enabled ? 'Nonaktifkan' : 'Aktifkan'}
+                </button>
+                <button onclick="deleteUserAccount('\${u.id}', '\${u.username}')" class="text-red-400 hover:underline">Hapus</button>
+              \` : ''}
+            </td>
+          </tr>
+        \`;
+      }).join('');
+    }
+
+    function openUserModal(userId = null) {
+      isEditingUser = !!userId;
+      const modal = document.getElementById('userModal');
+      const title = document.getElementById('userModalTitle');
+      const inpId = document.getElementById('usrId');
+      const inpUsername = document.getElementById('usrUsername');
+      const inpName = document.getElementById('usrName');
+      const selRole = document.getElementById('usrRole');
+      const inpPass = document.getElementById('usrPass');
+      const passLabel = document.getElementById('usrPassLabel');
+      const passHelp = document.getElementById('usrPassHelp');
+      const chkEnabled = document.getElementById('usrEnabled');
+
+      if (isEditingUser) {
+        const u = cachedUsers.find(x => x.id === userId);
+        if (!u) return;
+        title.innerText = 'Edit Pengguna: @' + u.username;
+        inpId.value = u.id;
+        inpUsername.value = u.username;
+        inpUsername.disabled = true;
+        inpName.value = u.name;
+        selRole.value = u.role;
+        inpPass.value = '';
+        inpPass.required = false;
+        passLabel.innerText = 'Password Baru (Opsional)';
+        passHelp.classList.remove('hidden');
+        chkEnabled.checked = !!u.enabled;
+      } else {
+        title.innerText = 'Tambah Pengguna Baru';
+        inpId.value = '';
+        inpUsername.value = '';
+        inpUsername.disabled = false;
+        inpName.value = '';
+        selRole.value = 'user';
+        inpPass.value = '';
+        inpPass.required = true;
+        passLabel.innerText = 'Password';
+        passHelp.classList.add('hidden');
+        chkEnabled.checked = true;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function editUser(id) {
+      openUserModal(id);
+    }
+
+    function closeUserModal() {
+      document.getElementById('userModal').classList.add('hidden');
+    }
+
+    async function saveUser(e) {
+      e.preventDefault();
+      const id = document.getElementById('usrId').value;
+      const username = document.getElementById('usrUsername').value.trim();
+      const name = document.getElementById('usrName').value.trim();
+      const role = document.getElementById('usrRole').value;
+      const password = document.getElementById('usrPass').value;
+      const enabled = document.getElementById('usrEnabled').checked;
+
+      const payload = {
+        name,
+        role,
+        enabled,
+      };
+      if (password) payload.password = password;
+
+      if (isEditingUser) {
+        await api(\`/users/\${id}\`, { method: 'PUT', body: JSON.stringify(payload) });
+        showToast('Pengguna berhasil diperbarui');
+      } else {
+        payload.username = username;
+        await api('/users', { method: 'POST', body: JSON.stringify(payload) });
+        showToast('Pengguna baru berhasil dibuat');
+      }
+
+      closeUserModal();
+      loadUsers();
+      loadOverview();
+    }
+
+    async function toggleUserStatus(id) {
+      const res = await api(\`/users/\${id}/toggle\`, { method: 'POST' });
+      showToast(res.enabled ? 'Pengguna diaktifkan' : 'Pengguna dinonaktifkan');
+      loadUsers();
+      loadOverview();
+    }
+
+    async function deleteUserAccount(id, username) {
+      if (!confirm(\`Hapus pengguna "\${username}"? Tindakan ini tidak dapat dibatalkan.\`)) return;
+      await api(\`/users/\${id}\`, { method: 'DELETE' });
+      showToast('Pengguna dihapus');
+      loadUsers();
+      loadOverview();
+    }
+
     // ── Change password ──
     async function changePassword(e) {
       e.preventDefault();
@@ -1755,9 +2037,14 @@ export function renderLoginPage(request: Request): Response {
 
     <form onsubmit="handleLogin(event)" class="space-y-4 text-xs">
       <div>
-        <label class="block text-slate-300 font-medium mb-1.5">Password Admin</label>
-        <input type="password" id="password" required autofocus placeholder="Masukkan password admin..." class="w-full bg-dark-900 border border-dark-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
-        <p class="text-[11px] text-slate-500 mt-1.5">Password default awal jika belum diset: <code>admin123</code></p>
+        <label class="block text-slate-300 font-medium mb-1.5">Username</label>
+        <input type="text" id="username" value="admin" required autofocus placeholder="Masukkan username akun..." class="w-full bg-dark-900 border border-dark-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition font-mono">
+      </div>
+
+      <div>
+        <label class="block text-slate-300 font-medium mb-1.5">Password</label>
+        <input type="password" id="password" required placeholder="Masukkan password..." class="w-full bg-dark-900 border border-dark-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
+        <p class="text-[11px] text-slate-500 mt-1.5">Akun default: <code>admin</code> / <code>admin123</code></p>
       </div>
 
       <button type="submit" id="btnSubmit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl text-sm transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2">
@@ -1775,15 +2062,16 @@ export function renderLoginPage(request: Request): Response {
       btn.disabled = true;
       btn.innerText = 'Memverifikasi...';
 
+      const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
       try {
         const res = await fetch('/api/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({ username, password }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Password salah');
+        if (!res.ok) throw new Error(data.error || 'Username atau password salah');
         window.location.href = '/admin';
       } catch (err) {
         errBox.innerText = err.message;

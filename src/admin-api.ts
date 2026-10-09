@@ -20,20 +20,29 @@ import {
   clearActivityLogs,
   getStats,
   getSetting,
+  getAllUsers,
+  getUserById,
+  getUserByUsername,
+  saveUser,
+  deleteUser,
+  toggleUser,
+  countActiveAdmins,
+  type UserRow,
 } from "./db";
 import {
   checkAdminPassword,
   updateAdminPassword,
+  authenticateUser,
   createAdminLoginSession,
   deleteAdminSession,
-  validateAdminRequest,
+  getSessionUser,
   makeSessionCookie,
   clearSessionCookie,
   parseCookie,
 } from "./auth";
 import { reloadMcpCache, testMcpServerConnection } from "./proxy";
 import { testStdioCommand } from "./stdio-manager";
-import { newSecret, hashPassword } from "./utils";
+import { newSecret, hashPassword, verifyPassword } from "./utils";
 import { ADMIN_SESSION_TTL_MS, DB_PATH } from "./config";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -44,19 +53,35 @@ const json = (data: unknown, status = 200, headers: Record<string, string> = {})
 
 export const adminApi = new Elysia({ prefix: "/api/admin" })
   // ── Auth Endpoints (Publik untuk Admin) ──────────────────────────────────
-  .post("/login", async ({ request, body }) => {
-    const data = body as { password?: string };
+  .post("/login", async ({ body }) => {
+    const data = body as { username?: string; password?: string };
+    const username = data?.username?.trim() || "admin";
     const password = data?.password ?? "";
 
-    if (!checkAdminPassword(password)) {
-      return json({ ok: false, error: "Password salah" }, 401);
+    const user = authenticateUser(username, password);
+    if (!user) {
+      const existingUser = getUserByUsername(username);
+      if (existingUser && existingUser.enabled !== 1) {
+        return json({ ok: false, error: "Akun ini telah dinonaktifkan oleh administrator" }, 403);
+      }
+      return json({ ok: false, error: "Username atau password salah" }, 401);
     }
 
-    const { sessionId } = createAdminLoginSession();
+    const { sessionId } = createAdminLoginSession(user.id);
     const cookieHeader = makeSessionCookie(sessionId, ADMIN_SESSION_TTL_MS / 1000);
 
     return json(
-      { ok: true, message: "Login berhasil", token: sessionId },
+      {
+        ok: true,
+        message: "Login berhasil",
+        token: sessionId,
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role,
+        },
+      },
       200,
       { "Set-Cookie": cookieHeader },
     );
@@ -74,48 +99,74 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
   // ── Protected Admin Middleware ──────────────────────────────────────────
   .derive(({ request, set }) => {
     const path = new URL(request.url).pathname;
-    if (path === "/api/admin/login") return {};
+    if (path === "/api/admin/login") return { currentUser: null as UserRow | null, isAdmin: false };
 
-    const isValid = validateAdminRequest(request);
-    if (!isValid) {
+    const currentUser = getSessionUser(request);
+    if (!currentUser) {
       set.status = 401;
       throw new Error("UNAUTHORIZED_ADMIN");
     }
-    return { isAdmin: true };
+    return {
+      currentUser,
+      isAdmin: currentUser.role === "admin",
+    };
   })
 
   .onError(({ error, set }) => {
     if (error && "message" in error && error.message === "UNAUTHORIZED_ADMIN") {
       set.status = 401;
-      return json({ ok: false, error: "Sesi admin tidak valid atau telah kedaluwarsa" }, 401);
+      return json({ ok: false, error: "Sesi tidak valid atau telah kedaluwarsa" }, 401);
     }
   })
 
   // ── Profil & Keamanan ────────────────────────────────────────────────────
-  .get("/me", () => {
+  .get("/me", ({ currentUser }) => {
+    if (!currentUser) return json({ ok: false }, 401);
     const defaultHash = hashPassword("admin123");
     const currentHash = getSetting("admin_password_hash");
     return json({
       ok: true,
       authenticated: true,
+      user: {
+        id: currentUser.id,
+        username: currentUser.username,
+        name: currentUser.name,
+        role: currentUser.role,
+      },
       isDefaultPassword: currentHash === defaultHash,
       dbPath: DB_PATH,
     });
   })
 
-  .post("/change-password", ({ body }) => {
+  .post("/change-password", ({ currentUser, body }) => {
+    if (!currentUser) return json({ ok: false }, 401);
     const data = body as { oldPassword?: string; newPassword?: string };
     if (!data?.oldPassword || !data?.newPassword) {
       return json({ ok: false, error: "Password lama dan baru wajib diisi" }, 400);
     }
-    if (!checkAdminPassword(data.oldPassword)) {
+
+    const userFromDb = getUserById(currentUser.id);
+    const validOld = userFromDb
+      ? verifyPassword(data.oldPassword, userFromDb.password_hash)
+      : checkAdminPassword(data.oldPassword);
+
+    if (!validOld) {
       return json({ ok: false, error: "Password lama salah" }, 400);
     }
     if (data.newPassword.length < 4) {
       return json({ ok: false, error: "Password baru minimal 4 karakter" }, 400);
     }
-    updateAdminPassword(data.newPassword);
-    return json({ ok: true, message: "Password admin berhasil diperbarui" });
+
+    if (userFromDb) {
+      saveUser({
+        ...userFromDb,
+        password: data.newPassword,
+      });
+    }
+    if (currentUser.role === "admin" && currentUser.username === "admin") {
+      updateAdminPassword(data.newPassword);
+    }
+    return json({ ok: true, message: "Password berhasil diperbarui" });
   })
 
   // ── Dashboard Metrics ───────────────────────────────────────────────────
@@ -405,6 +456,147 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     return json({ ok: true, secret: newSec });
   })
 
+  // ── User Management ─────────────────────────────────────────────────────
+  .get("/users", ({ currentUser }) => {
+    const users = getAllUsers().map((u) => ({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      role: u.role,
+      enabled: u.enabled === 1,
+      created_at: u.created_at,
+      updated_at: u.updated_at,
+      isSelf: u.id === currentUser?.id,
+    }));
+    return json({ ok: true, users });
+  })
+
+  .post("/users", ({ currentUser, body }) => {
+    if (currentUser?.role !== "admin") {
+      return json({ ok: false, error: "Hanya administrator yang dapat menambah pengguna" }, 403);
+    }
+
+    const data = body as {
+      username?: string;
+      name?: string;
+      password?: string;
+      role?: "admin" | "user";
+      enabled?: boolean;
+    };
+
+    if (!data.username || !data.name || !data.password) {
+      return json({ ok: false, error: "Username, nama lengkap, dan password wajib diisi" }, 400);
+    }
+
+    const cleanUsername = data.username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+    if (!cleanUsername || cleanUsername.length < 3) {
+      return json({ ok: false, error: "Username minimal 3 karakter (huruf, angka, _, -, .)" }, 400);
+    }
+
+    if (data.password.length < 4) {
+      return json({ ok: false, error: "Password minimal 4 karakter" }, 400);
+    }
+
+    const existing = getUserByUsername(cleanUsername);
+    if (existing) {
+      return json({ ok: false, error: `Username "${cleanUsername}" sudah digunakan` }, 400);
+    }
+
+    const role = data.role === "admin" ? "admin" : "user";
+    const res = saveUser({
+      username: cleanUsername,
+      name: data.name.trim(),
+      password: data.password,
+      role,
+      enabled: data.enabled ?? true,
+    });
+
+    return json({
+      ok: true,
+      message: `Pengguna "${cleanUsername}" berhasil dibuat`,
+      userId: res.id,
+    });
+  })
+
+  .put("/users/:id", ({ currentUser, params, body }) => {
+    if (currentUser?.role !== "admin" && currentUser?.id !== params.id) {
+      return json({ ok: false, error: "Tidak memiliki hak akses untuk mengubah pengguna ini" }, 403);
+    }
+
+    const targetUser = getUserById(params.id);
+    if (!targetUser) return json({ ok: false, error: "Pengguna tidak ditemukan" }, 404);
+
+    const data = body as {
+      name?: string;
+      password?: string;
+      role?: "admin" | "user";
+      enabled?: boolean;
+    };
+
+    let role = targetUser.role;
+    let enabled = targetUser.enabled === 1;
+
+    if (currentUser?.role === "admin") {
+      if (data.role !== undefined) {
+        if (targetUser.role === "admin" && data.role !== "admin" && countActiveAdmins() <= 1 && targetUser.enabled === 1) {
+          return json({ ok: false, error: "Tidak dapat mengubah peran admin aktif terakhir" }, 400);
+        }
+        role = data.role === "admin" ? "admin" : "user";
+      }
+      if (data.enabled !== undefined) {
+        if (targetUser.role === "admin" && !data.enabled && countActiveAdmins() <= 1 && targetUser.enabled === 1) {
+          return json({ ok: false, error: "Tidak dapat menonaktifkan admin aktif terakhir" }, 400);
+        }
+        enabled = !!data.enabled;
+      }
+    }
+
+    if (data.password && data.password.length < 4) {
+      return json({ ok: false, error: "Password baru minimal 4 karakter" }, 400);
+    }
+
+    saveUser({
+      id: targetUser.id,
+      username: targetUser.username,
+      name: data.name ? data.name.trim() : targetUser.name,
+      password: data.password ? data.password : undefined,
+      role,
+      enabled,
+    });
+
+    return json({ ok: true, message: `Data pengguna "${targetUser.username}" berhasil diperbarui` });
+  })
+
+  .post("/users/:id/toggle", ({ currentUser, params }) => {
+    if (currentUser?.role !== "admin") {
+      return json({ ok: false, error: "Hanya administrator yang dapat mengubah status pengguna" }, 403);
+    }
+    if (currentUser.id === params.id) {
+      return json({ ok: false, error: "Tidak dapat menonaktifkan akun sendiri" }, 400);
+    }
+
+    const result = toggleUser(params.id);
+    if (!result.success) {
+      return json({ ok: false, error: result.error }, 400);
+    }
+    return json({ ok: true, enabled: result.enabled });
+  })
+
+  .delete("/users/:id", ({ currentUser, params }) => {
+    if (currentUser?.role !== "admin") {
+      return json({ ok: false, error: "Hanya administrator yang dapat menghapus pengguna" }, 403);
+    }
+    if (currentUser.id === params.id) {
+      return json({ ok: false, error: "Tidak dapat menghapus akun sendiri yang sedang aktif" }, 400);
+    }
+
+    const result = deleteUser(params.id);
+    if (!result.success) {
+      return json({ ok: false, error: result.error }, 400);
+    }
+    return json({ ok: true, message: "Pengguna berhasil dihapus" });
+  })
+
   // ── Token Management ────────────────────────────────────────────────────
   .get("/tokens", ({ query }) => {
     const clientId = query.clientId ? String(query.clientId) : undefined;
@@ -417,8 +609,8 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     });
   })
 
-  .post("/tokens/generate", ({ body }) => {
-    const data = body as { clientId?: string; ttlDays?: number };
+  .post("/tokens/generate", ({ currentUser, body }) => {
+    const data = body as { clientId?: string; ttlDays?: number; userId?: string };
     const clientId = data.clientId?.trim();
     if (!clientId) return json({ ok: false, error: "Client ID wajib dipilih" }, 400);
 
@@ -426,9 +618,11 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     if (!client) return json({ ok: false, error: "Client tidak ditemukan" }, 404);
     if (client.enabled !== 1) return json({ ok: false, error: "Client sedang dinonaktifkan" }, 400);
 
+    const targetUserId = currentUser?.role === "admin" && data.userId ? data.userId.trim() : (currentUser?.id ?? null);
+
     const days = Number(data.ttlDays ?? 30);
     const ttlMs = days > 0 ? days * 24 * 3600 * 1000 : 3650 * 24 * 3600 * 1000;
-    const { token, expiresAt } = createManualAccessToken(clientId, ttlMs);
+    const { token, expiresAt, userId } = createManualAccessToken(clientId, ttlMs, targetUserId);
 
     return json({
       ok: true,
@@ -436,6 +630,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       token,
       expiresAt,
       clientId,
+      userId,
     });
   })
 

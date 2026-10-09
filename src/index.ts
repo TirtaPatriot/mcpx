@@ -39,6 +39,7 @@ import {
 } from "./oauth";
 import { adminApi } from "./admin-api";
 import { renderAdminPage, renderLoginPage } from "./admin-ui";
+import { getSessionUser } from "./auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inisialisasi Database & Cache
@@ -111,9 +112,10 @@ const app = new Elysia()
       addActivityLog(id, "GET", "/oauth/authorize", 400, performance.now() - startedAt, undefined, params);
       return page("Permintaan tidak valid", `<h1>Permintaan tidak valid</h1><p>${esc(params)}</p>`, 400);
     }
-    log(id, `• authorize: persetujuan client_id=${params.clientId} redirect=${params.redirectUri.origin}`);
+    const sessionUser = getSessionUser(request);
+    log(id, `• authorize: persetujuan client_id=${params.clientId} user=${sessionUser?.username ?? "tamu"} redirect=${params.redirectUri.origin}`);
     addActivityLog(id, "GET", "/oauth/authorize", 200, performance.now() - startedAt, undefined, `Consent shown for ${params.clientId}`);
-    return consentPage(params);
+    return consentPage(params, sessionUser);
   })
 
   .post("/oauth/authorize", ({ request, body }) => {
@@ -135,10 +137,14 @@ const app = new Elysia()
       return redirectTo(redirect);
     }
 
+    const sessionUser = getSessionUser(request);
+    const userId = sessionUser?.id ?? (form.user_id ? String(form.user_id) : null);
+
     const code = newSecret();
     stmtInsertAuthCode.run(
       code,
       params.clientId,
+      userId,
       params.redirectUriRaw ?? null,
       params.codeChallenge ?? null,
       Date.now() + AUTH_CODE_TTL_MS,
@@ -146,7 +152,7 @@ const app = new Elysia()
     );
     redirect.searchParams.set("code", code);
     if (params.state) redirect.searchParams.set("state", params.state);
-    log(id, `✓ authorize: code diterbitkan, redirect ke ${redirect.origin}${redirect.pathname} (pkce=${!!params.codeChallenge})`);
+    log(id, `✓ authorize: code diterbitkan (user=${sessionUser?.username ?? "anon"}), redirect ke ${redirect.origin}${redirect.pathname} (pkce=${!!params.codeChallenge})`);
     addActivityLog(id, "POST", "/oauth/authorize", 303, performance.now() - startedAt, undefined, `Allowed for ${params.clientId}`);
     return redirectTo(redirect);
   })

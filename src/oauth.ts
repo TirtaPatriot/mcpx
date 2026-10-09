@@ -217,7 +217,7 @@ export const page = (title: string, body: string, status = 200) =>
     { status, headers: htmlHeaders },
   );
 
-export function consentPage(p: AuthorizeParams) {
+export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name: string; username: string } | null) {
   const hidden: Record<string, string | undefined> = {
     response_type: "code",
     client_id: p.clientId,
@@ -226,6 +226,7 @@ export function consentPage(p: AuthorizeParams) {
     scope: p.scope,
     code_challenge: p.codeChallenge,
     code_challenge_method: p.codeChallengeMethod,
+    user_id: sessionUser?.id,
   };
   const inputs = Object.entries(hidden)
     .filter(([, v]) => v !== undefined)
@@ -240,6 +241,7 @@ export function consentPage(p: AuthorizeParams) {
      <div class="info-box">
        <div class="info-row"><span class="info-label">Aplikasi:</span><span class="info-value"><strong>${esc(p.clientName)}</strong></span></div>
        <div class="info-row"><span class="info-label">Client ID:</span><span class="info-value">${esc(p.clientId)}</span></div>
+       ${sessionUser ? `<div class="info-row"><span class="info-label">Akun Otorisasi:</span><span class="info-value"><strong>${esc(sessionUser.name)}</strong> (@${esc(sessionUser.username)})</span></div>` : ""}
        <div class="info-row"><span class="info-label">Redirect ke:</span><span class="info-value">${esc(p.redirectUri.origin)}</span></div>
        ${p.scope ? `<div class="info-row"><span class="info-label">Scope:</span><span class="info-value">${esc(p.scope)}</span></div>` : ""}
      </div>
@@ -298,6 +300,8 @@ export async function handleTokenExchange({ request, body }: { request: Request;
     });
   }
 
+  let userId: string | null = null;
+
   if (grantType === "authorization_code") {
     const code = str(form.code);
     const record = code ? stmtGetAuthCode.get(code) : undefined;
@@ -312,6 +316,8 @@ export async function handleTokenExchange({ request, body }: { request: Request;
     if (!record) return fail("code tidak ditemukan atau sudah dipakai");
     if (record.expires_at <= Date.now()) return fail("code kedaluwarsa");
     if (record.client_id !== clientId) return fail("code milik client lain");
+
+    userId = record.user_id ?? null;
 
     const redirectUri = str(form.redirect_uri);
     if (record.redirect_uri !== null && redirectUri !== record.redirect_uri) {
@@ -334,6 +340,8 @@ export async function handleTokenExchange({ request, body }: { request: Request;
     if (record.expires_at <= Date.now()) return fail("refresh_token kedaluwarsa");
     if (record.client_id !== clientId) return fail("refresh_token milik client lain");
 
+    userId = record.user_id ?? null;
+
     if (record.revoked_at !== null) {
       if (Date.now() - record.revoked_at > REFRESH_GRACE_PERIOD_MS) {
         return fail("refresh_token sudah dipakai dan melewati batas grace period");
@@ -350,10 +358,10 @@ export async function handleTokenExchange({ request, body }: { request: Request;
   const now = Date.now();
   const accessToken = newSecret();
   const refreshToken = newSecret();
-  stmtInsertAccessToken.run(accessToken, clientId, now + ACCESS_TOKEN_TTL_MS, now);
-  stmtInsertRefreshToken.run(refreshToken, clientId, now + REFRESH_TOKEN_TTL_MS, now);
+  stmtInsertAccessToken.run(accessToken, clientId, userId, now + ACCESS_TOKEN_TTL_MS, now);
+  stmtInsertRefreshToken.run(refreshToken, clientId, userId, now + REFRESH_TOKEN_TTL_MS, now);
 
-  log(id, `✓ token: ${grantType} → access_token diterbitkan untuk client ${clientId}`);
+  log(id, `✓ token: ${grantType} → access_token diterbitkan untuk client ${clientId}${userId ? ` (user: ${userId})` : ""}`);
   addActivityLog(id, "POST", "/oauth/token", 200, performance.now() - startedAt, undefined, `Token issued for ${clientId}`);
 
   return json({

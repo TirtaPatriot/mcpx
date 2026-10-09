@@ -107,9 +107,23 @@ db.run(`
   );
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+`);
+
 db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_ts ON activity_logs (timestamp DESC);`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_access_tokens_exp ON access_tokens (expires_at);`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_exp ON refresh_tokens (expires_at);`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);`);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Migrasi Kolom Otomatis (Idempotent)
@@ -119,6 +133,10 @@ try { db.run("ALTER TABLE mcp_servers ADD COLUMN command TEXT DEFAULT '';"); } c
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN args TEXT DEFAULT '';"); } catch {}
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN env_vars TEXT DEFAULT '{}';"); } catch {}
 try { db.run("ALTER TABLE oauth_clients ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;"); } catch {}
+try { db.run("ALTER TABLE admin_sessions ADD COLUMN user_id TEXT;"); } catch {}
+try { db.run("ALTER TABLE access_tokens ADD COLUMN user_id TEXT;"); } catch {}
+try { db.run("ALTER TABLE refresh_tokens ADD COLUMN user_id TEXT;"); } catch {}
+try { db.run("ALTER TABLE auth_codes ADD COLUMN user_id TEXT;"); } catch {}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -149,9 +167,21 @@ export interface OAuthClientRow {
   updated_at: number;
 }
 
+export interface UserRow {
+  id: string;
+  username: string;
+  name: string;
+  password_hash: string;
+  role: "admin" | "user";
+  enabled: number;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface AuthCodeRecord {
   code: string;
   client_id: string;
+  user_id: string | null;
   redirect_uri: string | null;
   code_challenge: string | null;
   expires_at: number;
@@ -161,6 +191,9 @@ export interface AuthCodeRecord {
 export interface AccessTokenRecord {
   token: string;
   client_id: string;
+  user_id: string | null;
+  user_name?: string | null;
+  user_username?: string | null;
   expires_at: number;
   created_at: number;
 }
@@ -168,6 +201,9 @@ export interface AccessTokenRecord {
 export interface RefreshTokenRecord {
   token: string;
   client_id: string;
+  user_id: string | null;
+  user_name?: string | null;
+  user_username?: string | null;
   expires_at: number;
   revoked_at: number | null;
   created_at: number;
@@ -175,6 +211,7 @@ export interface RefreshTokenRecord {
 
 export interface AdminSessionRecord {
   session_id: string;
+  user_id: string | null;
   created_at: number;
   expires_at: number;
 }
@@ -213,11 +250,11 @@ export function setSetting(key: string, value: string): void {
 }
 
 // Admin Sessions
-const stmtInsertSession = db.query<void, [string, number, number]>(
-  "INSERT OR REPLACE INTO admin_sessions (session_id, created_at, expires_at) VALUES (?, ?, ?)",
+const stmtInsertSession = db.query<void, [string, string | null, number, number]>(
+  "INSERT OR REPLACE INTO admin_sessions (session_id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
 );
 const stmtGetSession = db.query<AdminSessionRecord, [string]>(
-  "SELECT session_id, created_at, expires_at FROM admin_sessions WHERE session_id = ?",
+  "SELECT session_id, user_id, created_at, expires_at FROM admin_sessions WHERE session_id = ?",
 );
 const stmtDeleteSession = db.query<void, [string]>(
   "DELETE FROM admin_sessions WHERE session_id = ?",
@@ -226,8 +263,8 @@ const stmtCleanSessions = db.query<void, [number]>(
   "DELETE FROM admin_sessions WHERE expires_at <= ?",
 );
 
-export function createAdminSession(sessionId: string, expiresAt: number): void {
-  stmtInsertSession.run(sessionId, Date.now(), expiresAt);
+export function createAdminSession(sessionId: string, expiresAt: number, userId?: string | null): void {
+  stmtInsertSession.run(sessionId, userId ?? null, Date.now(), expiresAt);
 }
 
 export function getAdminSession(sessionId: string): AdminSessionRecord | null {
@@ -242,6 +279,121 @@ export function getAdminSession(sessionId: string): AdminSessionRecord | null {
 
 export function deleteAdminSession(sessionId: string): void {
   stmtDeleteSession.run(sessionId);
+}
+
+// Users
+const stmtGetAllUsers = db.query<UserRow, []>(
+  "SELECT * FROM users ORDER BY created_at ASC",
+);
+const stmtGetUserById = db.query<UserRow, [string]>(
+  "SELECT * FROM users WHERE id = ?",
+);
+const stmtGetUserByUsername = db.query<UserRow, [string]>(
+  "SELECT * FROM users WHERE LOWER(username) = LOWER(?)",
+);
+const stmtInsertUser = db.query<void, [string, string, string, string, string, number, number, number]>(
+  "INSERT INTO users (id, username, name, password_hash, role, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+);
+const stmtUpdateUser = db.query<void, [string, string, string, string, number, number, string]>(
+  "UPDATE users SET username = ?, name = ?, password_hash = ?, role = ?, enabled = ?, updated_at = ? WHERE id = ?",
+);
+const stmtDeleteUser = db.query<void, [string]>(
+  "DELETE FROM users WHERE id = ?",
+);
+const stmtToggleUser = db.query<void, [number, number, string]>(
+  "UPDATE users SET enabled = ?, updated_at = ? WHERE id = ?",
+);
+
+export function getAllUsers(): UserRow[] {
+  return stmtGetAllUsers.all();
+}
+
+export function getUserById(id: string): UserRow | null {
+  return stmtGetUserById.get(id) ?? null;
+}
+
+export function getUserByUsername(username: string): UserRow | null {
+  return stmtGetUserByUsername.get(username.trim()) ?? null;
+}
+
+export function countActiveAdmins(): number {
+  return (
+    db
+      .query<{ count: number }, []>(
+        "SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND enabled = 1",
+      )
+      .get()?.count ?? 0
+  );
+}
+
+export function saveUser(user: {
+  id?: string;
+  username: string;
+  name: string;
+  password?: string;
+  role?: "admin" | "user";
+  enabled?: boolean | number;
+}): { id: string } {
+  const existing = user.id ? getUserById(user.id) : getUserByUsername(user.username);
+  const now = Date.now();
+  const id = existing?.id ?? user.id ?? `usr-${newSecret().slice(0, 8)}`;
+  const username = user.username.trim().toLowerCase();
+  const name = user.name.trim();
+  const role = user.role ?? existing?.role ?? "user";
+  const enabledNum = user.enabled === false || user.enabled === 0 ? 0 : 1;
+  const passwordHash = user.password
+    ? hashPassword(user.password)
+    : (existing?.password_hash ?? hashPassword("password123"));
+
+  if (existing) {
+    stmtUpdateUser.run(
+      username,
+      name,
+      passwordHash,
+      role,
+      enabledNum,
+      now,
+      existing.id,
+    );
+    return { id: existing.id };
+  } else {
+    stmtInsertUser.run(
+      id,
+      username,
+      name,
+      passwordHash,
+      role,
+      enabledNum,
+      now,
+      now,
+    );
+    return { id };
+  }
+}
+
+export function deleteUser(id: string): { success: boolean; error?: string } {
+  const target = getUserById(id);
+  if (!target) return { success: false, error: "Pengguna tidak ditemukan" };
+  if (target.role === "admin" && target.enabled === 1) {
+    if (countActiveAdmins() <= 1) {
+      return { success: false, error: "Tidak dapat menghapus admin aktif terakhir" };
+    }
+  }
+  stmtDeleteUser.run(id);
+  return { success: true };
+}
+
+export function toggleUser(id: string): { success: boolean; enabled?: boolean; error?: string } {
+  const target = getUserById(id);
+  if (!target) return { success: false, error: "Pengguna tidak ditemukan" };
+  if (target.role === "admin" && target.enabled === 1) {
+    if (countActiveAdmins() <= 1) {
+      return { success: false, error: "Tidak dapat menonaktifkan admin aktif terakhir" };
+    }
+  }
+  const newStatus = target.enabled === 1 ? 0 : 1;
+  stmtToggleUser.run(newStatus, Date.now(), id);
+  return { success: true, enabled: newStatus === 1 };
 }
 
 // MCP Servers
@@ -416,31 +568,31 @@ export function getClientTokenStats(): Record<string, { access: number; refresh:
 }
 
 // OAuth Codes & Tokens
-export const stmtInsertAuthCode = db.query<void, [string, string, string | null, string | null, number, number]>(
-  "INSERT OR REPLACE INTO auth_codes (code, client_id, redirect_uri, code_challenge, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+export const stmtInsertAuthCode = db.query<void, [string, string, string | null, string | null, string | null, number, number]>(
+  "INSERT OR REPLACE INTO auth_codes (code, client_id, user_id, redirect_uri, code_challenge, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
 );
 export const stmtGetAuthCode = db.query<AuthCodeRecord, [string]>(
-  "SELECT code, client_id, redirect_uri, code_challenge, expires_at, created_at FROM auth_codes WHERE code = ?",
+  "SELECT code, client_id, user_id, redirect_uri, code_challenge, expires_at, created_at FROM auth_codes WHERE code = ?",
 );
 export const stmtDeleteAuthCode = db.query<void, [string]>(
   "DELETE FROM auth_codes WHERE code = ?",
 );
 
-export const stmtInsertAccessToken = db.query<void, [string, string, number, number]>(
-  "INSERT OR REPLACE INTO access_tokens (token, client_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
+export const stmtInsertAccessToken = db.query<void, [string, string, string | null, number, number]>(
+  "INSERT OR REPLACE INTO access_tokens (token, client_id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
 );
 export const stmtGetAccessToken = db.query<AccessTokenRecord, [string]>(
-  "SELECT token, client_id, expires_at, created_at FROM access_tokens WHERE token = ?",
+  "SELECT token, client_id, user_id, expires_at, created_at FROM access_tokens WHERE token = ?",
 );
 export const stmtDeleteAccessToken = db.query<void, [string]>(
   "DELETE FROM access_tokens WHERE token = ?",
 );
 
-export const stmtInsertRefreshToken = db.query<void, [string, string, number, number]>(
-  "INSERT OR REPLACE INTO refresh_tokens (token, client_id, expires_at, revoked_at, created_at) VALUES (?, ?, ?, NULL, ?)",
+export const stmtInsertRefreshToken = db.query<void, [string, string, string | null, number, number]>(
+  "INSERT OR REPLACE INTO refresh_tokens (token, client_id, user_id, expires_at, revoked_at, created_at) VALUES (?, ?, ?, ?, NULL, ?)",
 );
 export const stmtGetRefreshToken = db.query<RefreshTokenRecord, [string]>(
-  "SELECT token, client_id, expires_at, revoked_at, created_at FROM refresh_tokens WHERE token = ?",
+  "SELECT token, client_id, user_id, expires_at, revoked_at, created_at FROM refresh_tokens WHERE token = ?",
 );
 export const stmtRevokeRefreshToken = db.query<void, [number, string]>(
   "UPDATE refresh_tokens SET revoked_at = ? WHERE token = ?",
@@ -450,25 +602,47 @@ export const stmtDeleteRefreshToken = db.query<void, [string]>(
 );
 
 export function getAllAccessTokens(clientId?: string): AccessTokenRecord[] {
-  if (clientId) {
-    return db.query<AccessTokenRecord, [string]>("SELECT * FROM access_tokens WHERE client_id = ? ORDER BY expires_at DESC LIMIT 100").all(clientId);
-  }
-  return db.query<AccessTokenRecord, []>("SELECT * FROM access_tokens ORDER BY expires_at DESC LIMIT 100").all();
+  const query = clientId
+    ? `SELECT a.token, a.client_id, a.user_id, a.expires_at, a.created_at, u.username as user_username, u.name as user_name
+       FROM access_tokens a
+       LEFT JOIN users u ON a.user_id = u.id
+       WHERE a.client_id = ?
+       ORDER BY a.expires_at DESC LIMIT 100`
+    : `SELECT a.token, a.client_id, a.user_id, a.expires_at, a.created_at, u.username as user_username, u.name as user_name
+       FROM access_tokens a
+       LEFT JOIN users u ON a.user_id = u.id
+       ORDER BY a.expires_at DESC LIMIT 100`;
+  return clientId
+    ? db.query<AccessTokenRecord, [string]>(query).all(clientId)
+    : db.query<AccessTokenRecord, []>(query).all();
 }
 
-export function createManualAccessToken(clientId: string, ttlMs: number = ACCESS_TOKEN_TTL_MS): { token: string; expiresAt: number } {
+export function createManualAccessToken(
+  clientId: string,
+  ttlMs: number = ACCESS_TOKEN_TTL_MS,
+  userId?: string | null,
+): { token: string; expiresAt: number; userId: string | null } {
   const token = newSecret();
   const now = Date.now();
   const expiresAt = now + ttlMs;
-  stmtInsertAccessToken.run(token, clientId, expiresAt, now);
-  return { token, expiresAt };
+  stmtInsertAccessToken.run(token, clientId, userId ?? null, expiresAt, now);
+  return { token, expiresAt, userId: userId ?? null };
 }
 
 export function getAllRefreshTokens(clientId?: string): RefreshTokenRecord[] {
-  if (clientId) {
-    return db.query<RefreshTokenRecord, [string]>("SELECT * FROM refresh_tokens WHERE client_id = ? ORDER BY expires_at DESC LIMIT 100").all(clientId);
-  }
-  return db.query<RefreshTokenRecord, []>("SELECT * FROM refresh_tokens ORDER BY expires_at DESC LIMIT 100").all();
+  const query = clientId
+    ? `SELECT r.token, r.client_id, r.user_id, r.expires_at, r.revoked_at, r.created_at, u.username as user_username, u.name as user_name
+       FROM refresh_tokens r
+       LEFT JOIN users u ON r.user_id = u.id
+       WHERE r.client_id = ?
+       ORDER BY r.expires_at DESC LIMIT 100`
+    : `SELECT r.token, r.client_id, r.user_id, r.expires_at, r.revoked_at, r.created_at, u.username as user_username, u.name as user_name
+       FROM refresh_tokens r
+       LEFT JOIN users u ON r.user_id = u.id
+       ORDER BY r.expires_at DESC LIMIT 100`;
+  return clientId
+    ? db.query<RefreshTokenRecord, [string]>(query).all(clientId)
+    : db.query<RefreshTokenRecord, []>(query).all();
 }
 
 export function revokeToken(tokenStr: string): boolean {
@@ -562,12 +736,15 @@ export function getStats() {
   const activeClients = db.query<{ count: number }, []>("SELECT COUNT(*) as count FROM oauth_clients WHERE enabled = 1").get()?.count ?? 0;
   const activeTokens = db.query<{ count: number }, [number]>("SELECT COUNT(*) as count FROM access_tokens WHERE expires_at > ?").get(now)?.count ?? 0;
   const activeRefresh = db.query<{ count: number }, [number]>("SELECT COUNT(*) as count FROM refresh_tokens WHERE expires_at > ? AND revoked_at IS NULL").get(now)?.count ?? 0;
+  const totalUsers = db.query<{ count: number }, []>("SELECT COUNT(*) as count FROM users").get()?.count ?? 0;
+  const activeUsers = db.query<{ count: number }, []>("SELECT COUNT(*) as count FROM users WHERE enabled = 1").get()?.count ?? 0;
   const totalLogs = db.query<{ count: number }, []>("SELECT COUNT(*) as count FROM activity_logs").get()?.count ?? 0;
 
   return {
     servers: { total: totalServers, active: activeServers },
     clients: { total: totalClients, active: activeClients },
     tokens: { access: activeTokens, refresh: activeRefresh },
+    users: { total: totalUsers, active: activeUsers },
     logs: totalLogs,
   };
 }
@@ -603,17 +780,41 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
   let defaultAdminCreated = false;
   let initialPassword: string | undefined = undefined;
 
-  // 1. Admin Password
+  // 1. Admin Password & Default Admin User
+  const pass = ADMIN_PASSWORD || "admin123";
+  const passHash = hashPassword(pass);
   const existingPassHash = getSetting("admin_password_hash");
+
   if (!existingPassHash) {
-    const pass = ADMIN_PASSWORD || "admin123";
-    setSetting("admin_password_hash", hashPassword(pass));
+    setSetting("admin_password_hash", passHash);
     if (!ADMIN_PASSWORD) {
       defaultAdminCreated = true;
       initialPassword = pass;
     }
   } else if (ADMIN_PASSWORD) {
-    setSetting("admin_password_hash", hashPassword(ADMIN_PASSWORD));
+    setSetting("admin_password_hash", passHash);
+  }
+
+  // Seed user table if empty
+  const users = getAllUsers();
+  if (users.length === 0) {
+    saveUser({
+      id: "usr-admin",
+      username: "admin",
+      name: "Administrator",
+      password: ADMIN_PASSWORD || (existingPassHash ? undefined : "admin123"),
+      role: "admin",
+      enabled: 1,
+    });
+    if (existingPassHash && !ADMIN_PASSWORD) {
+      db.run("UPDATE users SET password_hash = ? WHERE id = 'usr-admin'", [existingPassHash]);
+    }
+    console.log(`[db] Pengguna admin default berhasil diinisialisasi (username: admin)`);
+  } else if (ADMIN_PASSWORD) {
+    const adminUser = getUserByUsername("admin");
+    if (adminUser) {
+      db.run("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?", [passHash, Date.now(), adminUser.id]);
+    }
   }
 
   // 2. OAuth Clients

@@ -37,9 +37,14 @@ Semua AI Client ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upstr
     - Otomatis mengizinkan redirect `http://localhost` dan `http://127.0.0.1` pada port berapa pun untuk aplikasi AI native/desktop.
   - **Whitelist Domain AI Terintegrasi**:
     - Whitelist default langsung mendukung Google (`google.com`), ChatGPT (`chatgpt.com`, `openai.com`), Claude (`claude.ai`, `anthropic.com`), Cursor (`cursor.com`), serta loopback lokal.
-  - **Manajemen Token & Sesi**: Pantau daftar Access Token dan Refresh Token aktif di database SQLite, filter berdasarkan klien, dan cabut token secara individual maupun massal.
+  - **Multi-User & Manajemen Tim (Akun & Hak Akses)**:
+    - Dukungan banyak akun pengguna dengan peran **Administrator** (akses penuh) dan **User Biasa** (akses server MCP & pembuatan token).
+    - Tab **👥 Pengguna** di dashboard untuk membuat, mengedit nama/password, mengaktifkan/menonaktifkan, dan menghapus akun pengguna.
+    - Proteksi keamanan: mencegah penghapusan atau penonaktifan admin aktif terakhir, serta proteksi penghapusan akun sendiri.
+    - Setiap token akses manual dan sesi OAuth dicatat kepemilikannya ke akun pengguna (`user_id`).
+  - **Manajemen Token & Sesi**: Pantau daftar Access Token dan Refresh Token aktif di database SQLite, kolom atribusi pengguna/pemilik token, filter berdasarkan klien, dan cabut token secara individual maupun massal.
   - **Audit Log Aktivitas**: Monitoring real-time seluruh request masuk ke proxy maupun OAuth dengan filter error, pencarian path, status HTTP, durasi (ms), dan IP.
-  - **Keamanan Admin**: Login terproteksi cookie session (`admin_session`) dan fitur ubah password admin.
+  - **Keamanan & Autentikasi**: Login terproteksi cookie session (`admin_session`) dengan kredensial username & password, serta fitur ubah password akun.
 - 💾 **Penyimpanan SQLite Persisten (`bun:sqlite`)**:
   - Menggunakan mode **WAL (Write-Ahead Logging)** untuk konkurensi tinggi dan performa cepat.
   - Menyimpan Server MCP, Klien OAuth, Auth Code, Access Token, Refresh Token, Sesi Admin, Pengaturan, dan Riwayat Log.
@@ -160,14 +165,18 @@ bun run dev
 
 ## Endpoint API & Halaman
 
-- **Web Dashboard**:
+- **Web Dashboard & Admin API**:
   - `GET  /admin` — Dashboard manajemen (redirect ke `/admin/login` jika belum login).
-  - `GET  /admin/login` — Halaman login admin.
-  - `POST /api/admin/login` — Login admin.
-  - `GET  /api/admin/stats` — Metrik server & database.
+  - `GET  /admin/login` — Halaman login pengguna & admin.
+  - `POST /api/admin/login` — Login kredensial `{ username, password }`.
+  - `GET  /api/admin/me` — Profil akun pengguna saat ini & status autentikasi.
+  - `POST /api/admin/change-password` — Ganti password akun saat ini.
+  - `GET  /api/admin/stats` — Metrik server, pengguna, token & database.
+  - `GET / POST / PUT / DELETE /api/admin/users` — Kelola akun pengguna, peran (`admin`/`user`), dan status aktif.
+  - `POST /api/admin/users/:id/toggle` — Aktifkan atau nonaktifkan akun pengguna.
   - `GET / POST / PUT / DELETE /api/admin/servers` — Kelola server MCP & uji koneksi.
   - `GET / POST / PUT / DELETE /api/admin/clients` — Kelola klien OAuth.
-  - `POST /api/admin/tokens/generate` — Buat access token Bearer / API key langsung untuk Claude, Cursor, dll.
+  - `POST /api/admin/tokens/generate` — Buat access token Bearer / API key langsung untuk Claude, Cursor, dll (bisa diatribusikan ke user).
   - `GET / DELETE /api/admin/tokens` — Lihat dan cabut access token / refresh token.
   - `GET / DELETE /api/admin/logs` — Riwayat log request gateway.
 
