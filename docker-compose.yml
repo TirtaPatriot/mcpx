@@ -17,8 +17,8 @@ services:
       MCP_SERVERS: ${MCP_SERVERS:-}
       # URL publik gateway (https, origin saja) untuk OAuth discovery; kosong = ikut header Host/X-Forwarded-*
       PUBLIC_URL: ${PUBLIC_URL:-}
-      # Host tujuan redirect (subdomain ikut diizinkan), dipisah koma
-      ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com,oauth-redirect.googleusercontent.com}
+      # Host tujuan redirect (subdomain ikut diizinkan), dipisah koma (mendukung Google, OpenAI, Claude, Cursor, localhost)
+      ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com,oauth-redirect.googleusercontent.com,chatgpt.com,openai.com,claude.ai,anthropic.com,cursor.com,localhost,127.0.0.1}
       # Default 30 hari (2592000s) untuk access token
       ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-2592000}
       # Default 1 tahun (31536000s) untuk refresh token

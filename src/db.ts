@@ -8,6 +8,7 @@ import {
   ENV_MCP_SERVERS,
   ADMIN_PASSWORD,
   REFRESH_GRACE_PERIOD_MS,
+  ACCESS_TOKEN_TTL_MS,
 } from "./config";
 import { hashPassword, newSecret } from "./utils";
 
@@ -455,6 +456,14 @@ export function getAllAccessTokens(clientId?: string): AccessTokenRecord[] {
   return db.query<AccessTokenRecord, []>("SELECT * FROM access_tokens ORDER BY expires_at DESC LIMIT 100").all();
 }
 
+export function createManualAccessToken(clientId: string, ttlMs: number = ACCESS_TOKEN_TTL_MS): { token: string; expiresAt: number } {
+  const token = newSecret();
+  const now = Date.now();
+  const expiresAt = now + ttlMs;
+  stmtInsertAccessToken.run(token, clientId, expiresAt, now);
+  return { token, expiresAt };
+}
+
 export function getAllRefreshTokens(clientId?: string): RefreshTokenRecord[] {
   if (clientId) {
     return db.query<RefreshTokenRecord, [string]>("SELECT * FROM refresh_tokens WHERE client_id = ? ORDER BY expires_at DESC LIMIT 100").all(clientId);
@@ -613,31 +622,31 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
     if (ENV_CLIENT_ID && ENV_CLIENT_SECRET) {
       saveOAuthClient({
         id: ENV_CLIENT_ID,
-        name: "Google Gemini Client",
+        name: "Universal AI Client",
         secret: ENV_CLIENT_SECRET,
-        redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com",
+        redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com,https://chatgpt.com,http://localhost",
         enabled: 1,
       });
       console.log(`[db] Memasukkan OAuth client dari env: ${ENV_CLIENT_ID}`);
     } else {
       const generatedSecret = newSecret();
       saveOAuthClient({
-        id: "gemini-mcp",
-        name: "Google Gemini (Default)",
+        id: "universal-ai",
+        name: "Universal AI Client (Default)",
         secret: generatedSecret,
-        redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com",
+        redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com,https://chatgpt.com,http://localhost",
         enabled: 1,
       });
-      console.log(`[db] Membuat default client: gemini-mcp (secret: ${generatedSecret})`);
+      console.log(`[db] Membuat default client: universal-ai (secret: ${generatedSecret})`);
     }
   } else if (ENV_CLIENT_ID && ENV_CLIENT_SECRET) {
     const existing = getOAuthClient(ENV_CLIENT_ID);
     if (!existing) {
       saveOAuthClient({
         id: ENV_CLIENT_ID,
-        name: "Google Gemini (Env)",
+        name: "Universal AI Client (Env)",
         secret: ENV_CLIENT_SECRET,
-        redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com",
+        redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com,https://chatgpt.com,http://localhost",
         enabled: 1,
       });
       console.log(`[db] Memasukkan OAuth client tambahan dari env: ${ENV_CLIENT_ID}`);

@@ -105,24 +105,37 @@ function parseRedirectUri(raw: string, clientRedirectsRaw?: string): URL | null 
   } catch {
     return null;
   }
-  if (url.protocol !== "https:" || url.username || url.password) return null;
+  // Per RFC 8252 (OAuth 2.0 Native Apps), loopback redirect (localhost / 127.0.0.1) boleh menggunakan http:
+  const isLoopback =
+    (url.protocol === "http:" || url.protocol === "https:") &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+
+  if ((url.protocol !== "https:" && !isLoopback) || url.username || url.password) return null;
   const host = url.hostname.toLowerCase();
+
+  // Jika client mengizinkan wildcard '*'
+  if (clientRedirectsRaw?.trim() === "*") {
+    return url;
+  }
 
   // Daftar host yang diizinkan (gabungan host sistem + host spesifik client jika ada)
   const allowedList = [...ALLOWED_REDIRECT_HOSTS];
   if (clientRedirectsRaw) {
-    const customList = clientRedirectsRaw
+    const customEntries = clientRedirectsRaw
       .split(",")
-      .map((item) => {
-        try {
-          const u = new URL(item.trim());
-          return u.hostname.toLowerCase();
-        } catch {
-          return item.trim().toLowerCase();
-        }
-      })
+      .map((item) => item.trim())
       .filter(Boolean);
-    allowedList.push(...customList);
+
+    for (const entry of customEntries) {
+      if (entry === "*") return url;
+      if (entry.toLowerCase() === raw.toLowerCase()) return url;
+      try {
+        const u = new URL(entry);
+        allowedList.push(u.hostname.toLowerCase());
+      } catch {
+        allowedList.push(entry.toLowerCase());
+      }
+    }
   }
 
   const allowed = allowedList.some((h) => host === h || host.endsWith(`.${h}`));
@@ -158,7 +171,7 @@ export function parseAuthorizeParams(get: (key: string) => string | undefined): 
   const rawRedirect = get("redirect_uri");
   const redirectUri = parseRedirectUri(rawRedirect ?? DEFAULT_REDIRECT_URI, client.redirect_uris);
   if (!redirectUri) {
-    return `redirect_uri tidak diizinkan (harus https dan di whitelist: ${ALLOWED_REDIRECT_HOSTS.join(", ")})`;
+    return `redirect_uri tidak diizinkan (harus https atau loopback localhost/127.0.0.1, dan terdaftar di whitelist)`;
   }
 
   const codeChallenge = get("code_challenge");

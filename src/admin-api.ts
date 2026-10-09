@@ -12,6 +12,7 @@ import {
   toggleOAuthClient,
   getClientTokenStats,
   getAllAccessTokens,
+  createManualAccessToken,
   getAllRefreshTokens,
   revokeToken,
   revokeAllTokensForClient,
@@ -413,6 +414,28 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       ok: true,
       accessTokens,
       refreshTokens,
+    });
+  })
+
+  .post("/tokens/generate", ({ body }) => {
+    const data = body as { clientId?: string; ttlDays?: number };
+    const clientId = data.clientId?.trim();
+    if (!clientId) return json({ ok: false, error: "Client ID wajib dipilih" }, 400);
+
+    const client = getOAuthClient(clientId);
+    if (!client) return json({ ok: false, error: "Client tidak ditemukan" }, 404);
+    if (client.enabled !== 1) return json({ ok: false, error: "Client sedang dinonaktifkan" }, 400);
+
+    const days = Number(data.ttlDays ?? 30);
+    const ttlMs = days > 0 ? days * 24 * 3600 * 1000 : 3650 * 24 * 3600 * 1000;
+    const { token, expiresAt } = createManualAccessToken(clientId, ttlMs);
+
+    return json({
+      ok: true,
+      message: `Token akses berhasil dibuat untuk klien "${client.name}"`,
+      token,
+      expiresAt,
+      clientId,
     });
   })
 

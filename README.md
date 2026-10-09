@@ -1,11 +1,18 @@
-# OAuth 2.1 MCP Gateway + Dashboard Management
+# Universal OAuth 2.1 MCP Gateway + Dashboard Management (Untuk Semua AI)
 
-Reverse proxy berbasis Bun + ElysiaJS dengan OAuth 2.1 di depan server MCP lokal, dilengkapi **Web UI Dashboard** dan database **SQLite** (`bun:sqlite` WAL mode) untuk manajemen visual server MCP, klien OAuth, sesi token, dan audit log request.
+Reverse proxy berbasis Bun + ElysiaJS dengan OAuth 2.1 & Bearer Token di depan server MCP lokal, dilengkapi **Web UI Dashboard** dan database **SQLite** (`bun:sqlite` WAL mode) untuk manajemen visual server MCP, klien OAuth, sesi token, dan audit log request.
+
+**Didesain untuk SEMUA platform & asisten AI:**
+- 🤖 **Google Gemini** (Web & Mobile via RFC 8414 OAuth 2.1 Discovery & RFC 9728)
+- 🟣 **Anthropic Claude** (Claude Desktop & Claude Code via SSE + Bearer Header)
+- 🟢 **OpenAI / ChatGPT** (Custom GPT Actions via OAuth 2.0 Authorization Code flow)
+- ⚡ **Cursor & Windsurf** (AI IDEs via SSE MCP Server + Bearer Token)
+- 🌐 **Generic AI & Frameworks** (Open WebUI, LibreChat, Dify, LangChain, LlamaIndex, script cURL)
 
 ```
 Pengguna / Admin ──▶ /admin (Web Dashboard Management)
-Gemini / Client  ──OAuth──▶ /oauth/authorize, /oauth/token
-Gemini / Client  ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upstream
+Semua AI Client ──OAuth──▶ /oauth/authorize, /oauth/token
+Semua AI Client ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upstream (HTTP / bunx / npx)
 ```
 
 ---
@@ -13,17 +20,23 @@ Gemini / Client  ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upst
 ## Fitur Utama
 
 - 🖥️ **Web Dashboard Management (`/admin`)**:
-  - **Ringkasan (Overview)**: Metrik gateway, status sistem, uptime, memory, dan panduan integrasi ke Google Gemini.
+  - **Hub Integrasi AI (Universal Overview)**: Metrik gateway, status sistem, uptime, memory, dan tab panduan integrasi langsung untuk Google Gemini, Claude Desktop, OpenAI/ChatGPT, Cursor, dan Generic SSE.
   - **Manajemen Server MCP (HTTP & NPM/CLI)**:
     - Mendukung server upstream **HTTP/SSE URL** maupun perintah **NPM/CLI** (seperti `bunx -y @dokploy/mcp` atau `npx -y @dokploy/mcp`) melalui built-in bridge stdio-ke-SSE.
     - Konfigurasi environment variables (misal `DOKPLOY_URL`, `DOKPLOY_API_KEY`) dan argumen paket langsung via UI.
     - Fitur **Test Handshake JSON-RPC** untuk menguji perintah CLI sebelum disimpan.
     - Fitur **Test Ping** untuk menguji server HTTP.
   - **Multi-Klien OAuth 2.1 & Pencabutan Cepat (Easy Revoke)**:
-    - Buat banyak kredensial klien (misal: Gemini Laptop, Gemini HP, Claude, Cursor).
+    - Buat kredensial khusus per aplikasi (misal: `claude-desktop`, `cursor-ide`, `gemini-mobile`, `chatgpt-action`).
     - Tombol **"Cabut Sesi"** satu-klik per klien untuk langsung me-logout semua token aktif klien tersebut.
-    - Toggle **Aktif / Nonaktif** untuk memblokir akses klien seketika.
-    - Generator acak ulang secret dan panduan integrasi Gemini.
+    - Toggle **Aktif / Nonaktif** untuk memblokir akses klien seketika tanpa menghapus datanya.
+  - **Penerbitan Token Akses / API Key Langsung**:
+    - Terbitkan token Bearer statis (30 hari, 90 hari, 1 tahun, hingga permanen 10 tahun) langsung dari UI untuk klien yang tidak memiliki alur browser OAuth (seperti Claude Desktop & Cursor).
+    - Menghasilkan snippet konfigurasi JSON siap tempel.
+  - **Dukungan Loopback RFC 8252 untuk Desktop AI**:
+    - Otomatis mengizinkan redirect `http://localhost` dan `http://127.0.0.1` pada port berapa pun untuk aplikasi AI native/desktop.
+  - **Whitelist Domain AI Terintegrasi**:
+    - Whitelist default langsung mendukung Google (`google.com`), ChatGPT (`chatgpt.com`, `openai.com`), Claude (`claude.ai`, `anthropic.com`), Cursor (`cursor.com`), serta loopback lokal.
   - **Manajemen Token & Sesi**: Pantau daftar Access Token dan Refresh Token aktif di database SQLite, filter berdasarkan klien, dan cabut token secara individual maupun massal.
   - **Audit Log Aktivitas**: Monitoring real-time seluruh request masuk ke proxy maupun OAuth dengan filter error, pencarian path, status HTTP, durasi (ms), dan IP.
   - **Keamanan Admin**: Login terproteksi cookie session (`admin_session`) dan fitur ubah password admin.
@@ -33,7 +46,74 @@ Gemini / Client  ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upst
   - Cleanup otomatis berjalan di latar belakang untuk membersihkan token kedaluwarsa.
 - 🔄 **Otomatis Seeding & Kompatibilitas Mundur**:
   - Jika environment variable `CLIENT_ID`, `CLIENT_SECRET`, atau `MCP_SERVERS` disediakan di `.env`, gateway akan otomatis mengimpornya ke database SQLite saat pertama kali dijalankan.
-  - Jika tidak ada variabel env, gateway otomatis membuat default client (`gemini-mcp`) dan siap dikonfigurasi melalui Web UI.
+  - Jika tidak ada variabel env, gateway otomatis membuat default client (`universal-ai`) yang siap digunakan untuk semua platform AI.
+
+---
+
+## Panduan Hubungkan ke Berbagai Platform AI
+
+### 1. Claude Desktop (`claude_desktop_config.json`)
+Claude Desktop menggunakan koneksi SSE langsung dengan header Bearer Token:
+1. Buka dashboard `/admin` -> tab **Klien OAuth** atau **Token & Sesi**.
+2. Klik tombol **"🔑 Buat Token Akses / API Key"**, pilih klien dan durasi (misal: Permanen 10 Tahun).
+3. Salin token yang dihasilkan dan tempel ke file konfigurasi Claude Desktop:
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+   - Linux: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "dokploy": {
+      "url": "https://gateway.example.com/mcp/dokploy",
+      "headers": {
+        "Authorization": "Bearer <TOKEN_AKSES_DARI_GATEWAY>"
+      }
+    }
+  }
+}
+```
+
+### 2. Google Gemini (Custom App / Gems)
+1. Buka Google Gemini Custom Tools / MCP settings.
+2. Masukkan URL endpoint: `https://gateway.example.com/mcp/<nama-server>`.
+3. Gemini akan otomatis menemukan endpoint autentikasi melalui RFC 8414 & RFC 9728 discovery:
+   - **Authorize URL**: `https://gateway.example.com/oauth/authorize`
+   - **Token URL**: `https://gateway.example.com/oauth/token`
+4. Masukkan **Client ID** dan **Client Secret** dari dashboard gateway Anda.
+
+### 3. OpenAI / ChatGPT (Custom GPT Actions)
+1. Buka GPT Editor -> **Create New Action**.
+2. Di bagian **Authentication**, pilih tipe **OAuth**:
+   - **Client ID**: Salin dari tab Klien OAuth di gateway
+   - **Client Secret**: Salin dari tab Klien OAuth di gateway
+   - **Authorization URL**: `https://gateway.example.com/oauth/authorize`
+   - **Token URL**: `https://gateway.example.com/oauth/token`
+   - **Token Exchange Method**: Default (Basic authorization header)
+3. Callback redirect OpenAI (`chatgpt.com`) sudah otomatis diizinkan oleh gateway.
+
+### 4. Cursor / Windsurf IDE
+1. Buka Cursor -> **Settings** -> **Features** -> **MCP**, atau edit file `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "dokploy": {
+      "url": "https://gateway.example.com/mcp/dokploy",
+      "headers": {
+        "Authorization": "Bearer <TOKEN_AKSES_DARI_GATEWAY>"
+      }
+    }
+  }
+}
+```
+
+### 5. Generic SSE Client / LibreChat / Open WebUI / cURL
+Gunakan endpoint SSE server MCP dengan header `Authorization: Bearer <TOKEN>`:
+```bash
+curl -N -H "Authorization: Bearer <TOKEN_AKSES>" \
+  -H "Accept: text/event-stream" \
+  https://gateway.example.com/mcp/dokploy
+```
 
 ---
 
@@ -68,10 +148,10 @@ bun run dev
 | `ADMIN_PASSWORD` | tidak | `admin123` | Password untuk login ke dashboard manajemen `/admin`. |
 | `PORT` | tidak | `3000` | Port listen server. |
 | `DB_PATH` | tidak | `./data/tokens.db` | Path file database SQLite (atau `/app/data/tokens.db` di container). |
-| `PUBLIC_URL` | disarankan | *otomatis* | Origin publik gateway (`https://gateway.example.com`) untuk metadata discovery RFC 8414 & RFC 9728. |
+| `PUBLIC_URL` | disarankan | *otomatis* | Origin publik gateway (`https://gateway.example.com`) untuk discovery OAuth RFC 8414 & RFC 9728. |
 | `CLIENT_ID`, `CLIENT_SECRET` | tidak | *auto-generate* | Kredensial awal jika ingin di-seed dari env. |
 | `MCP_SERVERS` | tidak | `{}` | JSON sebaris server MCP awal jika ingin di-seed dari env. |
-| `ALLOWED_REDIRECT_HOSTS` | tidak | `google.com,oauth-redirect.googleusercontent.com` | Host redirect yang diizinkan untuk OAuth. |
+| `ALLOWED_REDIRECT_HOSTS` | tidak | `google.com,oauth-redirect.googleusercontent.com,chatgpt.com,openai.com,claude.ai,anthropic.com,cursor.com,localhost,127.0.0.1` | Host redirect yang diizinkan untuk OAuth. |
 | `ACCESS_TOKEN_TTL` | tidak | `2592000` (30 hari) | Masa aktif access token (detik). |
 | `REFRESH_TOKEN_TTL` | tidak | `31536000` (1 tahun) | Masa aktif refresh token (detik). |
 | `REFRESH_GRACE_PERIOD` | tidak | `60` (detik) | Toleransi rotasi refresh token untuk mencegah race condition. |
@@ -87,6 +167,7 @@ bun run dev
   - `GET  /api/admin/stats` — Metrik server & database.
   - `GET / POST / PUT / DELETE /api/admin/servers` — Kelola server MCP & uji koneksi.
   - `GET / POST / PUT / DELETE /api/admin/clients` — Kelola klien OAuth.
+  - `POST /api/admin/tokens/generate` — Buat access token Bearer / API key langsung untuk Claude, Cursor, dll.
   - `GET / DELETE /api/admin/tokens` — Lihat dan cabut access token / refresh token.
   - `GET / DELETE /api/admin/logs` — Riwayat log request gateway.
 
@@ -105,6 +186,6 @@ bun run dev
 
 ## Lisensi & Keamanan
 
-- Kredensial admin dan secret klien tersimpan aman di database SQLite lokal.
-- Rotasi refresh token dilengkapi grace period untuk stabilitas koneksi mobile Gemini.
+- Kredensial admin dan secret klien tersimpan aman di database SQLite lokal (WAL mode).
+- Rotasi refresh token dilengkapi grace period untuk stabilitas koneksi mobile client.
 - Pastikan untuk mengganti password bawaan (`admin123`) di menu Pengaturan setelah instalasi pertama kali.

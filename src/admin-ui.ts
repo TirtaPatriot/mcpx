@@ -40,8 +40,8 @@ export function renderAdminPage(request: Request): Response {
 </head>
 <body class="bg-dark-900 text-slate-100 min-h-screen flex flex-col antialiased">
 
-  <!-- Toast Notification -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+  <!-- Toast Notification (z-[9999] to ensure it always renders above modal backdrops) -->
+  <div id="toast" class="fixed bottom-5 right-5 z-[9999] transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
     <div id="toastContent" class="flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl text-sm font-medium"></div>
   </div>
 
@@ -58,7 +58,7 @@ export function renderAdminPage(request: Request): Response {
             <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">SQLite WAL</span>
             <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + NPM (bunx/npx)</span>
           </h1>
-          <p class="text-xs text-slate-400">Reverse proxy, process bridge & OAuth 2.1 manager untuk Google Gemini</p>
+          <p class="text-xs text-slate-400">Universal reverse proxy, process bridge & OAuth 2.1 manager untuk Semua AI (Gemini, Claude, Cursor, ChatGPT, LibreChat, dll.)</p>
         </div>
       </div>
 
@@ -143,7 +143,7 @@ export function renderAdminPage(request: Request): Response {
             <div class="text-xs font-medium text-slate-400 mb-1">Access Token Aktif</div>
             <div class="text-2xl font-bold text-white" id="statTokensAccess">0</div>
             <div class="mt-2 text-[11px] text-purple-400 flex items-center gap-1">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-purple-400"></span> Sesi Gemini Web/Mobile
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-purple-400"></span> Sesi AI Client Aktif
             </div>
           </div>
           <div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 shadow-sm">
@@ -155,37 +155,151 @@ export function renderAdminPage(request: Request): Response {
           </div>
         </div>
 
-        <!-- Quick Gemini Integration Guide -->
-        <div class="bg-gradient-to-r from-blue-900/30 via-indigo-900/20 to-purple-900/30 border border-blue-500/20 rounded-2xl p-5">
+        <!-- Universal AI Integration Hub -->
+        <div class="bg-gradient-to-r from-blue-900/30 via-indigo-900/20 to-purple-900/30 border border-blue-500/20 rounded-2xl p-5 space-y-4">
           <div class="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h2 class="text-base font-semibold text-white flex items-center gap-2">
-                <span>🤖</span> Panduan Hubungkan ke Google Gemini Custom App
+                <span>🤖</span> Hub Integrasi Semua AI Client (Universal)
               </h2>
               <p class="text-xs text-slate-300 mt-1">
-                Gunakan endpoint ini di konfigurasi Custom App Google Gemini untuk server HTTP maupun server NPM/Command.
+                Hubungkan server MCP upstream ke berbagai model & asisten AI (Google Gemini, Claude, OpenAI/ChatGPT, Cursor, LibreChat, dll.)
               </p>
             </div>
-            <button onclick="switchTab('clients')" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 rounded-lg transition shadow-md shadow-blue-600/30">
-              Lihat Klien & Kredensial &rarr;
+            <div class="flex items-center gap-2">
+              <button onclick="openGenerateTokenModal()" class="text-xs bg-purple-600 hover:bg-purple-500 text-white font-medium px-3.5 py-1.5 rounded-lg transition shadow-md shadow-purple-600/30 flex items-center gap-1">
+                <span>🔑</span> Buat Token Akses
+              </button>
+              <button onclick="switchTab('clients')" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 rounded-lg transition shadow-md shadow-blue-600/30">
+                Kelola Klien &rarr;
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Platform Selector Pills -->
+          <div class="flex flex-wrap gap-2 text-xs pt-1 border-t border-dark-700/60">
+            <button onclick="switchOverviewGuide('gemini')" id="btnGuideGemini" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition flex items-center gap-1.5">
+              <span>🤖</span> Google Gemini
+            </button>
+            <button onclick="switchOverviewGuide('claude')" id="btnGuideClaude" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <span>🟣</span> Claude Desktop / Code
+            </button>
+            <button onclick="switchOverviewGuide('chatgpt')" id="btnGuideChatgpt" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <span>🟢</span> OpenAI / ChatGPT
+            </button>
+            <button onclick="switchOverviewGuide('cursor')" id="btnGuideCursor" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <span>⚡</span> Cursor / Windsurf
+            </button>
+            <button onclick="switchOverviewGuide('generic')" id="btnGuideGeneric" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <span>🌐</span> Generic / SSE REST
             </button>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-xs font-mono">
-            <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
-              <div class="min-w-0">
-                <div class="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider">Authorize URL</div>
-                <div class="truncate text-slate-200 mt-0.5" id="valAuthUrl">${origin}/oauth/authorize</div>
+          <!-- Panel: Gemini -->
+          <div id="guidePanelGemini" class="space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+              <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider">Authorize URL</div>
+                  <div class="truncate text-slate-200 mt-0.5" id="valAuthUrl">${origin}/oauth/authorize</div>
+                </div>
+                <button onclick="copyText('${origin}/oauth/authorize')" class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600">Salin</button>
               </div>
-              <button onclick="copyText('${origin}/oauth/authorize')" class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600">Salin</button>
-            </div>
-            <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
-              <div class="min-w-0">
-                <div class="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider">Token URL</div>
-                <div class="truncate text-slate-200 mt-0.5" id="valTokenUrl">${origin}/oauth/token</div>
+              <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider">Token URL</div>
+                  <div class="truncate text-slate-200 mt-0.5" id="valTokenUrl">${origin}/oauth/token</div>
+                </div>
+                <button onclick="copyText('${origin}/oauth/token')" class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600">Salin</button>
               </div>
-              <button onclick="copyText('${origin}/oauth/token')" class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600">Salin</button>
             </div>
+            <p class="text-[11px] text-slate-400">
+              💡 <em>Mendukung auto-discovery OAuth 2.1 (RFC 8414 & RFC 9728) untuk integrasi Custom Tools & Gems di Google Gemini Web & Mobile.</em>
+            </p>
+          </div>
+
+          <!-- Panel: Claude -->
+          <div id="guidePanelClaude" class="hidden space-y-2">
+            <div class="bg-dark-900/80 p-3.5 rounded-xl border border-dark-700 text-xs font-mono space-y-2">
+              <div class="flex items-center justify-between text-slate-400 font-sans text-[11px]">
+                <span>Konfigurasi claude_desktop_config.json:</span>
+                <button onclick="copyClaudeConfig()" class="text-blue-400 hover:underline">Salin JSON</button>
+              </div>
+              <pre id="claudeConfigSnippet" class="text-slate-300 text-[11px] overflow-x-auto whitespace-pre">{
+  "mcpServers": {
+    "dokploy": {
+      "url": "${origin}/mcp/dokploy",
+      "headers": {
+        "Authorization": "Bearer &lt;TOKEN_AKSES&gt;"
+      }
+    }
+  }
+}</pre>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span>💡 Gunakan Bearer Token untuk koneksi langsung tanpa browser OAuth flow.</span>
+              <button onclick="openGenerateTokenModal()" class="text-purple-400 hover:underline font-medium">+ Buat Token Akses untuk Claude</button>
+            </div>
+          </div>
+
+          <!-- Panel: ChatGPT -->
+          <div id="guidePanelChatgpt" class="hidden space-y-2">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+              <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider">Auth URL</div>
+                  <div class="truncate text-slate-200 mt-0.5">${origin}/oauth/authorize</div>
+                </div>
+                <button onclick="copyText('${origin}/oauth/authorize')" class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600">Salin</button>
+              </div>
+              <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider">Token URL</div>
+                  <div class="truncate text-slate-200 mt-0.5">${origin}/oauth/token</div>
+                </div>
+                <button onclick="copyText('${origin}/oauth/token')" class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600">Salin</button>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              💡 <em>Di Custom GPT Actions, pilih auth <strong>OAuth</strong>, masukkan Client ID & Secret dari tab Klien OAuth, dan pilih Basic Auth untuk Token Exchange.</em>
+            </p>
+          </div>
+
+          <!-- Panel: Cursor -->
+          <div id="guidePanelCursor" class="hidden space-y-2">
+            <div class="bg-dark-900/80 p-3.5 rounded-xl border border-dark-700 text-xs font-mono space-y-2">
+              <div class="flex items-center justify-between text-slate-400 font-sans text-[11px]">
+                <span>Konfigurasi Cursor (.cursor/mcp.json atau Settings > Features > MCP):</span>
+                <button onclick="copyCursorConfig()" class="text-blue-400 hover:underline">Salin JSON</button>
+              </div>
+              <pre id="cursorConfigSnippet" class="text-slate-300 text-[11px] overflow-x-auto whitespace-pre">{
+  "mcpServers": {
+    "dokploy": {
+      "url": "${origin}/mcp/dokploy",
+      "headers": {
+        "Authorization": "Bearer &lt;TOKEN_AKSES&gt;"
+      }
+    }
+  }
+}</pre>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span>💡 Cursor mendukung remote MCP tipe SSE dengan header Authorization Bearer.</span>
+              <button onclick="openGenerateTokenModal()" class="text-purple-400 hover:underline font-medium">+ Buat Token Akses untuk Cursor</button>
+            </div>
+          </div>
+
+          <!-- Panel: Generic -->
+          <div id="guidePanelGeneric" class="hidden space-y-2">
+            <div class="bg-dark-900/80 p-3.5 rounded-xl border border-dark-700 text-xs font-mono space-y-2">
+              <div class="text-slate-400 font-sans text-[11px]">Contoh cURL / SSE Client:</div>
+              <pre class="text-slate-300 text-[11px] overflow-x-auto whitespace-pre">curl -N -H "Authorization: Bearer &lt;TOKEN_AKSES&gt;" \
+  -H "Accept: text/event-stream" \
+  ${origin}/mcp/&lt;SERVER_NAME&gt;</pre>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              💡 <em>Dapat digunakan langsung di LibreChat, Open WebUI, Dify, LangChain, atau agent framework kustom.</em>
+            </p>
           </div>
         </div>
 
@@ -252,12 +366,17 @@ export function renderAdminPage(request: Request): Response {
       <section id="tab-clients" class="tab-pane hidden space-y-4">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 class="text-base font-semibold text-white">Klien OAuth 2.1</h2>
-            <p class="text-xs text-slate-400">Buat multiple kredensial klien (misal: Gemini Kantor, Gemini HP, Claude, Cursor) dengan fitur cabut sesi cepat</p>
+            <h2 class="text-base font-semibold text-white">Klien OAuth 2.1 & Token Akses</h2>
+            <p class="text-xs text-slate-400">Kelola kredensial OAuth & Bearer Token untuk berbagai AI Client (Claude, Cursor, Gemini, ChatGPT, LibreChat, dll.)</p>
           </div>
-          <button onclick="openClientModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-4 py-2 rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center gap-1.5">
-            <span>+</span> Tambah Klien OAuth
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="openGenerateTokenModal()" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3.5 py-2 rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-1.5">
+              <span>🔑</span> Buat Token Akses / API Key
+            </button>
+            <button onclick="openClientModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3.5 py-2 rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center gap-1.5">
+              <span>+</span> Tambah Klien OAuth
+            </button>
+          </div>
         </div>
 
         <div class="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden shadow-sm">
@@ -289,6 +408,9 @@ export function renderAdminPage(request: Request): Response {
             <p class="text-xs text-slate-400">Pantau dan cabut token akses atau refresh token aktif per-klien yang tersimpan di SQLite</p>
           </div>
           <div class="flex items-center gap-2">
+            <button onclick="openGenerateTokenModal()" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-1.5 rounded-xl transition shadow-md shadow-purple-600/20 flex items-center gap-1">
+              <span>🔑</span> + Buat Token Akses
+            </button>
             <select id="tokenClientFilter" onchange="loadTokens()" class="bg-dark-800 border border-dark-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
               <option value="">Semua Klien</option>
             </select>
@@ -550,11 +672,11 @@ export function renderAdminPage(request: Request): Response {
       <form onsubmit="saveClient(event)" class="space-y-3 text-xs">
         <div>
           <label class="block text-slate-400 mb-1">Client ID</label>
-          <input type="text" id="cliId" required placeholder="gemini-kantor" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
+          <input type="text" id="cliId" required placeholder="claude-desktop" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
         </div>
         <div>
           <label class="block text-slate-400 mb-1">Nama Aplikasi / Deskripsi</label>
-          <input type="text" id="cliName" required placeholder="Google Gemini (Laptop Kantor)" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          <input type="text" id="cliName" required placeholder="Claude Desktop (Macbook) atau Google Gemini" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
@@ -564,8 +686,8 @@ export function renderAdminPage(request: Request): Response {
           <input type="text" id="cliSecret" required class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
         </div>
         <div>
-          <label class="block text-slate-400 mb-1">Allowed Redirect URIs (dipisah koma, opsional)</label>
-          <input type="text" id="cliRedirects" placeholder="https://google.com, https://oauth-redirect.googleusercontent.com" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
+          <label class="block text-slate-400 mb-1">Allowed Redirect URIs (dipisah koma, opsional atau '*' untuk semua)</label>
+          <input type="text" id="cliRedirects" placeholder="https://google.com, https://chatgpt.com, http://localhost" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
         </div>
         <div class="flex items-center gap-2 pt-1">
           <input type="checkbox" id="cliEnabled" checked class="w-4 h-4 rounded bg-dark-900 border-dark-700 text-blue-600 focus:ring-0">
@@ -580,61 +702,262 @@ export function renderAdminPage(request: Request): Response {
     </div>
   </div>
 
-  <!-- ── MODAL: GEMINI INTEGRATION INFO ── -->
-  <div id="geminiModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-dark-800 border border-dark-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+  <!-- ── MODAL: UNIVERSAL AI INTEGRATION GUIDE ── -->
+  <div id="aiModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-800 border border-dark-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h3 class="text-base font-semibold text-white flex items-center gap-2">
-          <span>🤖</span> Parameter Konfigurasi Google Gemini
+          <span>🤖</span> Panduan Integrasi AI (Universal)
         </h3>
-        <button onclick="document.getElementById('geminiModal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+        <button onclick="closeAiGuide()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <!-- Selected Client Info Header -->
+      <div class="bg-dark-900/90 p-3 rounded-xl border border-dark-700 text-xs font-mono grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div class="flex items-center justify-between bg-dark-800/80 p-2 rounded-lg border border-dark-700/60">
+          <div>
+            <span class="text-[10px] text-slate-500 block font-sans uppercase font-bold">Client ID</span>
+            <span id="aiModalClientId" class="text-blue-300">-</span>
+          </div>
+          <button onclick="copyElement('aiModalClientId')" class="text-blue-400 hover:underline text-xs">Salin</button>
+        </div>
+        <div class="flex items-center justify-between bg-dark-800/80 p-2 rounded-lg border border-dark-700/60">
+          <div>
+            <span class="text-[10px] text-slate-500 block font-sans uppercase font-bold">Client Secret</span>
+            <span id="aiModalClientSecret" class="text-blue-300">-</span>
+          </div>
+          <button onclick="copyElement('aiModalClientSecret')" class="text-blue-400 hover:underline text-xs">Salin</button>
+        </div>
+      </div>
+
+      <!-- Tabs Navigation in Modal -->
+      <div class="flex flex-wrap gap-1.5 border-b border-dark-700 pb-2 text-xs">
+        <button onclick="switchAiModalTab('gemini')" id="modalTabGemini" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium flex items-center gap-1.5">
+          <span>🤖</span> Gemini
+        </button>
+        <button onclick="switchAiModalTab('claude')" id="modalTabClaude" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
+          <span>🟣</span> Claude Desktop
+        </button>
+        <button onclick="switchAiModalTab('chatgpt')" id="modalTabChatgpt" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
+          <span>🟢</span> OpenAI / ChatGPT
+        </button>
+        <button onclick="switchAiModalTab('cursor')" id="modalTabCursor" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
+          <span>⚡</span> Cursor
+        </button>
+        <button onclick="switchAiModalTab('generic')" id="modalTabGeneric" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
+          <span>🌐</span> REST / SSE
+        </button>
+      </div>
+
+      <!-- Tab Content: Gemini -->
+      <div id="modalContentGemini" class="space-y-3 text-xs">
+        <p class="text-slate-300">
+          Salin parameter berikut ke konfigurasi OAuth Custom MCP App di Google Gemini:
+        </p>
+        <div class="space-y-2 font-mono">
+          <div class="bg-dark-900 p-2.5 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block font-sans">AUTHORIZATION URL</span>
+              <span class="text-slate-200">${origin}/oauth/authorize</span>
+            </div>
+            <button onclick="copyText('${origin}/oauth/authorize')" class="text-blue-400 hover:underline text-xs">Salin</button>
+          </div>
+          <div class="bg-dark-900 p-2.5 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block font-sans">TOKEN URL</span>
+              <span class="text-slate-200">${origin}/oauth/token</span>
+            </div>
+            <button onclick="copyText('${origin}/oauth/token')" class="text-blue-400 hover:underline text-xs">Salin</button>
+          </div>
+          <div class="bg-dark-900 p-2.5 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block font-sans">MCP ENDPOINT URL (CONTOH)</span>
+              <span class="text-blue-300">${origin}/mcp/<span id="aiModalServerExample">dokploy</span></span>
+            </div>
+            <button onclick="copyText('${origin}/mcp/dokploy')" class="text-blue-400 hover:underline text-xs">Salin</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Claude Desktop -->
+      <div id="modalContentClaude" class="space-y-3 text-xs hidden">
+        <p class="text-slate-300">
+          Buka file konfigurasi <code>claude_desktop_config.json</code> Anda dan tempel blok berikut:
+        </p>
+        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 font-mono text-[11px] space-y-2">
+          <div class="flex items-center justify-between text-slate-400 font-sans">
+            <span>JSON Konfigurasi:</span>
+            <button onclick="copyModalClaudeConfig()" class="text-blue-400 hover:underline text-xs">Salin JSON</button>
+          </div>
+          <pre id="modalClaudeJson" class="text-slate-300 overflow-x-auto whitespace-pre">{
+  "mcpServers": {
+    "dokploy": {
+      "url": "${origin}/mcp/dokploy",
+      "headers": {
+        "Authorization": "Bearer &lt;BUAT_TOKEN_AKSES_DI_BAWAH&gt;"
+      }
+    }
+  }
+}</pre>
+        </div>
+        <div class="bg-purple-950/40 border border-purple-800/40 p-3 rounded-xl flex items-center justify-between gap-3">
+          <span class="text-purple-200 text-[11px]">Claude Desktop memerlukan Bearer Token aktif (tanpa browser flow).</span>
+          <button onclick="openGenerateTokenFromModal()" class="shrink-0 bg-purple-600 hover:bg-purple-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition">
+            + Buat Token Sekarang
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content: OpenAI / ChatGPT -->
+      <div id="modalContentChatgpt" class="space-y-3 text-xs hidden">
+        <p class="text-slate-300">
+          Di OpenAI Custom GPT Actions, atur autentikasi ke <strong>OAuth</strong>:
+        </p>
+        <div class="space-y-2 font-mono">
+          <div class="bg-dark-900 p-2.5 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block font-sans">AUTHORIZATION URL</span>
+              <span class="text-slate-200">${origin}/oauth/authorize</span>
+            </div>
+            <button onclick="copyText('${origin}/oauth/authorize')" class="text-blue-400 hover:underline text-xs">Salin</button>
+          </div>
+          <div class="bg-dark-900 p-2.5 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block font-sans">TOKEN URL</span>
+              <span class="text-slate-200">${origin}/oauth/token</span>
+            </div>
+            <button onclick="copyText('${origin}/oauth/token')" class="text-blue-400 hover:underline text-xs">Salin</button>
+          </div>
+          <div class="bg-dark-900 p-2.5 rounded-xl border border-dark-700">
+            <span class="text-[10px] text-slate-500 block font-sans">TOKEN EXCHANGE METHOD</span>
+            <span class="text-slate-200">Basic authorization header (atau Default POST)</span>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-400">
+          Redirect URI OpenAI (<code>chatgpt.com</code> & <code>openai.com</code>) sudah otomatis diizinkan oleh gateway.
+        </p>
+      </div>
+
+      <!-- Tab Content: Cursor -->
+      <div id="modalContentCursor" class="space-y-3 text-xs hidden">
+        <p class="text-slate-300">
+          Di Cursor IDE (Settings &gt; Features &gt; MCP atau file <code>.cursor/mcp.json</code>):
+        </p>
+        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 font-mono text-[11px] space-y-2">
+          <div class="flex items-center justify-between text-slate-400 font-sans">
+            <span>Konfigurasi .cursor/mcp.json:</span>
+            <button onclick="copyModalCursorConfig()" class="text-blue-400 hover:underline text-xs">Salin JSON</button>
+          </div>
+          <pre id="modalCursorJson" class="text-slate-300 overflow-x-auto whitespace-pre">{
+  "mcpServers": {
+    "dokploy": {
+      "url": "${origin}/mcp/dokploy",
+      "headers": {
+        "Authorization": "Bearer &lt;TOKEN_AKSES&gt;"
+      }
+    }
+  }
+}</pre>
+        </div>
+        <div class="bg-purple-950/40 border border-purple-800/40 p-3 rounded-xl flex items-center justify-between gap-3">
+          <span class="text-purple-200 text-[11px]">Gunakan Bearer Token aktif untuk menghubungkan Cursor ke server MCP.</span>
+          <button onclick="openGenerateTokenFromModal()" class="shrink-0 bg-purple-600 hover:bg-purple-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition">
+            + Buat Token Cursor
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content: Generic -->
+      <div id="modalContentGeneric" class="space-y-3 text-xs hidden">
+        <p class="text-slate-300">
+          Format request langsung untuk integrasi agent, Open WebUI, LibreChat, atau script:
+        </p>
+        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 font-mono text-[11px] space-y-1">
+          <div class="text-slate-400 font-sans">Endpoint SSE:</div>
+          <div class="text-blue-300">${origin}/mcp/&lt;serverName&gt;</div>
+          <div class="text-slate-400 font-sans mt-2">HTTP Header:</div>
+          <div class="text-emerald-300">Authorization: Bearer &lt;TOKEN_AKSES&gt;</div>
+          <div class="text-emerald-300">Accept: text/event-stream</div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-dark-700">
+        <button onclick="closeAiGuide()" class="bg-dark-700 hover:bg-dark-600 text-white font-medium px-4 py-2 rounded-xl text-xs transition">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden backward-compatible element for legacy references -->
+  <div id="geminiModal" class="hidden"><span id="geminiClientId"></span><span id="geminiClientSecret"></span></div>
+
+  <!-- ── MODAL: GENERATE DIRECT ACCESS TOKEN ── -->
+  <div id="generateTokenModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-800 border border-dark-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold text-white flex items-center gap-2">
+          <span>🔑</span> Buat Token Akses / API Key Langsung
+        </h3>
+        <button onclick="closeGenerateTokenModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
       </div>
 
       <p class="text-xs text-slate-300 leading-relaxed">
-        Salin parameter berikut ke kolom OAuth konfigurasi custom MCP app di Google Gemini:
+        Buat Access Token Bearer statis untuk klien AI yang tidak mendukung alur web redirect OAuth (seperti Claude Desktop, Cursor, Open WebUI, LibreChat, dll.)
       </p>
 
-      <div class="space-y-2.5 text-xs font-mono">
-        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
-          <div>
-            <span class="text-[10px] text-slate-500 block font-sans">CLIENT ID</span>
-            <span id="geminiClientId" class="text-slate-200">-</span>
-          </div>
-          <button onclick="copyElement('geminiClientId')" class="text-blue-400 hover:underline text-xs">Salin</button>
+      <form onsubmit="generateTokenSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Pilih Klien OAuth</label>
+          <select id="genTokenClientId" required class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono">
+            <option value="">Memuat klien...</option>
+          </select>
         </div>
-        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
-          <div>
-            <span class="text-[10px] text-slate-500 block font-sans">CLIENT SECRET</span>
-            <span id="geminiClientSecret" class="text-slate-200">-</span>
-          </div>
-          <button onclick="copyElement('geminiClientSecret')" class="text-blue-400 hover:underline text-xs">Salin</button>
-        </div>
-        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
-          <div>
-            <span class="text-[10px] text-slate-500 block font-sans">AUTHORIZATION URL</span>
-            <span class="text-slate-200">${origin}/oauth/authorize</span>
-          </div>
-          <button onclick="copyText('${origin}/oauth/authorize')" class="text-blue-400 hover:underline text-xs">Salin</button>
-        </div>
-        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
-          <div>
-            <span class="text-[10px] text-slate-500 block font-sans">TOKEN URL</span>
-            <span class="text-slate-200">${origin}/oauth/token</span>
-          </div>
-          <button onclick="copyText('${origin}/oauth/token')" class="text-blue-400 hover:underline text-xs">Salin</button>
-        </div>
-        <div class="bg-dark-900 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
-          <div>
-            <span class="text-[10px] text-slate-500 block font-sans">MCP ENDPOINT URL CONTOH</span>
-            <span class="text-blue-300">${origin}/mcp/<span id="geminiServerExample">dokploy</span></span>
-          </div>
-        </div>
-      </div>
 
-      <div class="flex justify-end pt-2">
-        <button onclick="document.getElementById('geminiModal').classList.add('hidden')" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-xs transition">
-          Tutup
-        </button>
+        <div>
+          <label class="block text-slate-400 mb-1">Masa Berlaku Token</label>
+          <select id="genTokenTtl" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+            <option value="30">30 Hari (Standar)</option>
+            <option value="90">90 Hari</option>
+            <option value="365">1 Tahun (365 Hari)</option>
+            <option value="0" selected>Permanen / 10 Tahun (Direkomendasikan untuk Claude Desktop & Cursor)</option>
+          </select>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-dark-700">
+          <button type="button" onclick="closeGenerateTokenModal()" class="px-4 py-2 rounded-xl text-slate-300 hover:bg-dark-700 transition">Batal</button>
+          <button type="submit" id="btnSubmitGenToken" class="bg-purple-600 hover:bg-purple-500 text-white font-medium px-4 py-2 rounded-xl transition shadow-md shadow-purple-600/30 flex items-center gap-1.5">
+            <span>⚡</span> Terbitkan Token
+          </button>
+        </div>
+      </form>
+
+      <!-- Token Result Box -->
+      <div id="genTokenResultBox" class="hidden space-y-3 pt-3 border-t border-dark-700 text-xs">
+        <div class="bg-emerald-950/40 border border-emerald-800/40 p-3 rounded-xl space-y-2">
+          <div class="flex items-center justify-between text-emerald-300 font-semibold">
+            <span>✓ Token Akses Berhasil Dibuat</span>
+            <span id="genTokenExpDisplay" class="text-[10px] font-normal text-emerald-400 font-mono"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="genTokenOutput" readonly class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white text-xs select-all">
+            <button onclick="copyElementValue('genTokenOutput')" class="shrink-0 bg-dark-700 hover:bg-dark-600 text-white px-3 py-2 rounded-xl">Salin</button>
+          </div>
+        </div>
+
+        <div class="bg-dark-900/90 p-3 rounded-xl border border-dark-700 space-y-2 font-mono text-[11px]">
+          <div class="flex items-center justify-between text-slate-400 font-sans">
+            <span>Snippet Siap Tempel untuk Claude Desktop:</span>
+            <button onclick="copyGeneratedClaudeJson()" class="text-blue-400 hover:underline text-xs">Salin</button>
+          </div>
+          <pre id="genClaudeSnippet" class="text-slate-300 overflow-x-auto whitespace-pre"></pre>
+        </div>
+
+        <div class="flex justify-end">
+          <button onclick="closeGenerateTokenModal()" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-xs transition">
+            Selesai
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -646,13 +969,16 @@ export function renderAdminPage(request: Request): Response {
     let isEditingClient = false;
     let cachedClients = [];
 
+    let toastTimeout = null;
+
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
       const content = document.getElementById('toastContent');
-      content.className = \`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl text-xs font-medium \${isError ? 'bg-red-900/90 text-red-200 border-red-700' : 'bg-emerald-900/90 text-emerald-200 border-emerald-700'}\`;
+      content.className = \`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl text-xs font-medium \${isError ? 'bg-red-900/95 text-red-200 border-red-700 shadow-red-950/60' : 'bg-emerald-900/95 text-emerald-200 border-emerald-700 shadow-emerald-950/60'}\`;
       content.innerHTML = \`<span>\${isError ? '✗' : '✓'}</span><span>\${msg}</span>\`;
       toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-      setTimeout(() => {
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
         toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
       }, 3500);
     }
@@ -941,7 +1267,7 @@ export function renderAdminPage(request: Request): Response {
         cachedClients.map(c => \`<option value="\${c.id}" \${c.id === currentSelected ? 'selected' : ''}>\${c.name} (\${c.id})</option>\`).join('');
 
       if (!data || !data.clients || data.clients.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada klien OAuth. Tambahkan klien untuk Gemini.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada klien OAuth. Tambahkan klien untuk AI Anda (Claude, Cursor, Gemini, ChatGPT, dll.).</td></tr>';
         return;
       }
 
@@ -969,9 +1295,11 @@ export function renderAdminPage(request: Request): Response {
               </span>
             </td>
             <td class="py-3 px-4 text-right space-x-2">
-              <button onclick="revokeClientTokens('\${c.id}')" class="text-amber-400 hover:underline font-medium" title="Cabut seluruh token aktif klien ini">Cabut Sesi</button>
-              <button onclick="showGeminiGuide('\${c.id}', '\${c.secret}')" class="text-emerald-400 hover:underline">Panduan Gemini</button>
-              <button onclick="regenerateSecret('\${c.id}')" class="text-slate-400 hover:text-white hover:underline">Acak Ulang</button>
+              <button onclick="openGenerateTokenModal('\${c.id}')" class="text-purple-400 hover:underline font-medium" title="Buat Token Akses / API Key">+ Token</button>
+              <button onclick="showAiGuide('\${c.id}', '\${c.secret}')" class="text-emerald-400 hover:underline">Panduan AI</button>
+              <button onclick="revokeClientTokens('\${c.id}')" class="text-amber-400 hover:underline" title="Cabut seluruh token aktif klien ini">Cabut Sesi</button>
+              <button onclick="openClientModal(cachedClients.find(x => x.id === '\${c.id}'))" class="text-blue-400 hover:underline">Edit</button>
+              <button onclick="regenerateSecret('\${c.id}')" class="text-slate-400 hover:text-white hover:underline">Acak Secret</button>
               <button onclick="deleteClient('\${c.id}')" class="text-red-400 hover:underline">Hapus</button>
             </td>
           </tr>
@@ -987,7 +1315,7 @@ export function renderAdminPage(request: Request): Response {
     }
 
     async function revokeClientTokens(id) {
-      if (!confirm(\`Cabut seluruh token dan sesi aktif untuk klien "\${id}"? Sesi Gemini akan logout.\`)) return;
+      if (!confirm(\`Cabut seluruh token dan sesi aktif untuk klien "\${id}"? Sesi AI yang terhubung akan terputus.\`)) return;
       await api(\`/clients/\${id}/tokens\`, { method: 'DELETE' });
       showToast(\`Seluruh sesi klien "\${id}" berhasil dicabut!\`);
       loadClients();
@@ -1050,7 +1378,7 @@ export function renderAdminPage(request: Request): Response {
     }
 
     async function regenerateSecret(id) {
-      if (!confirm('Acak ulang secret klien ini? Klien yang terhubung (seperti Gemini) harus diperbarui dengan secret baru.')) return;
+      if (!confirm('Acak ulang secret klien ini? Klien AI yang terhubung harus diperbarui dengan secret baru.')) return;
       const res = await api(\`/clients/\${id}/regenerate-secret\`, { method: 'POST' });
       showToast('Secret baru berhasil di-generate!');
       loadClients();
@@ -1064,10 +1392,155 @@ export function renderAdminPage(request: Request): Response {
       loadOverview();
     }
 
-    function showGeminiGuide(id, secret) {
+    let currentGuideClientId = '';
+    let currentGuideClientSecret = '';
+
+    function showAiGuide(id, secret) {
+      currentGuideClientId = id;
+      currentGuideClientSecret = secret;
+      document.getElementById('aiModalClientId').innerText = id;
+      document.getElementById('aiModalClientSecret').innerText = secret;
       document.getElementById('geminiClientId').innerText = id;
       document.getElementById('geminiClientSecret').innerText = secret;
-      document.getElementById('geminiModal').classList.remove('hidden');
+      switchAiModalTab('gemini');
+      document.getElementById('aiModal').classList.remove('hidden');
+    }
+    const showGeminiGuide = showAiGuide;
+
+    function closeAiGuide() {
+      document.getElementById('aiModal').classList.add('hidden');
+    }
+
+    function switchOverviewGuide(platform) {
+      const platforms = ['gemini', 'claude', 'chatgpt', 'cursor', 'generic'];
+      platforms.forEach(p => {
+        const btn = document.getElementById('btnGuide' + p.charAt(0).toUpperCase() + p.slice(1));
+        const panel = document.getElementById('guidePanel' + p.charAt(0).toUpperCase() + p.slice(1));
+        if (p === platform) {
+          if (btn) btn.className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition flex items-center gap-1.5';
+          if (panel) panel.classList.remove('hidden');
+        } else {
+          if (btn) btn.className = 'px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5';
+          if (panel) panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function switchAiModalTab(platform) {
+      const platforms = ['gemini', 'claude', 'chatgpt', 'cursor', 'generic'];
+      platforms.forEach(p => {
+        const btn = document.getElementById('modalTab' + p.charAt(0).toUpperCase() + p.slice(1));
+        const panel = document.getElementById('modalContent' + p.charAt(0).toUpperCase() + p.slice(1));
+        if (p === platform) {
+          if (btn) btn.className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium flex items-center gap-1.5';
+          if (panel) panel.classList.remove('hidden');
+        } else {
+          if (btn) btn.className = 'px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5';
+          if (panel) panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function openGenerateTokenModal(preselectClientId = '') {
+      const select = document.getElementById('genTokenClientId');
+      if (!cachedClients || cachedClients.length === 0) {
+        select.innerHTML = '<option value="">Tidak ada klien aktif</option>';
+      } else {
+        select.innerHTML = cachedClients.map(c =>
+          \`<option value="\${c.id}" \${c.id === preselectClientId ? 'selected' : ''}>\${c.name} (\${c.id})</option>\`
+        ).join('');
+      }
+      document.getElementById('genTokenResultBox').classList.add('hidden');
+      document.getElementById('btnSubmitGenToken').disabled = false;
+      document.getElementById('generateTokenModal').classList.remove('hidden');
+    }
+
+    function closeGenerateTokenModal() {
+      document.getElementById('generateTokenModal').classList.add('hidden');
+    }
+
+    function openGenerateTokenFromModal() {
+      closeAiGuide();
+      openGenerateTokenModal(currentGuideClientId);
+    }
+
+    async function generateTokenSubmit(e) {
+      e.preventDefault();
+      const clientId = document.getElementById('genTokenClientId').value;
+      const ttlDays = document.getElementById('genTokenTtl').value;
+      if (!clientId) {
+        showToast('Pilih klien terlebih dahulu', true);
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitGenToken');
+      btn.disabled = true;
+      try {
+        const res = await api('/tokens/generate', {
+          method: 'POST',
+          body: JSON.stringify({ clientId, ttlDays: Number(ttlDays) })
+        });
+
+        if (res.ok && res.token) {
+          showToast('Token akses berhasil diterbitkan!');
+          document.getElementById('genTokenOutput').value = res.token;
+          const expDate = new Date(res.expiresAt).toLocaleDateString();
+          document.getElementById('genTokenExpDisplay').innerText = 'Kedaluwarsa: ' + expDate;
+
+          const origin = window.location.origin;
+          const claudeJson = JSON.stringify({
+            mcpServers: {
+              dokploy: {
+                url: origin + '/mcp/dokploy',
+                headers: {
+                  Authorization: 'Bearer ' + res.token
+                }
+              }
+            }
+          }, null, 2);
+          document.getElementById('genClaudeSnippet').innerText = claudeJson;
+          document.getElementById('genTokenResultBox').classList.remove('hidden');
+
+          if (currentTab === 'tokens') loadTokens();
+          loadOverview();
+        } else {
+          showToast(res.error || 'Gagal membuat token', true);
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showToast(err.message, true);
+        btn.disabled = false;
+      }
+    }
+
+    function copyElementValue(id) {
+      const val = document.getElementById(id).value;
+      copyText(val);
+    }
+
+    function copyGeneratedClaudeJson() {
+      const txt = document.getElementById('genClaudeSnippet').innerText;
+      copyText(txt);
+    }
+
+    function copyClaudeConfig() {
+      const txt = document.getElementById('claudeConfigSnippet').innerText;
+      copyText(txt);
+    }
+
+    function copyCursorConfig() {
+      const txt = document.getElementById('cursorConfigSnippet').innerText;
+      copyText(txt);
+    }
+
+    function copyModalClaudeConfig() {
+      const txt = document.getElementById('modalClaudeJson').innerText;
+      copyText(txt);
+    }
+
+    function copyModalCursorConfig() {
+      const txt = document.getElementById('modalCursorJson').innerText;
+      copyText(txt);
     }
 
     // ── Tokens & Sessions ──

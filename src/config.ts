@@ -12,7 +12,10 @@ export const ADMIN_SESSION_TTL_MS = 7 * 24 * 3600 * 1000; // 7 hari
 
 export const LOG_SSE_CHUNKS = (process.env.LOG_SSE_CHUNKS ?? "true") !== "false";
 
-export const ALLOWED_REDIRECT_HOSTS = (process.env.ALLOWED_REDIRECT_HOSTS ?? "google.com,oauth-redirect.googleusercontent.com")
+export const DEFAULT_ALLOWED_REDIRECT_HOSTS =
+  "google.com,oauth-redirect.googleusercontent.com,chatgpt.com,openai.com,claude.ai,anthropic.com,cursor.com,localhost,127.0.0.1";
+
+export const ALLOWED_REDIRECT_HOSTS = (process.env.ALLOWED_REDIRECT_HOSTS ?? DEFAULT_ALLOWED_REDIRECT_HOSTS)
   .split(",")
   .map((h) => h.trim().toLowerCase())
   .filter(Boolean);
