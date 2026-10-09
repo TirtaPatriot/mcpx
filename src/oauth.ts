@@ -1,0 +1,352 @@
+import { createHash } from "node:crypto";
+import {
+  ALLOWED_REDIRECT_HOSTS,
+  DEFAULT_REDIRECT_URI,
+  ACCESS_TOKEN_TTL_MS,
+  REFRESH_TOKEN_TTL_MS,
+  REFRESH_GRACE_PERIOD_MS,
+  AUTH_CODE_TTL_MS,
+} from "./config";
+import {
+  getOAuthClient,
+  stmtInsertAuthCode,
+  stmtGetAuthCode,
+  stmtDeleteAuthCode,
+  stmtInsertAccessToken,
+  stmtInsertRefreshToken,
+  stmtGetRefreshToken,
+  stmtRevokeRefreshToken,
+  addActivityLog,
+} from "./db";
+import { getCachedServer } from "./proxy";
+import {
+  log,
+  metaOf,
+  safeEqual,
+  str,
+  asRecord,
+  esc,
+  publicOrigin,
+  safeDecode,
+  newSecret,
+} from "./utils";
+
+const noStore = { "Cache-Control": "no-store", Pragma: "no-cache" };
+
+const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
+  Response.json(data, { status, headers: { ...noStore, ...headers } });
+
+const oauthError = (error: string, description: string, status = 400, headers: Record<string, string> = {}) =>
+  json({ error, error_description: description }, status, headers);
+
+const metadataHeaders = { "Access-Control-Allow-Origin": "*" };
+
+export function oauthProtectedResource({ request }: { request: Request }): Response {
+  const { id } = metaOf(request);
+  const origin = publicOrigin(request);
+  const suffix = new URL(request.url).pathname.slice("/.well-known/oauth-protected-resource".length);
+
+  if (suffix) {
+    const serverName = suffix.match(/^\/mcp\/([^/]+)/)?.[1];
+    if (!serverName || !getCachedServer(safeDecode(serverName))) {
+      log(id, `✗ 404 resource metadata untuk server tidak dikenal: ${suffix}`);
+      return json({ error: "not_found" }, 404, metadataHeaders);
+    }
+  }
+  log(id, `• discovery: protected resource ${origin}${suffix}`);
+  return json(
+    { resource: `${origin}${suffix}`, authorization_servers: [origin], bearer_methods_supported: ["header"] },
+    200,
+    metadataHeaders,
+  );
+}
+
+export function oauthServerMetadata({ request }: { request: Request }): Response {
+  const { id } = metaOf(request);
+  const origin = publicOrigin(request);
+  log(id, `• discovery: authorization server metadata issuer=${origin}`);
+  return json(
+    {
+      issuer: origin,
+      authorization_endpoint: `${origin}/oauth/authorize`,
+      token_endpoint: `${origin}/oauth/token`,
+      response_types_supported: ["code"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
+      code_challenge_methods_supported: ["S256"],
+      token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
+    },
+    200,
+    metadataHeaders,
+  );
+}
+
+function clientCredentials(request: Request, body: Record<string, unknown>) {
+  const auth = request.headers.get("authorization");
+  if (auth?.toLowerCase().startsWith("basic ")) {
+    const decoded = Buffer.from(auth.slice(6).trim(), "base64").toString("utf8");
+    const sep = decoded.indexOf(":");
+    if (sep >= 0) {
+      return {
+        id: safeDecode(decoded.slice(0, sep)),
+        secret: safeDecode(decoded.slice(sep + 1)),
+        via: "basic" as const,
+      };
+    }
+  }
+  const id = str(body.client_id);
+  const secret = str(body.client_secret);
+  return id && secret ? { id, secret, via: "body" as const } : null;
+}
+
+function parseRedirectUri(raw: string, clientRedirectsRaw?: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return null;
+  const host = url.hostname.toLowerCase();
+
+  // Daftar host yang diizinkan (gabungan host sistem + host spesifik client jika ada)
+  const allowedList = [...ALLOWED_REDIRECT_HOSTS];
+  if (clientRedirectsRaw) {
+    const customList = clientRedirectsRaw
+      .split(",")
+      .map((item) => {
+        try {
+          const u = new URL(item.trim());
+          return u.hostname.toLowerCase();
+        } catch {
+          return item.trim().toLowerCase();
+        }
+      })
+      .filter(Boolean);
+    allowedList.push(...customList);
+  }
+
+  const allowed = allowedList.some((h) => host === h || host.endsWith(`.${h}`));
+  return allowed ? url : null;
+}
+
+function verifyPkce(verifier: string | undefined, challenge: string): boolean {
+  if (!verifier) return false;
+  const computed = createHash("sha256").update(verifier).digest("base64url");
+  return safeEqual(computed, challenge);
+}
+
+export interface AuthorizeParams {
+  clientId: string;
+  clientName: string;
+  redirectUri: URL;
+  redirectUriRaw?: string;
+  state?: string;
+  scope?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
+}
+
+export function parseAuthorizeParams(get: (key: string) => string | undefined): AuthorizeParams | string {
+  if (get("response_type") !== "code") return "response_type harus 'code'";
+  const clientId = get("client_id");
+  if (!clientId) return "client_id tidak diberikan";
+
+  const client = getOAuthClient(clientId);
+  if (!client) return `client_id "${clientId}" tidak terdaftar di database`;
+  if (client.enabled !== 1) return `client_id "${clientId}" sedang dinonaktifkan oleh administrator`;
+
+  const rawRedirect = get("redirect_uri");
+  const redirectUri = parseRedirectUri(rawRedirect ?? DEFAULT_REDIRECT_URI, client.redirect_uris);
+  if (!redirectUri) {
+    return `redirect_uri tidak diizinkan (harus https dan di whitelist: ${ALLOWED_REDIRECT_HOSTS.join(", ")})`;
+  }
+
+  const codeChallenge = get("code_challenge");
+  const codeChallengeMethod = get("code_challenge_method");
+  if (codeChallenge && codeChallengeMethod !== "S256") return "code_challenge_method harus 'S256'";
+
+  return {
+    clientId,
+    clientName: client.name,
+    redirectUri,
+    redirectUriRaw: rawRedirect,
+    state: get("state"),
+    scope: get("scope"),
+    codeChallenge,
+    codeChallengeMethod,
+  };
+}
+
+const htmlHeaders = { "Content-Type": "text/html; charset=utf-8", "X-Frame-Options": "DENY", ...noStore };
+
+const PAGE_STYLE = `
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; background: #0f172a; color: #f8fafc; }
+  .card { max-width: 28rem; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 28px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); }
+  .logo { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #3b82f6; border-radius: 12px; margin-bottom: 16px; color: #fff; font-size: 24px; font-weight: bold; }
+  h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 8px; color: #f8fafc; }
+  p { margin: 0 0 16px; color: #94a3b8; font-size: 0.95rem; }
+  .info-box { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 14px; margin-bottom: 20px; font-size: 0.88rem; }
+  .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .info-row:last-child { margin-bottom: 0; }
+  .info-label { color: #64748b; }
+  .info-value { color: #cbd5e1; font-family: monospace; font-size: 0.85rem; word-break: break-all; }
+  .row { display: flex; gap: 12px; margin-top: 24px; }
+  button { font: inherit; font-weight: 500; font-size: 0.95rem; padding: 10px 18px; border-radius: 10px; border: 1px solid #475569; background: #334155; color: #f8fafc; cursor: pointer; transition: all 0.15s ease; }
+  button:hover { background: #475569; }
+  button.primary { background: #2563eb; border-color: #2563eb; color: #fff; flex: 1; font-weight: 600; }
+  button.primary:hover { background: #1d4ed8; }
+`;
+
+export const page = (title: string, body: string, status = 200) =>
+  new Response(
+    `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${PAGE_STYLE}</style></head><body><div class="card">${body}</div></body></html>`,
+    { status, headers: htmlHeaders },
+  );
+
+export function consentPage(p: AuthorizeParams) {
+  const hidden: Record<string, string | undefined> = {
+    response_type: "code",
+    client_id: p.clientId,
+    redirect_uri: p.redirectUriRaw,
+    state: p.state,
+    scope: p.scope,
+    code_challenge: p.codeChallenge,
+    code_challenge_method: p.codeChallengeMethod,
+  };
+  const inputs = Object.entries(hidden)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `<input type="hidden" name="${k}" value="${esc(v!)}">`)
+    .join("");
+
+  return page(
+    "Izinkan Akses MCP Gateway",
+    `<div class="logo">🔐</div>
+     <h1>Izinkan Akses ke Server MCP?</h1>
+     <p>Aplikasi klien berikut meminta izin untuk berinteraksi dengan server Model Context Protocol (MCP) Anda.</p>
+     <div class="info-box">
+       <div class="info-row"><span class="info-label">Aplikasi:</span><span class="info-value"><strong>${esc(p.clientName)}</strong></span></div>
+       <div class="info-row"><span class="info-label">Client ID:</span><span class="info-value">${esc(p.clientId)}</span></div>
+       <div class="info-row"><span class="info-label">Redirect ke:</span><span class="info-value">${esc(p.redirectUri.origin)}</span></div>
+       ${p.scope ? `<div class="info-row"><span class="info-label">Scope:</span><span class="info-value">${esc(p.scope)}</span></div>` : ""}
+     </div>
+     <form method="post" action="/oauth/authorize">${inputs}
+       <div class="row">
+         <button type="submit" name="decision" value="deny">Tolak</button>
+         <button type="submit" name="decision" value="allow" class="primary">Izinkan Akses</button>
+       </div>
+     </form>`,
+  );
+}
+
+export const redirectTo = (url: URL) =>
+  new Response(null, { status: 303, headers: { Location: url.toString(), ...noStore } });
+
+export async function handleTokenExchange({ request, body }: { request: Request; body: unknown }): Promise<Response> {
+  const { id, startedAt } = metaOf(request);
+  const form = asRecord(body);
+  const creds = clientCredentials(request, form);
+  const grantType = str(form.grant_type);
+
+  log(
+    id,
+    `• token: grant_type=${grantType ?? "-"} client_auth=${creds?.via ?? "tidak ada"} client_id=${creds?.id ?? "-"} ` +
+      `redirect_uri=${str(form.redirect_uri) ?? "-"} code_verifier=${form.code_verifier ? "ada" : "tidak ada"}`,
+  );
+
+  let clientId = creds?.id;
+  if (!clientId && grantType === "refresh_token" && form.refresh_token) {
+    const rec = stmtGetRefreshToken.get(String(form.refresh_token));
+    if (rec) clientId = rec.client_id;
+  }
+
+  if (!clientId) {
+    log(id, `✗ token: client_id tidak ditemukan`);
+    return oauthError("invalid_client", "client_id tidak diberikan", 401);
+  }
+
+  const client = getOAuthClient(clientId);
+  if (!client) {
+    log(id, `✗ token: client "${clientId}" tidak ditemukan di database`);
+    return oauthError("invalid_client", "client_id tidak terdaftar", 401);
+  }
+  if (client.enabled !== 1) {
+    log(id, `✗ token: client "${clientId}" sedang dinonaktifkan`);
+    return oauthError("invalid_client", "client_id dinonaktifkan oleh administrator", 401);
+  }
+
+  const secretProvided = !!creds?.secret;
+  const secretOk = secretProvided && safeEqual(creds.secret!, client.secret);
+
+  if ((grantType === "authorization_code" && !secretOk) || (secretProvided && !secretOk)) {
+    log(id, `✗ token: client secret tidak valid untuk ${clientId}`);
+    return oauthError("invalid_client", "client_secret salah", 401, {
+      "WWW-Authenticate": 'Basic realm="oauth"',
+    });
+  }
+
+  if (grantType === "authorization_code") {
+    const code = str(form.code);
+    const record = code ? stmtGetAuthCode.get(code) : undefined;
+    if (code) stmtDeleteAuthCode.run(code);
+
+    const fail = (why: string) => {
+      log(id, `✗ token: ${why}`);
+      addActivityLog(id, "POST", "/oauth/token", 400, performance.now() - startedAt, undefined, why);
+      return oauthError("invalid_grant", why);
+    };
+
+    if (!record) return fail("code tidak ditemukan atau sudah dipakai");
+    if (record.expires_at <= Date.now()) return fail("code kedaluwarsa");
+    if (record.client_id !== clientId) return fail("code milik client lain");
+
+    const redirectUri = str(form.redirect_uri);
+    if (record.redirect_uri !== null && redirectUri !== record.redirect_uri) {
+      return fail(`redirect_uri tidak cocok (authorize=${record.redirect_uri} token=${redirectUri ?? "tidak dikirim"})`);
+    }
+    if (record.code_challenge && !verifyPkce(str(form.code_verifier), record.code_challenge)) {
+      return fail("code_verifier (PKCE) tidak valid");
+    }
+  } else if (grantType === "refresh_token") {
+    const refresh = str(form.refresh_token);
+    const fail = (why: string) => {
+      log(id, `✗ token: ${why}`);
+      addActivityLog(id, "POST", "/oauth/token", 400, performance.now() - startedAt, undefined, why);
+      return oauthError("invalid_grant", why);
+    };
+
+    if (!refresh) return fail("refresh_token tidak dikirim");
+    const record = stmtGetRefreshToken.get(refresh);
+    if (!record) return fail("refresh_token tidak ditemukan atau kedaluwarsa");
+    if (record.expires_at <= Date.now()) return fail("refresh_token kedaluwarsa");
+    if (record.client_id !== clientId) return fail("refresh_token milik client lain");
+
+    if (record.revoked_at !== null) {
+      if (Date.now() - record.revoked_at > REFRESH_GRACE_PERIOD_MS) {
+        return fail("refresh_token sudah dipakai dan melewati batas grace period");
+      }
+      log(id, "⚠ token: refresh_token digunakan kembali dalam grace period (race condition / network retry)");
+    } else {
+      stmtRevokeRefreshToken.run(Date.now(), refresh);
+    }
+  } else {
+    log(id, `✗ token: grant_type tidak didukung (${grantType ?? "kosong"})`);
+    return oauthError("unsupported_grant_type", "gunakan authorization_code atau refresh_token");
+  }
+
+  const now = Date.now();
+  const accessToken = newSecret();
+  const refreshToken = newSecret();
+  stmtInsertAccessToken.run(accessToken, clientId, now + ACCESS_TOKEN_TTL_MS, now);
+  stmtInsertRefreshToken.run(refreshToken, clientId, now + REFRESH_TOKEN_TTL_MS, now);
+
+  log(id, `✓ token: ${grantType} → access_token diterbitkan untuk client ${clientId}`);
+  addActivityLog(id, "POST", "/oauth/token", 200, performance.now() - startedAt, undefined, `Token issued for ${clientId}`);
+
+  return json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: ACCESS_TOKEN_TTL_MS / 1000,
+    refresh_token: refreshToken,
+  });
+}

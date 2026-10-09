@@ -42,3 +42,10 @@ package-lock.json
 **/*.bun
 # secrets
 .env
+
+# database
+data/
+*.db
+*.db-wal
+*.db-shm
+

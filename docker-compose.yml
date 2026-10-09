@@ -5,17 +5,26 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
+    volumes:
+      - ./data:/app/data
     environment:
       PORT: "3000"
-      CLIENT_ID: ${CLIENT_ID:?CLIENT_ID wajib di-set (lihat .env.example)}
-      CLIENT_SECRET: ${CLIENT_SECRET:?CLIENT_SECRET wajib di-set (lihat .env.example)}
-      # JSON sebaris: {"nama":"http://host.docker.internal:PORT"}
-      MCP_SERVERS: ${MCP_SERVERS:?MCP_SERVERS wajib di-set (lihat .env.example)}
+      DB_PATH: ${DB_PATH:-/app/data/tokens.db}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      # Opsional: Jika diisi, otomatis di-seed ke database SQLite pada awal start
+      CLIENT_ID: ${CLIENT_ID:-}
+      CLIENT_SECRET: ${CLIENT_SECRET:-}
+      MCP_SERVERS: ${MCP_SERVERS:-}
       # URL publik gateway (https, origin saja) untuk OAuth discovery; kosong = ikut header Host/X-Forwarded-*
       PUBLIC_URL: ${PUBLIC_URL:-}
       # Host tujuan redirect (subdomain ikut diizinkan), dipisah koma
       ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com,oauth-redirect.googleusercontent.com}
-      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-3600}
+      # Default 30 hari (2592000s) untuk access token
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-2592000}
+      # Default 1 tahun (31536000s) untuk refresh token
+      REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-31536000}
+      # Grace period 60 detik untuk rotasi refresh token
+      REFRESH_GRACE_PERIOD: ${REFRESH_GRACE_PERIOD:-60}
       # true = log isi tiap chunk SSE (dipotong 200 karakter); false untuk mematikan
       LOG_SSE_CHUNKS: ${LOG_SSE_CHUNKS:-true}
     extra_hosts:

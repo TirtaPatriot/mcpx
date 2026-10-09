@@ -2,6 +2,12 @@ FROM oven/bun:alpine
 
 WORKDIR /app
 
+# Install nodejs & npm agar npx / npm tool MCP dapat dieksekusi di samping bunx
+RUN apk add --no-cache nodejs npm
+
+# Buat direktori data untuk persistensi SQLite dan beri izin ke user bun
+RUN mkdir -p /app/data && chown -R bun:bun /app/data
+
 # Layer dependensi dipisah agar cache tetap terpakai saat hanya src yang berubah
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
@@ -9,7 +15,8 @@ RUN bun install --frozen-lockfile --production
 COPY src ./src
 
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    DB_PATH=/app/data/tokens.db
 
 USER bun
 EXPOSE 3000
