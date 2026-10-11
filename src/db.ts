@@ -31,6 +31,7 @@ db.run(`
     env_vars TEXT DEFAULT '{}',
     enabled INTEGER NOT NULL DEFAULT 1,
     description TEXT DEFAULT '',
+    icon TEXT DEFAULT '',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -43,6 +44,7 @@ db.run(`
     secret TEXT NOT NULL,
     redirect_uris TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
+    icon TEXT DEFAULT '',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -132,7 +134,9 @@ try { db.run("ALTER TABLE mcp_servers ADD COLUMN server_type TEXT NOT NULL DEFAU
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN command TEXT DEFAULT '';"); } catch {}
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN args TEXT DEFAULT '';"); } catch {}
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN env_vars TEXT DEFAULT '{}';"); } catch {}
+try { db.run("ALTER TABLE mcp_servers ADD COLUMN icon TEXT DEFAULT '';"); } catch {}
 try { db.run("ALTER TABLE oauth_clients ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;"); } catch {}
+try { db.run("ALTER TABLE oauth_clients ADD COLUMN icon TEXT DEFAULT '';"); } catch {}
 try { db.run("ALTER TABLE admin_sessions ADD COLUMN user_id TEXT;"); } catch {}
 try { db.run("ALTER TABLE access_tokens ADD COLUMN user_id TEXT;"); } catch {}
 try { db.run("ALTER TABLE refresh_tokens ADD COLUMN user_id TEXT;"); } catch {}
@@ -153,6 +157,7 @@ export interface McpServerRow {
   env_vars: string;
   enabled: number;
   description: string;
+  icon?: string;
   created_at: number;
   updated_at: number;
 }
@@ -163,6 +168,7 @@ export interface OAuthClientRow {
   secret: string;
   redirect_uris: string;
   enabled: number;
+  icon?: string;
   created_at: number;
   updated_at: number;
 }
@@ -403,11 +409,11 @@ const stmtGetAllMcpServers = db.query<McpServerRow, []>(
 const stmtGetMcpServer = db.query<McpServerRow, [string]>(
   "SELECT * FROM mcp_servers WHERE id = ?",
 );
-const stmtInsertMcpServer = db.query<void, [string, string, string, string, string, string, string, string, number, string, number, number]>(
-  "INSERT INTO mcp_servers (id, name, url, headers, server_type, command, args, env_vars, enabled, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+const stmtInsertMcpServer = db.query<void, [string, string, string, string, string, string, string, string, number, string, string, number, number]>(
+  "INSERT INTO mcp_servers (id, name, url, headers, server_type, command, args, env_vars, enabled, description, icon, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 );
-const stmtUpdateMcpServer = db.query<void, [string, string, string, string, string, string, string, number, string, number, string]>(
-  "UPDATE mcp_servers SET name = ?, url = ?, headers = ?, server_type = ?, command = ?, args = ?, env_vars = ?, enabled = ?, description = ?, updated_at = ? WHERE id = ?",
+const stmtUpdateMcpServer = db.query<void, [string, string, string, string, string, string, string, number, string, string, number, string]>(
+  "UPDATE mcp_servers SET name = ?, url = ?, headers = ?, server_type = ?, command = ?, args = ?, env_vars = ?, enabled = ?, description = ?, icon = ?, updated_at = ? WHERE id = ?",
 );
 const stmtDeleteMcpServer = db.query<void, [string]>(
   "DELETE FROM mcp_servers WHERE id = ?",
@@ -435,6 +441,7 @@ export function saveMcpServer(server: {
   env_vars?: string;
   enabled?: boolean | number;
   description?: string;
+  icon?: string;
 }): void {
   const existing = getMcpServer(server.id);
   const now = Date.now();
@@ -446,6 +453,7 @@ export function saveMcpServer(server: {
   const argsStr = server.args ?? "";
   const envStr = server.env_vars ?? "{}";
   const desc = server.description ?? "";
+  const iconStr = server.icon !== undefined ? server.icon.trim() : (existing?.icon || "");
 
   if (existing) {
     stmtUpdateMcpServer.run(
@@ -458,6 +466,7 @@ export function saveMcpServer(server: {
       envStr,
       enabledNum,
       desc,
+      iconStr,
       now,
       server.id,
     );
@@ -473,6 +482,7 @@ export function saveMcpServer(server: {
       envStr,
       enabledNum,
       desc,
+      iconStr,
       now,
       now,
     );
@@ -498,11 +508,11 @@ const stmtGetAllOAuthClients = db.query<OAuthClientRow, []>(
 const stmtGetOAuthClient = db.query<OAuthClientRow, [string]>(
   "SELECT * FROM oauth_clients WHERE id = ?",
 );
-const stmtInsertOAuthClient = db.query<void, [string, string, string, string, number, number, number]>(
-  "INSERT INTO oauth_clients (id, name, secret, redirect_uris, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+const stmtInsertOAuthClient = db.query<void, [string, string, string, string, number, string, number, number]>(
+  "INSERT INTO oauth_clients (id, name, secret, redirect_uris, enabled, icon, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 );
-const stmtUpdateOAuthClient = db.query<void, [string, string, string, number, number, string]>(
-  "UPDATE oauth_clients SET name = ?, secret = ?, redirect_uris = ?, enabled = ?, updated_at = ? WHERE id = ?",
+const stmtUpdateOAuthClient = db.query<void, [string, string, string, number, string, number, string]>(
+  "UPDATE oauth_clients SET name = ?, secret = ?, redirect_uris = ?, enabled = ?, icon = ?, updated_at = ? WHERE id = ?",
 );
 const stmtDeleteOAuthClient = db.query<void, [string]>(
   "DELETE FROM oauth_clients WHERE id = ?",
@@ -522,16 +532,18 @@ export function saveOAuthClient(client: {
   secret: string;
   redirect_uris?: string;
   enabled?: boolean | number;
+  icon?: string;
 }): void {
   const existing = getOAuthClient(client.id);
   const now = Date.now();
   const redirectUris = client.redirect_uris ?? "";
   const enabledNum = client.enabled === false || client.enabled === 0 ? 0 : 1;
+  const iconStr = client.icon !== undefined ? client.icon.trim() : (existing?.icon || "");
 
   if (existing) {
-    stmtUpdateOAuthClient.run(client.name, client.secret, redirectUris, enabledNum, now, client.id);
+    stmtUpdateOAuthClient.run(client.name, client.secret, redirectUris, enabledNum, iconStr, now, client.id);
   } else {
-    stmtInsertOAuthClient.run(client.id, client.name, client.secret, redirectUris, enabledNum, now, now);
+    stmtInsertOAuthClient.run(client.id, client.name, client.secret, redirectUris, enabledNum, iconStr, now, now);
   }
 }
 

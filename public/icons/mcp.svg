@@ -1,0 +1,11 @@
+<svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mcpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="50%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="6" fill="url(#mcpGrad)" />
+  <path fill="#FFFFFF" d="M12 4.5l6.06 3.5v7L12 18.5 5.94 15V8L12 4.5zm0 2.31L7.69 9.3v5.4L12 16.69l4.31-2.49V9.3L12 6.81zM12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z" />
+</svg>

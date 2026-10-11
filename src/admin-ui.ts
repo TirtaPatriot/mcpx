@@ -18,6 +18,9 @@ export function renderAdminPage(request: Request): Response {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MCP Gateway — Dashboard Management</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon.png">
+  <link rel="apple-touch-icon" href="/logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -49,8 +52,8 @@ export function renderAdminPage(request: Request): Response {
   <header class="border-b border-dark-700 bg-dark-800/80 backdrop-blur sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
-          ⚡
+        <div class="w-10 h-10 rounded-xl bg-dark-700/80 border border-dark-600 flex items-center justify-center p-1.5 shadow-lg shadow-blue-500/10 shrink-0">
+          <img src="/logo.png" alt="MCP Gateway" class="w-full h-full object-contain">
         </div>
         <div>
           <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
@@ -196,20 +199,20 @@ export function renderAdminPage(request: Request): Response {
 
           <!-- Quick Platform Selector Pills -->
           <div class="flex flex-wrap gap-2 text-xs pt-1 border-t border-dark-700/60">
-            <button onclick="switchOverviewGuide('gemini')" id="btnGuideGemini" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition flex items-center gap-1.5">
-              <span>🤖</span> Google Gemini
+            <button onclick="switchOverviewGuide('gemini')" id="btnGuideGemini" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition flex items-center gap-2">
+              <img src="/icons/gemini.svg" class="w-4 h-4 object-contain"> Google Gemini
             </button>
-            <button onclick="switchOverviewGuide('claude')" id="btnGuideClaude" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
-              <span>🟣</span> Claude Desktop / Code
+            <button onclick="switchOverviewGuide('claude')" id="btnGuideClaude" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-2">
+              <img src="/icons/claude.svg" class="w-4 h-4 object-contain"> Claude Desktop / Code
             </button>
-            <button onclick="switchOverviewGuide('chatgpt')" id="btnGuideChatgpt" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
-              <span>🟢</span> OpenAI / ChatGPT
+            <button onclick="switchOverviewGuide('chatgpt')" id="btnGuideChatgpt" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-2">
+              <img src="/icons/chatgpt.svg" class="w-4 h-4 object-contain"> OpenAI / ChatGPT
             </button>
-            <button onclick="switchOverviewGuide('cursor')" id="btnGuideCursor" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
-              <span>⚡</span> Cursor / Windsurf
+            <button onclick="switchOverviewGuide('cursor')" id="btnGuideCursor" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-2">
+              <img src="/icons/cursor.svg" class="w-4 h-4 object-contain"> Cursor / Windsurf
             </button>
-            <button onclick="switchOverviewGuide('generic')" id="btnGuideGeneric" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-1.5">
-              <span>🌐</span> Generic / SSE REST
+            <button onclick="switchOverviewGuide('generic')" id="btnGuideGeneric" class="px-3 py-1.5 rounded-lg bg-dark-800 text-slate-400 hover:text-white transition flex items-center gap-2">
+              <img src="/icons/universal.svg" class="w-4 h-4 object-contain"> Generic / SSE REST
             </button>
           </div>
 
@@ -645,6 +648,26 @@ export function renderAdminPage(request: Request): Response {
           <input type="text" id="srvName" required placeholder="Dokploy MCP Server" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
         </div>
 
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-slate-400">Logo / Icon (Preset atau URL gambar)</label>
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="setServerIconPreset('/icons/dokploy.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Dokploy</button>
+              <button type="button" onclick="setServerIconPreset('/icons/mssql.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">MSSQL</button>
+              <button type="button" onclick="setServerIconPreset('/icons/mikrotik.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">MikroTik</button>
+              <button type="button" onclick="setServerIconPreset('/icons/postgres.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">PostgreSQL</button>
+              <button type="button" onclick="setServerIconPreset('/icons/mcp.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">MCP</button>
+              <button type="button" onclick="setServerIconPreset('/icons/terminal.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">CLI</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="srvIcon" placeholder="/icons/dokploy.svg atau https://..." class="flex-1 bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500" oninput="updateSrvIconPreview()">
+            <div class="w-8 h-8 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-center shrink-0 p-1">
+              <img id="srvIconPreview" src="/icons/mcp.svg" class="w-full h-full object-contain" onerror="this.src='/icons/mcp.svg'">
+            </div>
+          </div>
+        </div>
+
         <!-- Tipe Server: HTTP vs Command -->
         <div>
           <label class="block text-slate-400 mb-1">Tipe Eksekusi</label>
@@ -735,6 +758,24 @@ export function renderAdminPage(request: Request): Response {
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
+            <label class="text-slate-400">Logo / Icon Klien (Preset atau URL gambar)</label>
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="setClientIconPreset('/icons/gemini.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Gemini</button>
+              <button type="button" onclick="setClientIconPreset('/icons/claude.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Claude</button>
+              <button type="button" onclick="setClientIconPreset('/icons/chatgpt.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">ChatGPT</button>
+              <button type="button" onclick="setClientIconPreset('/icons/cursor.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Cursor</button>
+              <button type="button" onclick="setClientIconPreset('/icons/universal.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Universal</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="cliIcon" placeholder="/icons/gemini.svg atau https://..." class="flex-1 bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500" oninput="updateCliIconPreview()">
+            <div class="w-8 h-8 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-center shrink-0 p-1">
+              <img id="cliIconPreview" src="/icons/universal.svg" class="w-full h-full object-contain" onerror="this.src='/icons/universal.svg'">
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
             <label class="text-slate-400">Client Secret</label>
             <button type="button" onclick="generateClientSecret()" class="text-blue-400 hover:underline text-[11px]">Acak Secret Baru</button>
           </div>
@@ -788,19 +829,19 @@ export function renderAdminPage(request: Request): Response {
       <!-- Tabs Navigation in Modal -->
       <div class="flex flex-wrap gap-1.5 border-b border-dark-700 pb-2 text-xs">
         <button onclick="switchAiModalTab('gemini')" id="modalTabGemini" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium flex items-center gap-1.5">
-          <span>🤖</span> Gemini
+          <img src="/icons/gemini.svg" class="w-3.5 h-3.5 object-contain"> Gemini
         </button>
         <button onclick="switchAiModalTab('claude')" id="modalTabClaude" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
-          <span>🟣</span> Claude Desktop
+          <img src="/icons/claude.svg" class="w-3.5 h-3.5 object-contain"> Claude Desktop
         </button>
         <button onclick="switchAiModalTab('chatgpt')" id="modalTabChatgpt" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
-          <span>🟢</span> OpenAI / ChatGPT
+          <img src="/icons/chatgpt.svg" class="w-3.5 h-3.5 object-contain"> OpenAI / ChatGPT
         </button>
         <button onclick="switchAiModalTab('cursor')" id="modalTabCursor" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
-          <span>⚡</span> Cursor
+          <img src="/icons/cursor.svg" class="w-3.5 h-3.5 object-contain"> Cursor
         </button>
         <button onclick="switchAiModalTab('generic')" id="modalTabGeneric" class="px-3 py-1.5 rounded-lg bg-dark-900 text-slate-400 hover:text-white flex items-center gap-1.5">
-          <span>🌐</span> REST / SSE
+          <img src="/icons/universal.svg" class="w-3.5 h-3.5 object-contain"> REST / SSE
         </button>
       </div>
 
@@ -1217,6 +1258,17 @@ export function renderAdminPage(request: Request): Response {
       }
     }
 
+    function setServerIconPreset(val) {
+      document.getElementById('srvIcon').value = val;
+      updateSrvIconPreview();
+    }
+
+    function updateSrvIconPreview() {
+      const val = (document.getElementById('srvIcon')?.value || '').trim();
+      const el = document.getElementById('srvIconPreview');
+      if (el) el.src = val || '/icons/mcp.svg';
+    }
+
     async function loadServers() {
       const data = await api('/servers');
       const tbody = document.getElementById('serversTableBody');
@@ -1235,6 +1287,13 @@ export function renderAdminPage(request: Request): Response {
           ? \`<span class="text-purple-300 font-mono">\${s.command || 'bunx'} \${s.args || ''}</span>\`
           : \`<span class="text-slate-300 font-mono truncate block max-w-xs">\${s.url}</span>\`;
 
+        const defaultIcon = s.id.includes('dokploy') ? '/icons/dokploy.svg'
+          : s.id.includes('mssql') ? '/icons/mssql.svg'
+          : s.id.includes('mikrotik') ? '/icons/mikrotik.svg'
+          : s.id.includes('postgres') ? '/icons/postgres.svg'
+          : isCmd ? '/icons/terminal.svg' : '/icons/mcp.svg';
+        const iconSrc = s.icon || defaultIcon;
+
         return \`
           <tr class="hover:bg-dark-900/30 transition">
             <td class="py-3 px-4">
@@ -1244,9 +1303,16 @@ export function renderAdminPage(request: Request): Response {
             </td>
             <td class="py-3 px-4">\${typeBadge}</td>
             <td class="py-3 px-4">
-              <div class="font-medium text-white">\${s.name}</div>
-              <div class="text-[11px] font-mono text-blue-400">/mcp/\${s.id}/*</div>
-              \${s.description ? \`<div class="text-[11px] text-slate-400 mt-0.5">\${s.description}</div>\` : ''}
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-dark-700 border border-dark-600 flex items-center justify-center shrink-0 overflow-hidden p-1">
+                  <img src="\${iconSrc}" class="w-full h-full object-contain" onerror="this.src='/icons/mcp.svg'">
+                </div>
+                <div>
+                  <div class="font-medium text-white">\${s.name}</div>
+                  <div class="text-[11px] font-mono text-blue-400">/mcp/\${s.id}/*</div>
+                  \${s.description ? \`<div class="text-[11px] text-slate-400 mt-0.5">\${s.description}</div>\` : ''}
+                </div>
+              </div>
             </td>
             <td class="py-3 px-4">\${targetDisplay}</td>
             <td class="py-3 px-4" id="test-res-\${s.id}">
@@ -1316,6 +1382,8 @@ export function renderAdminPage(request: Request): Response {
       document.getElementById('srvId').value = s ? s.id : '';
       document.getElementById('srvId').disabled = !!s;
       document.getElementById('srvName').value = s ? s.name : '';
+      document.getElementById('srvIcon').value = s ? (s.icon || '') : '';
+      updateSrvIconPreview();
       document.getElementById('srvUrl').value = s ? s.url : '';
       document.getElementById('srvHeaders').value = s ? s.headers : '';
       document.getElementById('srvCommand').value = s ? (s.command || 'bunx') : 'bunx';
@@ -1351,6 +1419,7 @@ export function renderAdminPage(request: Request): Response {
         command: document.getElementById('srvCommand').value,
         args: document.getElementById('srvArgs').value,
         env_vars: document.getElementById('srvEnvVars').value,
+        icon: (document.getElementById('srvIcon')?.value || '').trim(),
         description: document.getElementById('srvDesc').value,
         enabled: document.getElementById('srvEnabled').checked,
       };
@@ -1375,6 +1444,17 @@ export function renderAdminPage(request: Request): Response {
     }
 
     // ── OAuth Clients (Multiple Credentials & Easy Revoke) ──
+    function setClientIconPreset(val) {
+      document.getElementById('cliIcon').value = val;
+      updateCliIconPreview();
+    }
+
+    function updateCliIconPreview() {
+      const val = (document.getElementById('cliIcon')?.value || '').trim();
+      const el = document.getElementById('cliIconPreview');
+      if (el) el.src = val || '/icons/universal.svg';
+    }
+
     async function loadClients() {
       const data = await api('/clients');
       const tbody = document.getElementById('clientsTableBody');
@@ -1393,6 +1473,13 @@ export function renderAdminPage(request: Request): Response {
 
       tbody.innerHTML = data.clients.map(c => {
         const tokensCount = (c.active_tokens?.access || 0) + (c.active_tokens?.refresh || 0);
+        const defaultIcon = (c.id.includes('gemini') || (c.redirect_uris && c.redirect_uris.includes('google'))) ? '/icons/gemini.svg'
+          : c.id.includes('claude') ? '/icons/claude.svg'
+          : (c.id.includes('chatgpt') || c.id.includes('openai')) ? '/icons/chatgpt.svg'
+          : (c.id.includes('cursor') || c.id.includes('windsurf')) ? '/icons/cursor.svg'
+          : '/icons/universal.svg';
+        const clientIcon = c.icon || defaultIcon;
+
         return \`
           <tr class="hover:bg-dark-900/30 transition">
             <td class="py-3 px-4">
@@ -1400,7 +1487,14 @@ export function renderAdminPage(request: Request): Response {
                 \${c.enabled ? '● Aktif' : '○ Nonaktif'}
               </button>
             </td>
-            <td class="py-3 px-4 font-mono font-medium text-blue-400">\${c.id}</td>
+            <td class="py-3 px-4 font-mono font-medium text-blue-400">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-dark-700 border border-dark-600 flex items-center justify-center shrink-0 overflow-hidden p-1">
+                  <img src="\${clientIcon}" class="w-full h-full object-contain" onerror="this.src='/icons/universal.svg'">
+                </div>
+                <span>\${c.id}</span>
+              </div>
+            </td>
             <td class="py-3 px-4 font-medium text-white">\${c.name}</td>
             <td class="py-3 px-4 font-mono">
               <div class="flex items-center gap-1.5">
@@ -1455,6 +1549,8 @@ export function renderAdminPage(request: Request): Response {
       document.getElementById('cliId').value = c ? c.id : '';
       document.getElementById('cliId').disabled = !!c;
       document.getElementById('cliName').value = c ? c.name : '';
+      document.getElementById('cliIcon').value = c ? (c.icon || '') : '';
+      updateCliIconPreview();
       document.getElementById('cliSecret').value = c ? c.secret : generateRandomString(32);
       document.getElementById('cliRedirects').value = c ? c.redirect_uris : '';
       document.getElementById('cliEnabled').checked = c ? c.enabled : true;
@@ -1483,6 +1579,7 @@ export function renderAdminPage(request: Request): Response {
         name: document.getElementById('cliName').value,
         secret: document.getElementById('cliSecret').value,
         redirect_uris: document.getElementById('cliRedirects').value,
+        icon: (document.getElementById('cliIcon')?.value || '').trim(),
         enabled: document.getElementById('cliEnabled').checked,
       };
 
@@ -2003,6 +2100,9 @@ export function renderLoginPage(request: Request): Response {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login — MCP Gateway Management</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon.png">
+  <link rel="apple-touch-icon" href="/logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -2025,12 +2125,14 @@ export function renderLoginPage(request: Request): Response {
 <body class="bg-dark-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
   <div class="max-w-md w-full bg-dark-800 border border-dark-700 rounded-3xl p-8 shadow-2xl space-y-6">
-    <div class="text-center space-y-2">
-      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white text-xl font-bold mx-auto shadow-lg shadow-blue-500/30">
-        ⚡
+    <div class="text-center space-y-3">
+      <div class="w-16 h-16 rounded-2xl bg-dark-700/80 border border-dark-600 flex items-center justify-center p-2.5 mx-auto shadow-xl shadow-blue-500/10">
+        <img src="/logo.png" alt="MCP Gateway" class="w-full h-full object-contain">
       </div>
-      <h1 class="text-xl font-bold text-white tracking-tight">MCP Gateway Dashboard</h1>
-      <p class="text-xs text-slate-400">Masuk untuk mengelola server MCP, klien OAuth, dan token SQLite</p>
+      <div>
+        <h1 class="text-xl font-bold text-white tracking-tight">MCP Gateway Dashboard</h1>
+        <p class="text-xs text-slate-400 mt-1">Universal OAuth 2.1 & Reverse Proxy untuk Semua AI</p>
+      </div>
     </div>
 
     <div id="loginError" class="hidden bg-red-500/10 border border-red-500/20 text-red-300 text-xs p-3 rounded-xl"></div>

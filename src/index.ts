@@ -26,8 +26,10 @@ import {
   str,
   esc,
   newSecret,
+  publicOrigin,
+  safeDecode,
 } from "./utils";
-import { reloadMcpCache, proxyMcpRequest } from "./proxy";
+import { reloadMcpCache, proxyMcpRequest, getCachedServer, getServerIconUrl } from "./proxy";
 import {
   oauthProtectedResource,
   oauthServerMetadata,
@@ -86,6 +88,55 @@ const app = new Elysia()
       database: "sqlite-wal",
       version: "2.0.0",
     };
+  })
+
+  // ── Static Assets (Favicon, Logo & Brand Icons) ───────────────────────────
+  .get("/favicon.ico", () => {
+    const f = Bun.file("./public/favicon.ico");
+    return new Response(f, {
+      headers: { "Content-Type": "image/x-icon", "Cache-Control": "public, max-age=86400" },
+    });
+  })
+  .get("/logo.png", () => {
+    const f = Bun.file("./public/logo.png");
+    return new Response(f, {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+    });
+  })
+  .get("/icon.png", () => {
+    const f = Bun.file("./public/icon.png");
+    return new Response(f, {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+    });
+  })
+  .get("/icons/:file", ({ params }) => {
+    const safeFile = params.file.replace(/[^a-zA-Z0-9._-]/g, "");
+    const f = Bun.file(`./public/icons/${safeFile}`);
+    const ext = safeFile.split(".").pop()?.toLowerCase();
+    const mime =
+      ext === "svg"
+        ? "image/svg+xml"
+        : ext === "png"
+          ? "image/png"
+          : ext === "jpg" || ext === "jpeg"
+            ? "image/jpeg"
+            : "application/octet-stream";
+    return new Response(f, {
+      headers: { "Content-Type": mime, "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
+    });
+  })
+  .get("/public/*", ({ request }) => {
+    const path = new URL(request.url).pathname.replace(/^\/public\//, "").replace(/\.\./g, "");
+    const f = Bun.file(`./public/${path}`);
+    return new Response(f, {
+      headers: { "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
+    });
+  })
+  .get("/mcp/:serverName/icon", ({ params, request }) => {
+    const origin = publicOrigin(request);
+    const mcp = getCachedServer(safeDecode(params.serverName));
+    const iconUrl = getServerIconUrl(mcp || params.serverName, origin);
+    return Response.redirect(iconUrl, 302);
   })
 
   // ── Halaman Root & Admin UI ──────────────────────────────────────────────

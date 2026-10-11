@@ -15,6 +15,7 @@ import {
   scheduleSessionGraceClose,
   testStdioCommand,
 } from "./stdio-manager";
+import { detectServerBranding } from "./icons";
 
 export interface CachedMcpServer {
   id: string;
@@ -26,9 +27,60 @@ export interface CachedMcpServer {
   args: string;
   env_vars: string;
   enabled: boolean;
+  icon: string;
 }
 
 const serverCache = new Map<string, CachedMcpServer>();
+
+export function getServerIconUrl(
+  mcp: CachedMcpServer | { id: string; name?: string; icon?: string } | string,
+  origin: string,
+): string {
+  if (typeof mcp === "string") {
+    const branding = detectServerBranding(mcp);
+    return branding.iconUrl.startsWith("http://") || branding.iconUrl.startsWith("https://")
+      ? branding.iconUrl
+      : `${origin}${branding.iconUrl}`;
+  }
+  const branding = detectServerBranding(mcp.id, mcp.name, (mcp as { icon?: string }).icon);
+  return branding.iconUrl.startsWith("http://") || branding.iconUrl.startsWith("https://")
+    ? branding.iconUrl
+    : `${origin}${branding.iconUrl}`;
+}
+
+export function enrichServerInfoWithIcons<T extends string | Record<string, any>>(input: T, serverName: string, origin: string): T {
+  const isString = typeof input === "string";
+  try {
+    if (isString && !input.includes('"serverInfo"') && !input.includes('"protocolVersion"')) {
+      return input;
+    }
+    const parsed = isString ? JSON.parse(input) : JSON.parse(JSON.stringify(input));
+    const targetObj = parsed?.result?.serverInfo || (parsed?.serverInfo ? parsed.serverInfo : null);
+    if (targetObj) {
+      if (!targetObj.icons || !Array.isArray(targetObj.icons) || targetObj.icons.length === 0) {
+        const mcp = getCachedServer(serverName);
+        const iconUrl = getServerIconUrl(mcp || serverName, origin);
+        targetObj.icons = [
+          {
+            src: iconUrl,
+            mimeType: iconUrl.endsWith(".svg") ? "image/svg+xml" : "image/png",
+            sizes: ["128x128", "256x256"],
+          },
+          {
+            src: `${origin}/logo.png`,
+            mimeType: "image/png",
+            sizes: ["256x256"],
+          },
+        ];
+        if (!targetObj.icon) {
+          targetObj.icon = iconUrl;
+        }
+        return (isString ? JSON.stringify(parsed) : parsed) as T;
+      }
+    }
+  } catch {}
+  return input;
+}
 
 export function reloadMcpCache(): void {
   serverCache.clear();
@@ -60,6 +112,7 @@ export function reloadMcpCache(): void {
         args: row.args || "",
         env_vars: row.env_vars || "{}",
         enabled: row.enabled === 1,
+        icon: row.icon || "",
       });
     } catch (err) {
       console.error(`[cache] Gagal memuat server MCP "${row.id}":`, (err as Error).message);
@@ -98,6 +151,7 @@ export function getCachedServer(id: string): CachedMcpServer | null {
       args: row.args || "",
       env_vars: row.env_vars || "{}",
       enabled: row.enabled === 1,
+      icon: row.icon || "",
     };
     serverCache.set(row.id, item);
     return item;
@@ -135,9 +189,16 @@ const HOP_BY_HOP = [
   "upgrade",
 ];
 
-function tapSse(body: ReadableStream<Uint8Array>, id: string, startedAt: number): ReadableStream<Uint8Array> {
+function tapSse(
+  body: ReadableStream<Uint8Array>,
+  id: string,
+  startedAt: number,
+  serverName?: string,
+  origin?: string,
+): ReadableStream<Uint8Array> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
   let chunks = 0;
   let bytes = 0;
   let ended = false;
@@ -159,10 +220,27 @@ function tapSse(body: ReadableStream<Uint8Array>, id: string, startedAt: number)
         }
         chunks++;
         bytes += value.byteLength;
+        const decoded = decoder.decode(value, { stream: true });
         if (LOG_SSE_CHUNKS) {
-          log(id, `≈ SSE chunk #${chunks} (${value.byteLength}B): ${preview(decoder.decode(value, { stream: true }))}`);
+          log(id, `≈ SSE chunk #${chunks} (${value.byteLength}B): ${preview(decoded)}`);
         }
-        controller.enqueue(value);
+
+        if (serverName && origin && decoded.includes('"serverInfo"')) {
+          const lines = decoded.split("\n");
+          const modified = lines
+            .map((line) => {
+              if (line.startsWith("data:") && line.includes('"serverInfo"')) {
+                const dataText = line.slice(5).trim();
+                const enriched = enrichServerInfoWithIcons(dataText, serverName, origin);
+                return `data: ${enriched}`;
+              }
+              return line;
+            })
+            .join("\n");
+          controller.enqueue(encoder.encode(modified));
+        } else {
+          controller.enqueue(value);
+        }
       } catch (err) {
         finish(`error upstream: ${(err as Error).message}`);
         controller.error(err);
@@ -289,7 +367,8 @@ export async function proxyMcpRequest(ctx: {
               if (LOG_SSE_CHUNKS) {
                 log(id, `≈ MCP [${serverName}] stdout: ${preview(jsonLine)}`);
               }
-              const sseMessage = `event: message\ndata: ${jsonLine}\n\n`;
+              const enriched = enrichServerInfoWithIcons(jsonLine, serverName, publicOrigin(request));
+              const sseMessage = `event: message\ndata: ${enriched}\n\n`;
               controller.enqueue(encoder.encode(sseMessage));
             } catch (err) {
               log(id, `Gagal enqueue SSE: ${(err as Error).message}`);
@@ -421,15 +500,29 @@ export async function proxyMcpRequest(ctx: {
 
   addActivityLog(id, request.method, url.pathname, upstream.status, performance.now() - startedAt, clientIp, `Forwarded to ${serverName}`);
 
+  const origin = publicOrigin(request);
+
   if (isSse && upstream.body) {
     resHeaders.set("cache-control", "no-cache, no-transform");
     resHeaders.set("x-accel-buffering", "no");
     log(id, "▶ SSE stream dibuka");
-    return new Response(tapSse(upstream.body, id, startedAt), {
+    return new Response(tapSse(upstream.body, id, startedAt, serverName, origin), {
       status: upstream.status,
       statusText: upstream.statusText,
       headers: resHeaders,
     });
+  }
+
+  if (contentType.includes("application/json") && upstream.body) {
+    try {
+      const text = await upstream.text();
+      const enriched = enrichServerInfoWithIcons(text, serverName, origin);
+      return new Response(enriched, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: resHeaders,
+      });
+    } catch {}
   }
 
   return new Response(upstream.body, {

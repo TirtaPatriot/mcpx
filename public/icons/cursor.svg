@@ -1,0 +1,7 @@
+<svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+  <path fill="#000000" d="M12 1.5L2.5 7v10L12 22.5l9.5-5.5V7L12 1.5z" />
+  <path fill="#555555" d="M12 3l8 4.6v9.2L12 21.4l-8-4.6V7.6L12 3z" />
+  <path fill="#FFFFFF" d="M12 12l7.5-4.3L12 3.4 4.5 7.7 12 12z" />
+  <path fill="#CCCCCC" d="M12 12v8.6l7.5-4.3V7.7L12 12z" />
+  <path fill="#999999" d="M12 12L4.5 7.7v8.6L12 20.6V12z" />
+</svg>

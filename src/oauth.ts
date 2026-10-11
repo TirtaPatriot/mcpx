@@ -17,8 +17,10 @@ import {
   stmtGetRefreshToken,
   stmtRevokeRefreshToken,
   addActivityLog,
+  getAllMcpServers,
 } from "./db";
-import { getCachedServer } from "./proxy";
+import { getCachedServer, getServerIconUrl } from "./proxy";
+import { detectClientBranding, detectServerBranding } from "./icons";
 import {
   log,
   metaOf,
@@ -45,6 +47,7 @@ export function oauthProtectedResource({ request }: { request: Request }): Respo
   const { id } = metaOf(request);
   const origin = publicOrigin(request);
   const suffix = new URL(request.url).pathname.slice("/.well-known/oauth-protected-resource".length);
+  let logoUri = `${origin}/logo.png`;
 
   if (suffix) {
     const serverName = suffix.match(/^\/mcp\/([^/]+)/)?.[1];
@@ -52,10 +55,20 @@ export function oauthProtectedResource({ request }: { request: Request }): Respo
       log(id, `✗ 404 resource metadata untuk server tidak dikenal: ${suffix}`);
       return json({ error: "not_found" }, 404, metadataHeaders);
     }
+    const srv = getCachedServer(safeDecode(serverName));
+    if (srv) {
+      logoUri = getServerIconUrl(srv, origin);
+    }
   }
   log(id, `• discovery: protected resource ${origin}${suffix}`);
   return json(
-    { resource: `${origin}${suffix}`, authorization_servers: [origin], bearer_methods_supported: ["header"] },
+    {
+      resource: `${origin}${suffix}`,
+      authorization_servers: [origin],
+      bearer_methods_supported: ["header"],
+      resource_documentation: `${origin}/admin`,
+      logo_uri: logoUri,
+    },
     200,
     metadataHeaders,
   );
@@ -74,6 +87,10 @@ export function oauthServerMetadata({ request }: { request: Request }): Response
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
+      service_documentation: `${origin}/admin`,
+      logo_uri: `${origin}/logo.png`,
+      op_policy_uri: `${origin}/policy`,
+      op_tos_uri: `${origin}/tos`,
     },
     200,
     metadataHeaders,
@@ -155,6 +172,7 @@ export interface AuthorizeParams {
   redirectUriRaw?: string;
   state?: string;
   scope?: string;
+  resource?: string;
   codeChallenge?: string;
   codeChallengeMethod?: string;
 }
@@ -185,6 +203,7 @@ export function parseAuthorizeParams(get: (key: string) => string | undefined): 
     redirectUriRaw: rawRedirect,
     state: get("state"),
     scope: get("scope"),
+    resource: get("resource"),
     codeChallenge,
     codeChallengeMethod,
   };
@@ -194,26 +213,113 @@ const htmlHeaders = { "Content-Type": "text/html; charset=utf-8", "X-Frame-Optio
 
 const PAGE_STYLE = `
   :root { color-scheme: light dark; }
-  body { font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; background: #0f172a; color: #f8fafc; }
-  .card { max-width: 28rem; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 28px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); }
-  .logo { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #3b82f6; border-radius: 12px; margin-bottom: 16px; color: #fff; font-size: 24px; font-weight: bold; }
-  h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 8px; color: #f8fafc; }
-  p { margin: 0 0 16px; color: #94a3b8; font-size: 0.95rem; }
-  .info-box { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 14px; margin-bottom: 20px; font-size: 0.88rem; }
-  .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  body {
+    font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 24px;
+    box-sizing: border-box;
+    background: radial-gradient(circle at 50% 10%, #1e293b 0%, #0f172a 100%);
+    color: #f8fafc;
+  }
+  .card {
+    max-width: 30rem;
+    width: 100%;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+  .connection-bridge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .avatar-box {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    box-sizing: border-box;
+    box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+  }
+  .avatar-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .connector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+  }
+  .connector-line {
+    width: 24px;
+    height: 2px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 2px;
+  }
+  .connector-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #0f172a;
+    border: 1px solid #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #a855f7;
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+  }
+  h1 { font-size: 1.35rem; font-weight: 700; margin: 0 0 6px; text-align: center; color: #f8fafc; letter-spacing: -0.01em; }
+  .subtitle { text-align: center; margin: 0 0 24px; color: #94a3b8; font-size: 0.9rem; }
+  .info-box { background: #0f172a; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin-bottom: 20px; font-size: 0.88rem; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
   .info-row:last-child { margin-bottom: 0; }
-  .info-label { color: #64748b; }
-  .info-value { color: #cbd5e1; font-family: monospace; font-size: 0.85rem; word-break: break-all; }
-  .row { display: flex; gap: 12px; margin-top: 24px; }
-  button { font: inherit; font-weight: 500; font-size: 0.95rem; padding: 10px 18px; border-radius: 10px; border: 1px solid #475569; background: #334155; color: #f8fafc; cursor: pointer; transition: all 0.15s ease; }
+  .info-label { color: #64748b; font-weight: 500; font-size: 0.85rem; flex-shrink: 0; }
+  .info-value { color: #e2e8f0; font-size: 0.85rem; word-break: break-all; text-align: right; }
+  .font-mono { font-family: monospace; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); }
+  .badge img { width: 14px; height: 14px; object-fit: contain; }
+  .perm-box { background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 12px; padding: 12px 14px; margin-bottom: 24px; font-size: 0.82rem; }
+  .perm-item { display: flex; align-items: center; gap: 8px; color: #93c5fd; margin-bottom: 6px; }
+  .perm-item:last-child { margin-bottom: 0; }
+  .row { display: flex; gap: 12px; }
+  button { font: inherit; font-weight: 600; font-size: 0.95rem; padding: 12px 20px; border-radius: 12px; border: 1px solid #475569; background: #334155; color: #f8fafc; cursor: pointer; transition: all 0.15s ease; flex: 1; text-align: center; }
   button:hover { background: #475569; }
-  button.primary { background: #2563eb; border-color: #2563eb; color: #fff; flex: 1; font-weight: 600; }
-  button.primary:hover { background: #1d4ed8; }
+  button.primary { background: linear-gradient(135deg, #2563eb, #4f46e5); border: none; color: #fff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4); flex: 1.4; }
+  button.primary:hover { background: linear-gradient(135deg, #1d4ed8, #4338ca); box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5); }
 `;
 
 export const page = (title: string, body: string, status = 200) =>
   new Response(
-    `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${PAGE_STYLE}</style></head><body><div class="card">${body}</div></body></html>`,
+    `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/logo.png">
+  <link rel="apple-touch-icon" href="/logo.png">
+  <title>${esc(title)}</title>
+  <style>${PAGE_STYLE}</style>
+</head>
+<body>
+  <div class="card">${body}</div>
+</body>
+</html>`,
     { status, headers: htmlHeaders },
   );
 
@@ -224,6 +330,7 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
     redirect_uri: p.redirectUriRaw,
     state: p.state,
     scope: p.scope,
+    resource: p.resource,
     code_challenge: p.codeChallenge,
     code_challenge_method: p.codeChallengeMethod,
     user_id: sessionUser?.id,
@@ -233,24 +340,106 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
     .map(([k, v]) => `<input type="hidden" name="${k}" value="${esc(v!)}">`)
     .join("");
 
+  const client = getOAuthClient(p.clientId);
+  const redirectHost = p.redirectUri?.hostname || (p.redirectUriRaw ? (p.redirectUriRaw.startsWith("http") ? new URL(p.redirectUriRaw).hostname : p.redirectUriRaw) : "");
+  const clientBranding = detectClientBranding(p.clientId, redirectHost, p.clientName, client?.icon);
+
+  // Periksa apakah ada target server spesifik yang diminta (misal via resource parameter RFC 8707)
+  let targetServerHtml = "";
+  if (p.resource) {
+    const srvMatch = p.resource.match(/\/mcp\/([^/?#]+)/);
+    const srvId = srvMatch ? safeDecode(srvMatch[1]) : p.resource;
+    const srv = getCachedServer(srvId);
+    const srvBranding = detectServerBranding(srvId, srv?.name, srv?.icon);
+    targetServerHtml = `
+      <div class="info-row">
+        <span class="info-label">Server Target:</span>
+        <span class="info-value">
+          <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.3);">
+            <img src="${srvBranding.iconUrl}" alt="" onerror="this.style.display='none'">
+            ${esc(srvBranding.name)}
+          </span>
+        </span>
+      </div>`;
+  } else {
+    const servers = getAllMcpServers().filter((s) => s.enabled === 1);
+    if (servers.length > 0) {
+      const serverBadges = servers
+        .slice(0, 3)
+        .map((s) => {
+          const b = detectServerBranding(s.id, s.name, s.icon);
+          return `<span class="badge" style="background: rgba(59, 130, 246, 0.1); color: #93c5fd; border-color: rgba(59, 130, 246, 0.2);"><img src="${b.iconUrl}" alt="" onerror="this.style.display='none'">${esc(s.name)}</span>`;
+        })
+        .join(" ");
+      targetServerHtml = `
+        <div class="info-row">
+          <span class="info-label">Server Akses:</span>
+          <span class="info-value">${serverBadges}${servers.length > 3 ? ` <span class="badge" style="background:#334155; color:#cbd5e1;">+${servers.length - 3} lainnya</span>` : ""}</span>
+        </div>`;
+    }
+  }
+
   return page(
-    "Izinkan Akses MCP Gateway",
-    `<div class="logo">🔐</div>
-     <h1>Izinkan Akses ke Server MCP?</h1>
-     <p>Aplikasi klien berikut meminta izin untuk berinteraksi dengan server Model Context Protocol (MCP) Anda.</p>
-     <div class="info-box">
-       <div class="info-row"><span class="info-label">Aplikasi:</span><span class="info-value"><strong>${esc(p.clientName)}</strong></span></div>
-       <div class="info-row"><span class="info-label">Client ID:</span><span class="info-value">${esc(p.clientId)}</span></div>
-       ${sessionUser ? `<div class="info-row"><span class="info-label">Akun Otorisasi:</span><span class="info-value"><strong>${esc(sessionUser.name)}</strong> (@${esc(sessionUser.username)})</span></div>` : ""}
-       <div class="info-row"><span class="info-label">Redirect ke:</span><span class="info-value">${esc(p.redirectUri.origin)}</span></div>
-       ${p.scope ? `<div class="info-row"><span class="info-label">Scope:</span><span class="info-value">${esc(p.scope)}</span></div>` : ""}
-     </div>
-     <form method="post" action="/oauth/authorize">${inputs}
-       <div class="row">
-         <button type="submit" name="decision" value="deny">Tolak</button>
-         <button type="submit" name="decision" value="allow" class="primary">Izinkan Akses</button>
-       </div>
-     </form>`,
+    `Izinkan Akses — ${clientBranding.name}`,
+    `
+      <div class="connection-bridge">
+        <div class="avatar-box" title="${esc(clientBranding.name)}">
+          <img src="${clientBranding.iconUrl}" alt="${esc(clientBranding.name)}" onerror="this.src='/icons/universal.svg'">
+        </div>
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-badge">⚡</div>
+          <div class="connector-line"></div>
+        </div>
+        <div class="avatar-box" title="Perumda Tirta Patriot MCP Gateway">
+          <img src="/logo.png" alt="MCP Gateway" onerror="this.src='/icons/mcp.svg'">
+        </div>
+      </div>
+
+      <h1>Hubungkan ke Server MCP?</h1>
+      <p class="subtitle"><strong>${esc(clientBranding.name)}</strong> meminta izin untuk mengakses server Model Context Protocol (MCP) Tirta Patriot Anda.</p>
+
+      <div class="info-box">
+        <div class="info-row">
+          <span class="info-label">Aplikasi AI:</span>
+          <span class="info-value">
+            <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3);">
+              <img src="${clientBranding.iconUrl}" alt="" onerror="this.style.display='none'">
+              ${esc(p.clientName)}
+            </span>
+          </span>
+        </div>
+        ${targetServerHtml}
+        <div class="info-row">
+          <span class="info-label">Client ID:</span>
+          <span class="info-value font-mono">${esc(p.clientId)}</span>
+        </div>
+        ${sessionUser ? `<div class="info-row"><span class="info-label">Akun Otorisasi:</span><span class="info-value"><strong>${esc(sessionUser.name)}</strong> (@${esc(sessionUser.username)})</span></div>` : ""}
+        <div class="info-row">
+          <span class="info-label">Redirect ke:</span>
+          <span class="info-value font-mono">${esc(p.redirectUri.origin)}</span>
+        </div>
+        ${p.scope ? `<div class="info-row"><span class="info-label">Scope:</span><span class="info-value">${esc(p.scope)}</span></div>` : ""}
+      </div>
+
+      <div class="perm-box">
+        <div class="perm-item">
+          <span style="color:#10b981;">✓</span>
+          <span>Membaca deskripsi tools, resources, dan skema MCP</span>
+        </div>
+        <div class="perm-item">
+          <span style="color:#10b981;">✓</span>
+          <span>Mengeksekusi tools MCP atas nama akun Anda</span>
+        </div>
+      </div>
+
+      <form method="post" action="/oauth/authorize">${inputs}
+        <div class="row">
+          <button type="submit" name="decision" value="deny">Tolak</button>
+          <button type="submit" name="decision" value="allow" class="primary">Izinkan Akses</button>
+        </div>
+      </form>
+    `,
   );
 }
 

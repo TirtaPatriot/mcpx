@@ -209,6 +209,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       env_vars?: string;
       enabled?: boolean;
       description?: string;
+      icon?: string;
     };
 
     if (!data.id || !data.name) {
@@ -263,6 +264,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       env_vars: data.env_vars ?? "{}",
       enabled: data.enabled ?? true,
       description: data.description?.trim(),
+      icon: data.icon?.trim(),
     });
 
     reloadMcpCache();
@@ -284,6 +286,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       env_vars?: string;
       enabled?: boolean;
       description?: string;
+      icon?: string;
     };
 
     const serverType = data.server_type ?? existing.server_type ?? "http";
@@ -310,6 +313,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       env_vars: data.env_vars ?? existing.env_vars,
       enabled: data.enabled !== undefined ? data.enabled : existing.enabled === 1,
       description: data.description !== undefined ? data.description.trim() : existing.description,
+      icon: data.icon !== undefined ? data.icon.trim() : existing.icon,
     });
 
     reloadMcpCache();
@@ -383,6 +387,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       secret?: string;
       redirect_uris?: string;
       enabled?: boolean;
+      icon?: string;
     };
 
     if (!data.name) return json({ ok: false, error: "Nama klien wajib diisi" }, 400);
@@ -396,6 +401,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       secret,
       redirect_uris: data.redirect_uris?.trim() ?? "",
       enabled: data.enabled ?? true,
+      icon: data.icon?.trim(),
     });
 
     return json({
@@ -414,6 +420,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       secret?: string;
       redirect_uris?: string;
       enabled?: boolean;
+      icon?: string;
     };
 
     saveOAuthClient({
@@ -422,6 +429,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       secret: data.secret?.trim() ?? existing.secret,
       redirect_uris: data.redirect_uris !== undefined ? data.redirect_uris.trim() : existing.redirect_uris,
       enabled: data.enabled !== undefined ? data.enabled : existing.enabled === 1,
+      icon: data.icon !== undefined ? data.icon.trim() : existing.icon,
     });
 
     return json({ ok: true, message: `Klien "${params.id}" diperbarui` });
