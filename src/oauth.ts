@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   ALLOWED_REDIRECT_HOSTS,
   DEFAULT_REDIRECT_URI,
@@ -9,6 +9,7 @@ import {
 } from "./config";
 import {
   getOAuthClient,
+  saveOAuthClient,
   stmtInsertAuthCode,
   stmtGetAuthCode,
   stmtDeleteAuthCode,
@@ -33,7 +34,13 @@ import {
   newSecret,
 } from "./utils";
 
-const noStore = { "Cache-Control": "no-store", Pragma: "no-cache" };
+const noStore = {
+  "Cache-Control": "no-store",
+  Pragma: "no-cache",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   Response.json(data, { status, headers: { ...noStore, ...headers } });
@@ -41,7 +48,11 @@ const json = (data: unknown, status = 200, headers: Record<string, string> = {})
 const oauthError = (error: string, description: string, status = 400, headers: Record<string, string> = {}) =>
   json({ error, error_description: description }, status, headers);
 
-const metadataHeaders = { "Access-Control-Allow-Origin": "*" };
+const metadataHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
 export function oauthProtectedResource({ request }: { request: Request }): Response {
   const { id } = metaOf(request);
@@ -95,6 +106,7 @@ export function oauthServerMetadata({ request }: { request: Request }): Response
       issuer: origin,
       authorization_endpoint: `${origin}/oauth/authorize`,
       token_endpoint: `${origin}/oauth/token`,
+      registration_endpoint: `${origin}/oauth/register`,
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
@@ -107,6 +119,70 @@ export function oauthServerMetadata({ request }: { request: Request }): Response
     200,
     metadataHeaders,
   );
+}
+
+export async function handleDynamicClientRegistration({
+  request,
+  body,
+}: {
+  request: Request;
+  body?: unknown;
+}): Promise<Response> {
+  const { id } = metaOf(request);
+  const origin = publicOrigin(request);
+  try {
+    let payload = asRecord(body);
+    if (Object.keys(payload).length === 0) {
+      payload = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    }
+    const clientName = str(payload.client_name) || "Google Gemini";
+    const redirectUrisArr = Array.isArray(payload.redirect_uris)
+      ? payload.redirect_uris.map((u) => String(u).trim()).filter(Boolean)
+      : typeof payload.redirect_uris === "string"
+        ? [payload.redirect_uris.trim()]
+        : [];
+    const redirectUris = redirectUrisArr.length > 0 ? redirectUrisArr.join(",") : "*";
+    const clientId = `gemini-${randomBytes(6).toString("hex")}`;
+    const clientSecret = newSecret();
+
+    let icon = "/icons/gemini.png";
+    const lowerName = clientName.toLowerCase();
+    if (lowerName.includes("claude")) icon = "/icons/claude.png";
+    else if (lowerName.includes("chatgpt") || lowerName.includes("openai")) icon = "/icons/chatgpt.png";
+    else if (lowerName.includes("cursor")) icon = "/icons/cursor.png";
+    else if (lowerName.includes("gemini") || lowerName.includes("google")) icon = "/icons/gemini.png";
+    else icon = "/icons/universal.png";
+
+    saveOAuthClient({
+      id: clientId,
+      name: clientName,
+      secret: clientSecret,
+      redirect_uris: redirectUris,
+      icon,
+      enabled: 1,
+    });
+
+    log(id, `✓ Dynamic client registered (RFC 7591): ${clientId} (${clientName})`);
+
+    return json(
+      {
+        client_id: clientId,
+        client_secret: clientSecret,
+        client_id_issued_at: Math.floor(Date.now() / 1000),
+        client_secret_expires_at: 0,
+        client_name: clientName,
+        redirect_uris: redirectUrisArr.length > 0 ? redirectUrisArr : ["https://oauth-redirect.googleusercontent.com"],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "client_secret_post",
+      },
+      201,
+      metadataHeaders,
+    );
+  } catch (err) {
+    log(id, `✗ Dynamic client registration gagal: ${(err as Error).message}`);
+    return oauthError("invalid_request", (err as Error).message, 400, metadataHeaders);
+  }
 }
 
 function clientCredentials(request: Request, body: Record<string, unknown>) {

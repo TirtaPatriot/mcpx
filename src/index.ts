@@ -33,6 +33,7 @@ import { reloadMcpCache, proxyMcpRequest, getCachedServer, getServerIconUrl } fr
 import {
   oauthProtectedResource,
   oauthServerMetadata,
+  handleDynamicClientRegistration,
   parseAuthorizeParams,
   consentPage,
   redirectTo,
@@ -77,6 +78,17 @@ const app = new Elysia()
     addActivityLog(id, request.method, url.pathname, set.status as number, performance.now() - startedAt, undefined, (error as Error).message);
     return Response.json({ error: code === "PARSE" ? "invalid_request" : "server_error" }, { status: set.status as number });
   })
+
+  // ── CORS Preflight Options ────────────────────────────────────────────────
+  .options("/*", () => new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+      "Access-Control-Max-Age": "86400",
+    },
+  }))
 
   // ── Health Check ─────────────────────────────────────────────────────────
   .get("/health", () => {
@@ -228,6 +240,9 @@ const app = new Elysia()
     addActivityLog(id, "POST", "/oauth/authorize", 303, performance.now() - startedAt, undefined, `Allowed for ${params.clientId}`);
     return redirectTo(redirect);
   })
+
+  // ── OAuth: Dynamic Client Registration (RFC 7591) ─────────────────────────
+  .post("/oauth/register", handleDynamicClientRegistration)
 
   // ── OAuth: Tukar Code / Refresh Token ────────────────────────────────────
   .post("/oauth/token", handleTokenExchange)
