@@ -1,24 +1,28 @@
+export interface ClientBranding {
+  id: string;
+  name: string;
+  iconUrl: string;
+  iconPngUrl: string;
+  badgeColor: string;
+  themeColor: string;
+}
+
 export function detectClientBranding(
   clientId: string,
   redirectHost?: string,
   clientName?: string,
   customIcon?: string,
-): {
-  id: string;
-  name: string;
-  iconUrl: string;
-  badgeColor: string;
-  themeColor: string;
-} {
+): ClientBranding {
   if (customIcon && customIcon.trim()) {
     const icon = customIcon.trim();
+    const isUrl = icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/") || icon.startsWith("data:");
+    const url = isUrl ? icon : `/icons/${icon}.svg`;
+    const png = isUrl ? (icon.endsWith(".svg") ? icon.replace(/\.svg$/, ".png") : icon) : `/icons/${icon}.png`;
     return {
       id: clientId,
       name: clientName || clientId,
-      iconUrl:
-        icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/") || icon.startsWith("data:")
-          ? icon
-          : `/icons/${icon}.svg`,
+      iconUrl: url,
+      iconPngUrl: png,
       badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
       themeColor: "#3B82F6",
     };
@@ -39,6 +43,7 @@ export function detectClientBranding(
       id: "gemini",
       name: "Google Gemini",
       iconUrl: "/icons/gemini.svg",
+      iconPngUrl: "/icons/gemini.png",
       badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
       themeColor: "#4E82EE",
     };
@@ -55,6 +60,7 @@ export function detectClientBranding(
       id: "claude",
       name: "Anthropic Claude",
       iconUrl: "/icons/claude.svg",
+      iconPngUrl: "/icons/claude.png",
       badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
       themeColor: "#D97757",
     };
@@ -73,6 +79,7 @@ export function detectClientBranding(
       id: "chatgpt",
       name: "OpenAI / ChatGPT",
       iconUrl: "/icons/chatgpt.svg",
+      iconPngUrl: "/icons/chatgpt.png",
       badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
       themeColor: "#10A37F",
     };
@@ -89,6 +96,7 @@ export function detectClientBranding(
       id: "cursor",
       name: "Cursor IDE",
       iconUrl: "/icons/cursor.svg",
+      iconPngUrl: "/icons/cursor.png",
       badgeColor: "bg-slate-500/10 text-slate-300 border-slate-500/20",
       themeColor: "#000000",
     };
@@ -100,6 +108,7 @@ export function detectClientBranding(
       id: "grok",
       name: "xAI Grok",
       iconUrl: "/icons/grok.svg",
+      iconPngUrl: "/icons/grok.png",
       badgeColor: "bg-slate-500/10 text-slate-300 border-slate-500/20",
       themeColor: "#FFFFFF",
     };
@@ -111,6 +120,7 @@ export function detectClientBranding(
       id: "desktop",
       name: clientName || "AI Desktop Client",
       iconUrl: "/icons/universal.svg",
+      iconPngUrl: "/icons/universal.png",
       badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
       themeColor: "#8B5CF6",
     };
@@ -121,51 +131,56 @@ export function detectClientBranding(
     id: clientId,
     name: clientName || clientId,
     iconUrl: "/icons/universal.svg",
+    iconPngUrl: "/icons/universal.png",
     badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     themeColor: "#3B82F6",
   };
+}
+
+export interface ServerBranding {
+  id: string;
+  name: string;
+  iconUrl: string;
+  iconPngUrl: string;
 }
 
 export function detectServerBranding(
   serverId: string,
   serverName?: string,
   customIcon?: string,
-): {
-  id: string;
-  name: string;
-  iconUrl: string;
-} {
+): ServerBranding {
   if (customIcon && customIcon.trim()) {
     const icon = customIcon.trim();
+    const isUrl = icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/") || icon.startsWith("data:");
+    const url = isUrl ? icon : `/icons/${icon}.svg`;
+    const png = isUrl ? (icon.endsWith(".svg") ? icon.replace(/\.svg$/, ".png") : icon) : `/icons/${icon}.png`;
     return {
       id: serverId,
       name: serverName || serverId,
-      iconUrl:
-        icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/") || icon.startsWith("data:")
-          ? icon
-          : `/icons/${icon}.svg`,
+      iconUrl: url,
+      iconPngUrl: png,
     };
   }
 
   const low = (serverId + " " + (serverName || "")).toLowerCase();
   if (low.includes("dokploy")) {
-    return { id: "dokploy", name: serverName || "Dokploy", iconUrl: "/icons/dokploy.svg" };
+    return { id: "dokploy", name: serverName || "Dokploy", iconUrl: "/icons/dokploy.svg", iconPngUrl: "/icons/dokploy.png" };
   }
   if (low.includes("mssql") || low.includes("sqlserver")) {
-    return { id: "mssql", name: serverName || "Microsoft SQL Server", iconUrl: "/icons/mssql.svg" };
+    return { id: "mssql", name: serverName || "Microsoft SQL Server", iconUrl: "/icons/mssql.svg", iconPngUrl: "/icons/mssql.png" };
   }
   if (low.includes("mikrotik") || low.includes("router")) {
-    return { id: "mikrotik", name: serverName || "MikroTik RouterOS", iconUrl: "/icons/mikrotik.svg" };
+    return { id: "mikrotik", name: serverName || "MikroTik RouterOS", iconUrl: "/icons/mikrotik.svg", iconPngUrl: "/icons/mikrotik.png" };
   }
   if (low.includes("postgres") || low.includes("pgsql")) {
-    return { id: "postgres", name: serverName || "PostgreSQL", iconUrl: "/icons/postgres.svg" };
+    return { id: "postgres", name: serverName || "PostgreSQL", iconUrl: "/icons/postgres.svg", iconPngUrl: "/icons/postgres.png" };
   }
   if (low.includes("mysql") || low.includes("mariadb")) {
-    return { id: "mysql", name: serverName || "MySQL", iconUrl: "/icons/mysql.svg" };
+    return { id: "mysql", name: serverName || "MySQL", iconUrl: "/icons/mysql.svg", iconPngUrl: "/icons/mysql.png" };
   }
   if (low.includes("redis")) {
-    return { id: "redis", name: serverName || "Redis", iconUrl: "/icons/redis.svg" };
+    return { id: "redis", name: serverName || "Redis", iconUrl: "/icons/redis.svg", iconPngUrl: "/icons/redis.png" };
   }
 
-  return { id: serverId, name: serverName || serverId, iconUrl: "/icons/mcp.svg" };
+  return { id: serverId, name: serverName || serverId, iconUrl: "/icons/mcp.svg", iconPngUrl: "/icons/mcp.png" };
 }

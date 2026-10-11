@@ -51,11 +51,14 @@ export const metaOf = (request: Request) => reqMeta.get(request) ?? { id: "-", s
 export const elapsed = (startedAt: number) => `${(performance.now() - startedAt).toFixed(1)}ms`;
 
 export function publicOrigin(request: Request): string {
-  if (PUBLIC_URL) return PUBLIC_URL;
   const first = (name: string) => request.headers.get(name)?.split(",")[0]?.trim() || undefined;
   const url = new URL(request.url);
   const proto = first("x-forwarded-proto") ?? url.protocol.replace(":", "");
   const host = first("x-forwarded-host") ?? first("host") ?? url.host;
+  if (host && !host.includes("localhost") && !host.includes("127.0.0.1") && !host.startsWith("10.") && !host.startsWith("172.") && !host.startsWith("192.")) {
+    return `${proto}://${host}`;
+  }
+  if (PUBLIC_URL) return PUBLIC_URL;
   return `${proto}://${host}`;
 }
 

@@ -46,24 +46,36 @@ const metadataHeaders = { "Access-Control-Allow-Origin": "*" };
 export function oauthProtectedResource({ request }: { request: Request }): Response {
   const { id } = metaOf(request);
   const origin = publicOrigin(request);
-  const suffix = new URL(request.url).pathname.slice("/.well-known/oauth-protected-resource".length);
-  let logoUri = `${origin}/logo.png`;
+  const pathname = new URL(request.url).pathname;
+  let serverName: string | undefined;
 
-  if (suffix) {
-    const serverName = suffix.match(/^\/mcp\/([^/]+)/)?.[1];
-    if (!serverName || !getCachedServer(safeDecode(serverName))) {
-      log(id, `✗ 404 resource metadata untuk server tidak dikenal: ${suffix}`);
-      return json({ error: "not_found" }, 404, metadataHeaders);
-    }
-    const srv = getCachedServer(safeDecode(serverName));
+  // Mendukung query RFC 9728:
+  // 1. /.well-known/oauth-protected-resource
+  // 2. /.well-known/oauth-protected-resource/mcp/:serverName
+  // 3. /mcp/:serverName/.well-known/oauth-protected-resource
+  if (pathname.includes("/mcp/")) {
+    const match = pathname.match(/\/mcp\/([^/]+)/);
+    if (match) serverName = safeDecode(match[1]);
+  }
+
+  let logoUri = `${origin}/logo.png`;
+  let resourceUri = `${origin}${pathname.replace(/\/\.well-known\/oauth-protected-resource.*$/, "")}`;
+  if (!resourceUri.endsWith("/mcp") && !resourceUri.includes("/mcp/")) {
+    resourceUri = `${origin}`;
+  }
+
+  if (serverName) {
+    const srv = getCachedServer(serverName);
     if (srv) {
-      logoUri = getServerIconUrl(srv, origin);
+      logoUri = getServerIconUrl(srv, origin, "png");
+      resourceUri = `${origin}/mcp/${serverName}`;
     }
   }
-  log(id, `• discovery: protected resource ${origin}${suffix}`);
+
+  log(id, `• discovery: protected resource ${resourceUri} logo=${logoUri}`);
   return json(
     {
-      resource: `${origin}${suffix}`,
+      resource: resourceUri,
       authorization_servers: [origin],
       bearer_methods_supported: ["header"],
       resource_documentation: `${origin}/admin`,

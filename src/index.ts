@@ -94,19 +94,31 @@ const app = new Elysia()
   .get("/favicon.ico", () => {
     const f = Bun.file("./public/favicon.ico");
     return new Response(f, {
-      headers: { "Content-Type": "image/x-icon", "Cache-Control": "public, max-age=86400" },
+      headers: { "Content-Type": "image/x-icon", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/logo.png", () => {
     const f = Bun.file("./public/logo.png");
     return new Response(f, {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/icon.png", () => {
     const f = Bun.file("./public/icon.png");
     return new Response(f, {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
+    });
+  })
+  .get("/apple-touch-icon.png", () => {
+    const f = Bun.file("./public/logo.png");
+    return new Response(f, {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
+    });
+  })
+  .get("/apple-touch-icon-precomposed.png", () => {
+    const f = Bun.file("./public/logo.png");
+    return new Response(f, {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/icons/:file", ({ params }) => {
@@ -132,10 +144,18 @@ const app = new Elysia()
       headers: { "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
+  .get("/mcp/:serverName/favicon.ico", () => {
+    const f = Bun.file("./public/favicon.ico");
+    return new Response(f, {
+      headers: { "Content-Type": "image/x-icon", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
+    });
+  })
   .get("/mcp/:serverName/icon", ({ params, request }) => {
     const origin = publicOrigin(request);
     const mcp = getCachedServer(safeDecode(params.serverName));
-    const iconUrl = getServerIconUrl(mcp || params.serverName, origin);
+    const url = new URL(request.url);
+    const format = url.searchParams.get("format") === "svg" ? "svg" : "png";
+    const iconUrl = getServerIconUrl(mcp || params.serverName, origin, format);
     return Response.redirect(iconUrl, 302);
   })
 
@@ -150,6 +170,7 @@ const app = new Elysia()
   // ── OAuth Discovery (RFC 9728 & RFC 8414) ─────────────────────────────────
   .get("/.well-known/oauth-protected-resource", oauthProtectedResource)
   .get("/.well-known/oauth-protected-resource/*", oauthProtectedResource)
+  .get("/mcp/:serverName/.well-known/oauth-protected-resource", oauthProtectedResource)
   .get("/.well-known/oauth-authorization-server", oauthServerMetadata)
   .get("/.well-known/openid-configuration", oauthServerMetadata)
 

@@ -35,17 +35,20 @@ const serverCache = new Map<string, CachedMcpServer>();
 export function getServerIconUrl(
   mcp: CachedMcpServer | { id: string; name?: string; icon?: string } | string,
   origin: string,
+  format: "png" | "svg" | "auto" = "auto",
 ): string {
-  if (typeof mcp === "string") {
-    const branding = detectServerBranding(mcp);
-    return branding.iconUrl.startsWith("http://") || branding.iconUrl.startsWith("https://")
-      ? branding.iconUrl
-      : `${origin}${branding.iconUrl}`;
+  const name = typeof mcp === "string" ? mcp : mcp.id;
+  const customIcon = typeof mcp === "object" ? (mcp as { icon?: string }).icon : undefined;
+  if (customIcon && customIcon.trim()) {
+    const isUrl = customIcon.startsWith("http://") || customIcon.startsWith("https://") || customIcon.startsWith("data:");
+    if (isUrl) return customIcon;
+    return `${origin}${customIcon.startsWith("/") ? "" : "/"}${customIcon}`;
   }
-  const branding = detectServerBranding(mcp.id, mcp.name, (mcp as { icon?: string }).icon);
-  return branding.iconUrl.startsWith("http://") || branding.iconUrl.startsWith("https://")
-    ? branding.iconUrl
-    : `${origin}${branding.iconUrl}`;
+  const branding = detectServerBranding(name, typeof mcp === "object" ? mcp.name : undefined);
+  const targetUrl = format === "png" ? branding.iconPngUrl : branding.iconUrl;
+  return targetUrl.startsWith("http://") || targetUrl.startsWith("https://") || targetUrl.startsWith("data:")
+    ? targetUrl
+    : `${origin}${targetUrl}`;
 }
 
 export function enrichServerInfoWithIcons<T extends string | Record<string, any>>(input: T, serverName: string, origin: string): T {
@@ -59,21 +62,27 @@ export function enrichServerInfoWithIcons<T extends string | Record<string, any>
     if (targetObj) {
       if (!targetObj.icons || !Array.isArray(targetObj.icons) || targetObj.icons.length === 0) {
         const mcp = getCachedServer(serverName);
-        const iconUrl = getServerIconUrl(mcp || serverName, origin);
+        const pngUrl = getServerIconUrl(mcp || serverName, origin, "png");
+        const svgUrl = getServerIconUrl(mcp || serverName, origin, "svg");
         targetObj.icons = [
           {
-            src: iconUrl,
-            mimeType: iconUrl.endsWith(".svg") ? "image/svg+xml" : "image/png",
-            sizes: ["128x128", "256x256"],
+            src: pngUrl,
+            mimeType: "image/png",
+            sizes: ["256x256"],
           },
           {
             src: `${origin}/logo.png`,
             mimeType: "image/png",
             sizes: ["256x256"],
           },
+          {
+            src: svgUrl,
+            mimeType: "image/svg+xml",
+            sizes: ["any"],
+          },
         ];
         if (!targetObj.icon) {
-          targetObj.icon = iconUrl;
+          targetObj.icon = pngUrl;
         }
         return (isString ? JSON.stringify(parsed) : parsed) as T;
       }
