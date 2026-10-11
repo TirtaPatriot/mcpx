@@ -2,8 +2,9 @@ FROM oven/bun:alpine
 
 WORKDIR /app
 
-# Install nodejs & npm agar npx / npm tool MCP dapat dieksekusi di samping bunx
-RUN apk add --no-cache nodejs npm
+# Buat symlink agar npx & node diarahkan langsung ke runtime bunx & bun bawaan tanpa perlu apk add
+RUN ln -sf /usr/local/bin/bunx /usr/local/bin/npx && \
+    ln -sf /usr/local/bin/bun /usr/local/bin/node
 
 # Buat direktori data untuk persistensi SQLite dan beri izin ke user bun
 RUN mkdir -p /app/data && chown -R bun:bun /app/data
