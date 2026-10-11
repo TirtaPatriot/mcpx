@@ -11,8 +11,11 @@ import { log, metaOf, elapsed, preview, publicOrigin, safeDecode } from "./utils
 import {
   spawnStdioSession,
   getActiveStdioSession,
+  getOrCreateStdioSession,
+  executeJsonRpcOnSession,
   sendJsonRpcToSession,
   scheduleSessionGraceClose,
+  closeStdioSession,
   testStdioCommand,
 } from "./stdio-manager";
 import { detectServerBranding } from "./icons";
@@ -323,11 +326,24 @@ export async function proxyMcpRequest(ctx: {
   // ───────────────────────────────────────────────────────────────────────────
   if (mcp.server_type === "command") {
     const subPath = restSegments.join("/");
-    const isPostMessage = request.method === "POST" && (subPath === "message" || subPath === "messages");
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.split(/\s+/)[1] ?? "anon";
+    const clientKey = `${serverName}:${token}`;
+    const reqSessionId = request.headers.get("mcp-session-id") || url.searchParams.get("sessionId") || undefined;
 
-    // A1. POST /mcp/:serverName/message?sessionId=... -> teruskan ke stdin proses
-    if (isPostMessage) {
-      const sessionId = url.searchParams.get("sessionId") || request.headers.get("mcp-session-id");
+    // A1. DELETE /mcp/:serverName -> Tutup sesi (Streamable HTTP Session Termination)
+    if (request.method === "DELETE") {
+      if (reqSessionId) closeStdioSession(reqSessionId);
+      return new Response(null, {
+        status: 204,
+        headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Expose-Headers": "Mcp-Session-Id" },
+      });
+    }
+
+    // A2. POST /mcp/:serverName/message?sessionId=... -> Teruskan ke stdin (Legacy SSE Transport)
+    const isLegacyPostMessage = request.method === "POST" && (subPath === "message" || subPath === "messages");
+    if (isLegacyPostMessage) {
+      const sessionId = reqSessionId;
       if (!sessionId) {
         return Response.json({ error: "missing_session_id", error_description: "sessionId query parameter diperlukan" }, { status: 400 });
       }
@@ -343,29 +359,34 @@ export async function proxyMcpRequest(ctx: {
         if (!sent) {
           return Response.json({ error: "write_failed", error_description: "Gagal menulis pesan ke proses MCP" }, { status: 500 });
         }
-        addActivityLog(id, "POST", url.pathname, 202, performance.now() - startedAt, server?.requestIP(request)?.address, `Message to ${serverName} stdio (${sessionId})`);
+        addActivityLog(id, "POST", url.pathname, 202, performance.now() - startedAt, server?.requestIP(request)?.address, `Legacy SSE message to ${serverName} stdio (${sessionId})`);
         return new Response(JSON.stringify({ status: "accepted" }), {
           status: 202,
-          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "Mcp-Session-Id",
+          },
         });
       } catch (err) {
         return Response.json({ error: "bad_request", error_description: (err as Error).message }, { status: 400 });
       }
     }
 
-    // A2. GET /mcp/:serverName/sse atau GET /mcp/:serverName -> buka stream SSE
+    // A3. GET /mcp/:serverName/sse atau GET /mcp/:serverName -> Buka stream SSE (Legacy SSE Handshake)
     const acceptHeader = request.headers.get("accept") ?? "";
-    const isSseRequest = request.method === "GET" || acceptHeader.includes("text/event-stream") || subPath === "sse";
+    const isLegacySseHandshake = request.method === "GET" && (acceptHeader.includes("text/event-stream") || subPath === "sse" || subPath === "");
 
-    if (isSseRequest) {
-      log(id, `▶ Membuka sesi SSE untuk command MCP [${serverName}]`);
-      const session = spawnStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars);
+    if (isLegacySseHandshake) {
+      log(id, `▶ Membuka sesi SSE (Legacy) untuk command MCP [${serverName}]`);
+      const session = getOrCreateStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars, reqSessionId, clientKey);
       const encoder = new TextEncoder();
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          // Event 1: endpoint untuk mengirim pesan balik (RFC / MCP SSE Specification)
+          // Event 1: endpoint untuk mengirim pesan balik (Legacy SSE Specification)
           const endpointUrl = `${publicOrigin(request)}/mcp/${serverName}/message?sessionId=${session.sessionId}`;
           const initPayload = `event: endpoint\ndata: ${endpointUrl}\n\n`;
           controller.enqueue(encoder.encode(initPayload));
@@ -415,18 +436,92 @@ export async function proxyMcpRequest(ctx: {
           "Cache-Control": "no-cache, no-transform",
           "Connection": "keep-alive",
           "X-Accel-Buffering": "no",
+          "Mcp-Session-Id": session.sessionId,
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Expose-Headers": "Mcp-Session-Id",
         },
       });
     }
 
-    // A3. Direct POST JSON-RPC tanpa SSE (Streamable HTTP fallback)
+    // A4. POST /mcp/:serverName -> Streamable HTTP Transport (Google Gemini, Claude, modern MCP clients)
     if (request.method === "POST") {
       try {
-        const bodyText = await request.text();
-        const testRes = await testStdioCommand(mcp.command || "bunx", mcp.args, mcp.env_vars);
-        return Response.json(testRes, { status: 200 });
+        const textBody = await request.text();
+        let rpcData: any;
+        try {
+          rpcData = JSON.parse(textBody);
+        } catch {
+          return Response.json(
+            { jsonrpc: "2.0", error: { code: -32700, message: "Parse error" }, id: null },
+            { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
+          );
+        }
+
+        const method = Array.isArray(rpcData) ? "batch" : (rpcData?.method ?? "response");
+        log(id, `▶ [Streamable HTTP] POST /mcp/${serverName} method=${method} id=${rpcData?.id ?? "notif"}`);
+
+        const session = getOrCreateStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars, reqSessionId, clientKey);
+
+        const rpcResult = await executeJsonRpcOnSession(session, rpcData, 45_000);
+
+        // Jika rpcResult === null (artinya notification, misal: notifications/initialized)
+        if (rpcResult === null) {
+          addActivityLog(id, "POST", url.pathname, 202, performance.now() - startedAt, server?.requestIP(request)?.address, `Notification accepted for ${serverName}`);
+          return new Response(JSON.stringify({ status: "accepted" }), {
+            status: 202,
+            headers: {
+              "Content-Type": "application/json",
+              "Mcp-Session-Id": session.sessionId,
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Expose-Headers": "Mcp-Session-Id",
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+
+        // Perkayaan ikon jika ini handshake initialize
+        const enriched = enrichServerInfoWithIcons(rpcResult, serverName, publicOrigin(request));
+        addActivityLog(id, "POST", url.pathname, 200, performance.now() - startedAt, server?.requestIP(request)?.address, `Streamable HTTP ${method} ok for ${serverName}`);
+
+        // Jika client hanya menerima text/event-stream (request-scoped SSE per spec)
+        const wantsSseOnly = acceptHeader.includes("text/event-stream") && !acceptHeader.includes("application/json") && !acceptHeader.includes("*/*");
+        if (wantsSseOnly) {
+          return new Response(`event: message\ndata: ${JSON.stringify(enriched)}\n\n`, {
+            status: 200,
+            headers: {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              "Mcp-Session-Id": session.sessionId,
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Expose-Headers": "Mcp-Session-Id",
+            },
+          });
+        }
+
+        return new Response(JSON.stringify(enriched), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Mcp-Session-Id": session.sessionId,
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "Mcp-Session-Id",
+            "Cache-Control": "no-store",
+          },
+        });
       } catch (err) {
-        return Response.json({ error: (err as Error).message }, { status: 500 });
+        log(id, `✗ Streamable HTTP error [${serverName}]: ${(err as Error).message}`);
+        addActivityLog(id, "POST", url.pathname, 500, performance.now() - startedAt, server?.requestIP(request)?.address, (err as Error).message);
+        return Response.json(
+          {
+            jsonrpc: "2.0",
+            error: { code: -32603, message: (err as Error).message },
+            id: null,
+          },
+          {
+            status: 500,
+            headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Expose-Headers": "Mcp-Session-Id" },
+          },
+        );
       }
     }
 
@@ -499,6 +594,8 @@ export async function proxyMcpRequest(ctx: {
     resHeaders.delete("content-encoding");
     resHeaders.delete("content-length");
   }
+  resHeaders.set("Access-Control-Allow-Origin", "*");
+  resHeaders.set("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   const contentType = upstream.headers.get("content-type") ?? "";
   const isSse = contentType.includes("text/event-stream");

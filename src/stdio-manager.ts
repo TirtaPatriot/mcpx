@@ -1,18 +1,27 @@
 import type { Subprocess } from "bun";
 import { newSecret, log } from "./utils";
 
+interface PendingRpcRequest {
+  resolve: (res: any) => void;
+  reject: (err: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 export interface StdioSession {
   sessionId: string;
   serverName: string;
+  clientKey?: string;
   process: Subprocess;
   createdAt: number;
   lastActiveAt: number;
   onMessage?: (jsonLine: string) => void;
   onClose?: (reason: string) => void;
   graceTimer?: ReturnType<typeof setTimeout>;
+  pendingRequests: Map<string | number, PendingRpcRequest>;
 }
 
 const activeSessions = new Map<string, StdioSession>();
+const clientKeyToSessionId = new Map<string, string>();
 
 export function parseArgs(raw: string): string[] {
   if (!raw || !raw.trim()) return [];
@@ -60,12 +69,47 @@ export function getActiveStdioSession(sessionId: string): StdioSession | null {
   return session;
 }
 
+export function getOrCreateStdioSession(
+  serverName: string,
+  command: string,
+  argsStr: string,
+  envStr: string,
+  requestedSessionId?: string,
+  clientKey?: string,
+): StdioSession {
+  if (requestedSessionId) {
+    const existing = getActiveStdioSession(requestedSessionId);
+    if (existing && existing.serverName === serverName) {
+      if (clientKey) clientKeyToSessionId.set(clientKey, existing.sessionId);
+      return existing;
+    }
+  }
+
+  if (clientKey) {
+    const mappedSessionId = clientKeyToSessionId.get(clientKey);
+    if (mappedSessionId) {
+      const existing = getActiveStdioSession(mappedSessionId);
+      if (existing && existing.serverName === serverName) {
+        return existing;
+      }
+      clientKeyToSessionId.delete(clientKey);
+    }
+  }
+
+  const session = spawnStdioSession(serverName, command, argsStr, envStr, requestedSessionId, clientKey);
+  if (clientKey) {
+    clientKeyToSessionId.set(clientKey, session.sessionId);
+  }
+  return session;
+}
+
 export function spawnStdioSession(
   serverName: string,
   command: string,
   argsStr: string,
   envStr: string,
   existingSessionId?: string,
+  clientKey?: string,
 ): StdioSession {
   const sessionId = existingSessionId || newSecret().slice(0, 16);
   const args = parseArgs(argsStr);
@@ -88,12 +132,25 @@ export function spawnStdioSession(
   const session: StdioSession = {
     sessionId,
     serverName,
+    clientKey,
     process: proc,
     createdAt: Date.now(),
     lastActiveAt: Date.now(),
+    pendingRequests: new Map(),
   };
 
   activeSessions.set(sessionId, session);
+  if (clientKey) clientKeyToSessionId.set(clientKey, sessionId);
+
+  const cleanup = (reason: string) => {
+    for (const [reqId, pending] of session.pendingRequests.entries()) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error(`Proses MCP [${serverName}] keluar (${reason}) sebelum menjawab request id=${reqId}`));
+    }
+    session.pendingRequests.clear();
+    activeSessions.delete(sessionId);
+    if (session.clientKey) clientKeyToSessionId.delete(session.clientKey);
+  };
 
   // Background reader untuk stdout
   (async () => {
@@ -111,23 +168,50 @@ export function spawnStdioSession(
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (trimmed && session.onMessage) {
+          if (!trimmed) continue;
+
+          // 1. Cek apakah ini response JSON-RPC untuk request yang sedang menunggu
+          try {
+            const json = JSON.parse(trimmed);
+            if (json && json.id !== undefined && session.pendingRequests.has(json.id)) {
+              const pending = session.pendingRequests.get(json.id)!;
+              session.pendingRequests.delete(json.id);
+              clearTimeout(pending.timer);
+              pending.resolve(json);
+            }
+          } catch {}
+
+          // 2. Hubungkan ke listener onMessage (untuk SSE stream / logging)
+          if (session.onMessage) {
             session.onMessage(trimmed);
           }
         }
       }
 
-      if (buffer.trim() && session.onMessage) {
-        session.onMessage(buffer.trim());
+      if (buffer.trim()) {
+        const trimmed = buffer.trim();
+        try {
+          const json = JSON.parse(trimmed);
+          if (json && json.id !== undefined && session.pendingRequests.has(json.id)) {
+            const pending = session.pendingRequests.get(json.id)!;
+            session.pendingRequests.delete(json.id);
+            clearTimeout(pending.timer);
+            pending.resolve(json);
+          }
+        } catch {}
+        if (session.onMessage) {
+          session.onMessage(trimmed);
+        }
       }
     } catch (err) {
       log("stdio", `[${serverName}:${sessionId}] Error membaca stdout: ${(err as Error).message}`);
     } finally {
+      cleanup("stdout stream ended");
       if (session.onClose) session.onClose("stdout stream ended");
     }
   })();
 
-  // Background reader untuk stderr (berguna untuk debug Dokploy / npm output)
+  // Background reader untuk stderr
   (async () => {
     try {
       const reader = proc.stderr.getReader();
@@ -144,7 +228,7 @@ export function spawnStdioSession(
   // Handle proses exit
   proc.exited.then((code) => {
     log("stdio", `⏹ Proses MCP [${serverName}:${sessionId}] keluar dengan kode ${code}`);
-    activeSessions.delete(sessionId);
+    cleanup(`exit code ${code}`);
     if (session.onClose) session.onClose(`exit code ${code}`);
   });
 
@@ -172,6 +256,48 @@ export function sendJsonRpcToSession(session: StdioSession, data: string | objec
   }
 }
 
+export async function executeJsonRpcOnSession(
+  session: StdioSession,
+  rpcData: any,
+  timeoutMs = 45_000,
+): Promise<any> {
+  session.lastActiveAt = Date.now();
+  if (session.graceTimer) {
+    clearTimeout(session.graceTimer);
+    session.graceTimer = undefined;
+  }
+
+  // Jika array batch JSON-RPC
+  if (Array.isArray(rpcData)) {
+    const promises = rpcData.map((item) => executeJsonRpcOnSession(session, item, timeoutMs));
+    const results = await Promise.all(promises);
+    return results.filter((r) => r !== null);
+  }
+
+  // Jika notification (tanpa id)
+  if (!rpcData || rpcData.id === undefined) {
+    sendJsonRpcToSession(session, rpcData);
+    return null;
+  }
+
+  const reqId = rpcData.id;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      session.pendingRequests.delete(reqId);
+      reject(new Error(`Timeout (${timeoutMs}ms) menunggu respon dari proses MCP [${session.serverName}] untuk method="${rpcData.method ?? 'unknown'}" id=${reqId}`));
+    }, timeoutMs);
+
+    session.pendingRequests.set(reqId, { resolve, reject, timer });
+
+    const sent = sendJsonRpcToSession(session, rpcData);
+    if (!sent) {
+      clearTimeout(timer);
+      session.pendingRequests.delete(reqId);
+      reject(new Error(`Gagal mengirim data ke stdin proses MCP [${session.serverName}]`));
+    }
+  });
+}
+
 export function closeStdioSession(sessionId: string): void {
   const session = activeSessions.get(sessionId);
   if (!session) return;
@@ -180,10 +306,11 @@ export function closeStdioSession(sessionId: string): void {
     session.process.kill();
   } catch {}
   activeSessions.delete(sessionId);
+  if (session.clientKey) clientKeyToSessionId.delete(session.clientKey);
 }
 
-// Jadwalkan penutupan session jika klien disconnect (dengan grace period 60 detik)
-export function scheduleSessionGraceClose(sessionId: string, graceMs = 60_000): void {
+// Jadwalkan penutupan session jika klien disconnect (default idle 15 menit)
+export function scheduleSessionGraceClose(sessionId: string, graceMs = 900_000): void {
   const session = activeSessions.get(sessionId);
   if (!session) return;
   if (session.graceTimer) clearTimeout(session.graceTimer);
