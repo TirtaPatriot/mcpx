@@ -13,8 +13,8 @@ RUN ln -sf /usr/local/bin/bunx /usr/local/bin/npx && \
     ln -sf /usr/local/bin/bun /usr/local/bin/node && \
     ln -sf /usr/bin/python3 /usr/local/bin/python
 
-# Buat direktori data untuk SQLite dan cache build untuk user bun (Go & UV)
-RUN mkdir -p /app/data /home/bun/.cache /home/bun/go && \
+# Buat direktori data untuk SQLite dan cache build untuk user bun (Go, UV, Bun, NPM)
+RUN mkdir -p /app/data/cache /home/bun/.cache /home/bun/go && \
     chown -R bun:bun /app/data /home/bun
 
 # Layer dependensi dipisah agar cache tetap terpakai saat hanya src yang berubah
@@ -28,9 +28,11 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DB_PATH=/app/data/tokens.db \
     HOME=/home/bun \
-    GOCACHE=/home/bun/.cache/go-build \
-    GOPATH=/home/bun/go \
-    UV_CACHE_DIR=/home/bun/.cache/uv \
+    GOCACHE=/app/data/cache/go-build \
+    GOPATH=/app/data/cache/go \
+    UV_CACHE_DIR=/app/data/cache/uv \
+    BUN_INSTALL_CACHE_DIR=/app/data/cache/bun \
+    npm_config_cache=/app/data/cache/npm \
     PYTHONUNBUFFERED=1
 
 USER bun

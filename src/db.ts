@@ -13,6 +13,9 @@ import {
 import { hashPassword, newSecret } from "./utils";
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
+try {
+  mkdirSync(dirname(DB_PATH) + "/cache", { recursive: true });
+} catch {}
 
 export const db = new Database(DB_PATH);
 db.run("PRAGMA journal_mode = WAL;");

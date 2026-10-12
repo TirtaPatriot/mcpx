@@ -1,4 +1,5 @@
 import type { Subprocess } from "bun";
+import { dirname } from "node:path";
 import { newSecret, log } from "./utils";
 
 interface PendingRpcRequest {
@@ -22,6 +23,24 @@ export interface StdioSession {
 
 const activeSessions = new Map<string, StdioSession>();
 const clientKeyToSessionId = new Map<string, string>();
+
+function getDefaultExecutionEnv(customEnv: Record<string, string>): Record<string, string> {
+  const cacheBase = process.env.CACHE_DIR || (process.env.DB_PATH ? dirname(process.env.DB_PATH) + "/cache" : "./data/cache");
+  const merged: Record<string, string> = {
+    PYTHONUNBUFFERED: "1",
+    UV_CACHE_DIR: process.env.UV_CACHE_DIR || `${cacheBase}/uv`,
+    GOCACHE: process.env.GOCACHE || `${cacheBase}/go-build`,
+    GOPATH: process.env.GOPATH || `${cacheBase}/go`,
+    BUN_INSTALL_CACHE_DIR: process.env.BUN_INSTALL_CACHE_DIR || `${cacheBase}/bun`,
+    npm_config_cache: process.env.npm_config_cache || `${cacheBase}/npm`,
+    ...(process.env as Record<string, string>),
+    ...customEnv,
+  };
+  if (!merged.HOME && process.env.HOME) {
+    merged.HOME = process.env.HOME;
+  }
+  return merged;
+}
 
 export function parseArgs(raw: string): string[] {
   if (!raw || !raw.trim()) return [];
@@ -121,15 +140,7 @@ export function spawnStdioSession(
   const finalCmd = resolveCommandAndArgs(command || "bunx", argsStr);
   if (finalCmd.length === 0) finalCmd.push("bunx");
   const customEnv = parseEnv(envStr);
-
-  const mergedEnv: Record<string, string> = {
-    PYTHONUNBUFFERED: "1",
-    ...(process.env as Record<string, string>),
-    ...customEnv,
-  };
-  if (!mergedEnv.HOME && process.env.HOME) {
-    mergedEnv.HOME = process.env.HOME;
-  }
+  const mergedEnv = getDefaultExecutionEnv(customEnv);
 
   log("stdio", `🚀 Menjalankan proses MCP [${serverName}] (session: ${sessionId}): ${finalCmd.join(" ")}`);
 
@@ -345,15 +356,7 @@ export async function testStdioCommand(
   const finalCmd = resolveCommandAndArgs(command || "bunx", argsStr);
   if (finalCmd.length === 0) finalCmd.push("bunx");
   const customEnv = parseEnv(envStr);
-
-  const mergedEnv: Record<string, string> = {
-    PYTHONUNBUFFERED: "1",
-    ...(process.env as Record<string, string>),
-    ...customEnv,
-  };
-  if (!mergedEnv.HOME && process.env.HOME) {
-    mergedEnv.HOME = process.env.HOME;
-  }
+  const mergedEnv = getDefaultExecutionEnv(customEnv);
 
   try {
     const proc = Bun.spawn(finalCmd, {
