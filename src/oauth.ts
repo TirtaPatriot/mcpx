@@ -135,23 +135,65 @@ export async function handleDynamicClientRegistration({
     if (Object.keys(payload).length === 0) {
       payload = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     }
-    const clientName = str(payload.client_name) || "Google Gemini";
     const redirectUrisArr = Array.isArray(payload.redirect_uris)
       ? payload.redirect_uris.map((u) => String(u).trim()).filter(Boolean)
       : typeof payload.redirect_uris === "string"
         ? [payload.redirect_uris.trim()]
         : [];
     const redirectUris = redirectUrisArr.length > 0 ? redirectUrisArr.join(",") : "*";
-    const clientId = `gemini-${randomBytes(6).toString("hex")}`;
-    const clientSecret = newSecret();
 
-    let icon = "/icons/gemini.png";
-    const lowerName = clientName.toLowerCase();
-    if (lowerName.includes("claude")) icon = "/icons/claude.png";
-    else if (lowerName.includes("chatgpt") || lowerName.includes("openai")) icon = "/icons/chatgpt.png";
-    else if (lowerName.includes("cursor")) icon = "/icons/cursor.png";
-    else if (lowerName.includes("gemini") || lowerName.includes("google")) icon = "/icons/gemini.png";
-    else icon = "/icons/universal.png";
+    const userAgent = (request.headers.get("user-agent") || "").toLowerCase();
+    const referer = (request.headers.get("referer") || "").toLowerCase();
+    const originHeader = (request.headers.get("origin") || "").toLowerCase();
+    const rawClientName = str(payload.client_name);
+    const clientUri = str(payload.client_uri) || "";
+
+    const allHints = [
+      rawClientName || "",
+      clientUri,
+      ...redirectUrisArr,
+      userAgent,
+      referer,
+      originHeader,
+    ].join(" ").toLowerCase();
+
+    let prefix = "client";
+    let defaultName = "Universal AI Client";
+    let icon = "/icons/universal.png";
+
+    if (allHints.includes("chatgpt") || allHints.includes("openai")) {
+      prefix = "chatgpt";
+      defaultName = "OpenAI / ChatGPT";
+      icon = "/icons/chatgpt.png";
+    } else if (allHints.includes("claude") || allHints.includes("anthropic")) {
+      prefix = "claude";
+      defaultName = "Anthropic Claude";
+      icon = "/icons/claude.png";
+    } else if (allHints.includes("cursor") || allHints.includes("windsurf")) {
+      prefix = "cursor";
+      defaultName = "Cursor IDE";
+      icon = "/icons/cursor.png";
+    } else if (allHints.includes("gemini") || allHints.includes("google")) {
+      prefix = "gemini";
+      defaultName = "Google Gemini";
+      icon = "/icons/gemini.png";
+    } else if (allHints.includes("grok") || allHints.includes("x.ai")) {
+      prefix = "grok";
+      defaultName = "xAI Grok";
+      icon = "/icons/grok.png";
+    } else if (allHints.includes("localhost") || allHints.includes("127.0.0.1")) {
+      prefix = "desktop";
+      defaultName = "AI Desktop Client";
+      icon = "/icons/universal.png";
+    }
+
+    if (str(payload.logo_uri)) {
+      icon = str(payload.logo_uri)!;
+    }
+
+    const clientName = rawClientName || defaultName;
+    const clientId = `${prefix}-${randomBytes(6).toString("hex")}`;
+    const clientSecret = newSecret();
 
     saveOAuthClient({
       id: clientId,
@@ -171,7 +213,7 @@ export async function handleDynamicClientRegistration({
         client_id_issued_at: Math.floor(Date.now() / 1000),
         client_secret_expires_at: 0,
         client_name: clientName,
-        redirect_uris: redirectUrisArr.length > 0 ? redirectUrisArr : ["https://oauth-redirect.googleusercontent.com"],
+        redirect_uris: redirectUrisArr.length > 0 ? redirectUrisArr : ["*"],
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],
         token_endpoint_auth_method: "client_secret_post",

@@ -145,6 +145,22 @@ try { db.run("ALTER TABLE access_tokens ADD COLUMN user_id TEXT;"); } catch {}
 try { db.run("ALTER TABLE refresh_tokens ADD COLUMN user_id TEXT;"); } catch {}
 try { db.run("ALTER TABLE auth_codes ADD COLUMN user_id TEXT;"); } catch {}
 
+// Auto-fix mislabeled dynamic clients from previous releases
+try {
+  db.run(`
+    UPDATE oauth_clients 
+    SET name = 'OpenAI / ChatGPT', icon = '/icons/chatgpt.png' 
+    WHERE (name = 'Google Gemini' OR id LIKE 'gemini-%') 
+      AND (redirect_uris LIKE '%chatgpt%' OR redirect_uris LIKE '%openai%');
+  `);
+  db.run(`
+    UPDATE oauth_clients 
+    SET name = 'Anthropic Claude', icon = '/icons/claude.png' 
+    WHERE (name = 'Google Gemini' OR id LIKE 'gemini-%') 
+      AND (redirect_uris LIKE '%claude%' OR redirect_uris LIKE '%anthropic%');
+  `);
+} catch {}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
