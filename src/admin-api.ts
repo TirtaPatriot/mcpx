@@ -183,6 +183,14 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
           heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
         },
         bunVersion: Bun.version,
+        runtimes: {
+          bun: Bun.version,
+          bunx: !!Bun.which("bunx"),
+          uv: !!(Bun.which("uv") || Bun.which("uvx")),
+          go: !!Bun.which("go"),
+          python: !!(Bun.which("python3") || Bun.which("python")),
+          npx: !!Bun.which("npx"),
+        },
         dbPath: DB_PATH,
       },
     });
@@ -233,7 +241,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       }
     } else {
       if (!data.command || !data.command.trim()) {
-        return json({ ok: false, error: "Perintah (command) wajib diisi untuk server command/NPM" }, 400);
+        return json({ ok: false, error: "Perintah (command) wajib diisi untuk server CLI / stdio (bunx, uv, go, npx, dll.)" }, 400);
       }
     }
 

@@ -322,7 +322,7 @@ export async function proxyMcpRequest(ctx: {
   server?.timeout(request, 0);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Branch A: Server MCP Bertipe "command" (bunx, npx, node, dll.)
+  // Branch A: Server MCP Bertipe "command" (bunx, uv, go, npx, python, dll.)
   // ───────────────────────────────────────────────────────────────────────────
   if (mcp.server_type === "command") {
     const subPath = restSegments.join("/");

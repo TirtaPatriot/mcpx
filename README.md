@@ -12,7 +12,7 @@ Reverse proxy berbasis Bun + ElysiaJS dengan OAuth 2.1 & Bearer Token di depan s
 ```
 Pengguna / Admin ──▶ /admin (Web Dashboard Management)
 Semua AI Client ──OAuth──▶ /oauth/authorize, /oauth/token
-Semua AI Client ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upstream (HTTP / bunx / npx)
+Semua AI Client ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upstream (HTTP / bunx / uv / go run / npx / python)
 ```
 
 ---
@@ -20,11 +20,15 @@ Semua AI Client ──Bearer─▶ /mcp/:serverName/* ──▶ server MCP upstr
 ## Fitur Utama
 
 - 🖥️ **Web Dashboard Management (`/admin`)**:
-  - **Hub Integrasi AI (Universal Overview)**: Metrik gateway, status sistem, uptime, memory, dan tab panduan integrasi langsung untuk Google Gemini, Claude Desktop, OpenAI/ChatGPT, Cursor, dan Generic SSE.
-  - **Manajemen Server MCP (HTTP & NPM/CLI)**:
-    - Mendukung server upstream **HTTP/SSE URL** maupun perintah **NPM/CLI** (seperti `bunx -y @dokploy/mcp` atau `npx -y @dokploy/mcp`) melalui built-in bridge stdio-ke-SSE.
+  - **Hub Integrasi AI (Universal Overview)**: Metrik gateway, status sistem, uptime, memory, deteksi runtime CLI (`bun`, `uv`, `go`, `python`, `npx`), dan tab panduan integrasi langsung untuk Google Gemini, Claude Desktop, OpenAI/ChatGPT, Cursor, dan Generic SSE.
+  - **Manajemen Server MCP (HTTP & Multi-Runtime CLI: bunx, uv, go run, python, npx)**:
+    - Mendukung server upstream **HTTP/SSE URL** maupun eksekusi perintah **CLI / stdio** langsung:
+      - ⚡ **Node / Bun**: `bunx -y @dokploy/mcp`, `npx -y @modelcontextprotocol/server-sqlite`
+      - 🐍 **Python / uv**: `uvx mcp-server-git`, `uv run server.py`, `python -m mcp_server`
+      - 🐹 **Go**: `go run main.go`, `go run .`
+    - Built-in bridge yang mengonversi proses stdio menjadi **Streamable HTTP transport** (modern untuk Google Gemini & Claude) dan **Legacy SSE transport**.
     - Konfigurasi environment variables (misal `DOKPLOY_URL`, `DOKPLOY_API_KEY`) dan argumen paket langsung via UI.
-    - Fitur **Test Handshake JSON-RPC** untuk menguji perintah CLI sebelum disimpan.
+    - Fitur **Test Handshake JSON-RPC** untuk menguji perintah CLI sebelum disimpan dengan deteksi status cepat.
     - Fitur **Test Ping** untuk menguji server HTTP.
   - **Multi-Klien OAuth 2.1 & Pencabutan Cepat (Easy Revoke)**:
     - Buat kredensial khusus per aplikasi (misal: `claude-desktop`, `cursor-ide`, `gemini-mobile`, `chatgpt-action`).

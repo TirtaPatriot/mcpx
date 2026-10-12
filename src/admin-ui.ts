@@ -59,7 +59,7 @@ export function renderAdminPage(request: Request): Response {
           <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
             OAuth 2.1 MCP Gateway
             <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">SQLite WAL</span>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + NPM (bunx/npx)</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + CLI (bunx, uv, go, npx)</span>
           </h1>
           <p class="text-xs text-slate-400">Universal reverse proxy, process bridge & OAuth 2.1 manager untuk Semua AI (Gemini, Claude, Cursor, ChatGPT, LibreChat, dll.)</p>
         </div>
@@ -343,8 +343,8 @@ export function renderAdminPage(request: Request): Response {
               <div class="font-mono text-slate-200 font-medium mt-1" id="sysMemory">-</div>
             </div>
             <div class="bg-dark-900/60 p-3 rounded-xl border border-dark-700/80">
-              <div class="text-slate-400">Runtime Bun</div>
-              <div class="font-mono text-slate-200 font-medium mt-1" id="sysBun">-</div>
+              <div class="text-slate-400">Runtime & CLI</div>
+              <div class="font-mono text-slate-200 font-medium mt-1 truncate" id="sysBun">-</div>
             </div>
           </div>
         </div>
@@ -355,7 +355,7 @@ export function renderAdminPage(request: Request): Response {
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2 class="text-base font-semibold text-white">Daftar Server MCP</h2>
-            <p class="text-xs text-slate-400">Mendukung server URL (HTTP/SSE) maupun paket NPM yang dieksekusi via <code>bunx</code> / <code>npx</code></p>
+            <p class="text-xs text-slate-400">Mendukung server URL (HTTP/SSE) maupun CLI/stdio via <code>bunx</code>, <code>uv / uvx</code>, <code>go run</code>, <code>python</code>, <code>npx</code></p>
           </div>
           <button onclick="openServerModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-4 py-2 rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center gap-1.5">
             <span>+</span> Tambah Server MCP
@@ -651,11 +651,13 @@ export function renderAdminPage(request: Request): Response {
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-slate-400">Logo / Icon (Preset atau URL gambar)</label>
-            <div class="flex items-center gap-1">
+            <div class="flex flex-wrap items-center gap-1">
               <button type="button" onclick="setServerIconPreset('/icons/dokploy.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Dokploy</button>
               <button type="button" onclick="setServerIconPreset('/icons/mssql.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">MSSQL</button>
               <button type="button" onclick="setServerIconPreset('/icons/mikrotik.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">MikroTik</button>
               <button type="button" onclick="setServerIconPreset('/icons/postgres.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">PostgreSQL</button>
+              <button type="button" onclick="setServerIconPreset('/icons/python.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Python</button>
+              <button type="button" onclick="setServerIconPreset('/icons/golang.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">Go</button>
               <button type="button" onclick="setServerIconPreset('/icons/mcp.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">MCP</button>
               <button type="button" onclick="setServerIconPreset('/icons/terminal.svg')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">CLI</button>
             </div>
@@ -676,7 +678,7 @@ export function renderAdminPage(request: Request): Response {
               <span>🌐</span> URL Upstream (HTTP)
             </button>
             <button type="button" onclick="setServerType('command')" id="typeBtnCommand" class="py-2 px-3 rounded-xl border border-dark-700 bg-dark-900 text-slate-400 hover:text-white font-medium flex items-center justify-center gap-1.5">
-              <span>⚡</span> NPM / Shell (bunx/npx)
+              <span>⚡</span> CLI / Stdio (bunx, uv, go run, npx)
             </button>
           </div>
           <input type="hidden" id="srvType" value="http">
@@ -699,15 +701,19 @@ export function renderAdminPage(request: Request): Response {
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="text-slate-400">Perintah (Command)</label>
-              <div class="space-x-1">
-                <button type="button" onclick="setCommandPreset('bunx')" class="text-[10px] bg-dark-700 px-2 py-0.5 rounded text-slate-300 hover:text-white">bunx</button>
-                <button type="button" onclick="setCommandPreset('npx')" class="text-[10px] bg-dark-700 px-2 py-0.5 rounded text-slate-300 hover:text-white">npx</button>
+              <div class="flex flex-wrap gap-1">
+                <button type="button" onclick="setCommandPreset('bunx')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-2 py-0.5 rounded text-slate-300 hover:text-white">bunx</button>
+                <button type="button" onclick="setCommandPreset('uvx')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-2 py-0.5 rounded text-slate-300 hover:text-white">uvx</button>
+                <button type="button" onclick="setCommandPreset('uv run')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-2 py-0.5 rounded text-slate-300 hover:text-white">uv run</button>
+                <button type="button" onclick="setCommandPreset('go run')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-2 py-0.5 rounded text-slate-300 hover:text-white">go run</button>
+                <button type="button" onclick="setCommandPreset('python')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-2 py-0.5 rounded text-slate-300 hover:text-white">python</button>
+                <button type="button" onclick="setCommandPreset('npx')" class="text-[10px] bg-dark-700 hover:bg-dark-600 px-2 py-0.5 rounded text-slate-300 hover:text-white">npx</button>
               </div>
             </div>
-            <input type="text" id="srvCommand" placeholder="bunx" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
+            <input type="text" id="srvCommand" placeholder="bunx / uvx / go run / python" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
           </div>
           <div>
-            <label class="block text-slate-400 mb-1">Argumen / Nama Paket (contoh: <code>-y @dokploy/mcp</code> atau <code>dokploy-mcp</code>)</label>
+            <label class="block text-slate-400 mb-1">Argumen / File / Nama Paket (contoh: <code>-y @dokploy/mcp</code>, <code>mcp-server-git</code>, atau <code>main.go</code>)</label>
             <input type="text" id="srvArgs" placeholder="-y @dokploy/mcp" class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white focus:outline-none focus:border-blue-500">
           </div>
           <div>
@@ -1230,7 +1236,13 @@ export function renderAdminPage(request: Request): Response {
           const upHours = (data.system.uptime / 3600).toFixed(1);
           document.getElementById('sysUptime').innerText = \`\${upHours} jam (\${data.system.uptime}s)\`;
           document.getElementById('sysMemory').innerText = \`\${data.system.memory.rss}MB / \${data.system.memory.heapUsed}MB\`;
-          document.getElementById('sysBun').innerText = \`v\${data.system.bunVersion}\`;
+          const runtimes = data.system.runtimes;
+          const rList = [\`Bun v\${data.system.bunVersion}\`];
+          if (runtimes?.uv) rList.push('uv');
+          if (runtimes?.go) rList.push('go');
+          if (runtimes?.python) rList.push('python');
+          if (runtimes?.npx) rList.push('npx');
+          document.getElementById('sysBun').innerText = rList.join(' · ');
         }
       } catch {}
     }
@@ -1253,8 +1265,29 @@ export function renderAdminPage(request: Request): Response {
 
     function setCommandPreset(cmd) {
       document.getElementById('srvCommand').value = cmd;
-      if (cmd === 'bunx' && !document.getElementById('srvArgs').value) {
-        document.getElementById('srvArgs').value = '-y @dokploy/mcp';
+      const argsInput = document.getElementById('srvArgs');
+      const cur = argsInput.value.trim();
+      const isDefault = !cur || cur === '-y @dokploy/mcp' || cur === 'mcp-server-git' || cur === 'server.py' || cur === 'main.go';
+      if (isDefault) {
+        if (cmd === 'bunx' || cmd === 'npx') {
+          argsInput.value = '-y @dokploy/mcp';
+        } else if (cmd === 'uvx') {
+          argsInput.value = 'mcp-server-git';
+        } else if (cmd === 'uv run') {
+          argsInput.value = 'server.py';
+        } else if (cmd === 'go run') {
+          argsInput.value = 'main.go';
+        } else if (cmd === 'python') {
+          argsInput.value = 'server.py';
+        }
+      }
+      const curIcon = (document.getElementById('srvIcon').value || '').trim();
+      if (!curIcon || curIcon === '/icons/mcp.svg' || curIcon === '/icons/terminal.svg') {
+        if (cmd.includes('python') || cmd.includes('uv')) {
+          setServerIconPreset('/icons/python.svg');
+        } else if (cmd.includes('go')) {
+          setServerIconPreset('/icons/golang.svg');
+        }
       }
     }
 
@@ -1280,17 +1313,20 @@ export function renderAdminPage(request: Request): Response {
       tbody.innerHTML = data.servers.map(s => {
         const isCmd = s.server_type === 'command';
         const typeBadge = isCmd
-          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">NPM/CMD</span>'
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">CLI/STDIO</span>'
           : '<span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">HTTP</span>';
 
         const targetDisplay = isCmd
           ? \`<span class="text-purple-300 font-mono">\${s.command || 'bunx'} \${s.args || ''}</span>\`
           : \`<span class="text-slate-300 font-mono truncate block max-w-xs">\${s.url}</span>\`;
 
+        const cmdStr = (s.command || '').toLowerCase();
         const defaultIcon = s.id.includes('dokploy') ? '/icons/dokploy.svg'
           : s.id.includes('mssql') ? '/icons/mssql.svg'
           : s.id.includes('mikrotik') ? '/icons/mikrotik.svg'
           : s.id.includes('postgres') ? '/icons/postgres.svg'
+          : (cmdStr.includes('python') || cmdStr.includes('uv') || s.id.includes('python') || s.id.includes('uv')) ? '/icons/python.svg'
+          : (cmdStr.includes('go') || s.id.includes('go')) ? '/icons/golang.svg'
           : isCmd ? '/icons/terminal.svg' : '/icons/mcp.svg';
         const iconSrc = s.icon || defaultIcon;
 

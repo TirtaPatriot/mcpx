@@ -58,6 +58,12 @@ export function parseEnv(raw: string): Record<string, string> {
   return {};
 }
 
+export function resolveCommandAndArgs(command: string, argsStr: string): string[] {
+  const cmdParts = parseArgs(command);
+  const args = parseArgs(argsStr);
+  return [...cmdParts, ...args];
+}
+
 export function getActiveStdioSession(sessionId: string): StdioSession | null {
   const session = activeSessions.get(sessionId);
   if (!session) return null;
@@ -112,17 +118,22 @@ export function spawnStdioSession(
   clientKey?: string,
 ): StdioSession {
   const sessionId = existingSessionId || newSecret().slice(0, 16);
-  const args = parseArgs(argsStr);
+  const finalCmd = resolveCommandAndArgs(command || "bunx", argsStr);
+  if (finalCmd.length === 0) finalCmd.push("bunx");
   const customEnv = parseEnv(envStr);
 
-  const mergedEnv = {
-    ...process.env,
+  const mergedEnv: Record<string, string> = {
+    PYTHONUNBUFFERED: "1",
+    ...(process.env as Record<string, string>),
     ...customEnv,
   };
+  if (!mergedEnv.HOME && process.env.HOME) {
+    mergedEnv.HOME = process.env.HOME;
+  }
 
-  log("stdio", `🚀 Menjalankan proses MCP [${serverName}] (session: ${sessionId}): ${command} ${args.join(" ")}`);
+  log("stdio", `🚀 Menjalankan proses MCP [${serverName}] (session: ${sessionId}): ${finalCmd.join(" ")}`);
 
-  const proc = Bun.spawn([command, ...args], {
+  const proc = Bun.spawn(finalCmd, {
     stdin: "pipe",
     stdout: "pipe",
     stderr: "pipe",
@@ -322,7 +333,7 @@ export function scheduleSessionGraceClose(sessionId: string, graceMs = 900_000):
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Penguji Perintah Stdio / NPM (bunx / npx)
+// Penguji Perintah Stdio / CLI (bunx, uv, go run, npx, python, dll.)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function testStdioCommand(
@@ -331,15 +342,25 @@ export async function testStdioCommand(
   envStr: string,
 ): Promise<{ ok: boolean; latencyMs: number; serverInfo?: any; error?: string }> {
   const start = performance.now();
-  const args = parseArgs(argsStr);
+  const finalCmd = resolveCommandAndArgs(command || "bunx", argsStr);
+  if (finalCmd.length === 0) finalCmd.push("bunx");
   const customEnv = parseEnv(envStr);
 
+  const mergedEnv: Record<string, string> = {
+    PYTHONUNBUFFERED: "1",
+    ...(process.env as Record<string, string>),
+    ...customEnv,
+  };
+  if (!mergedEnv.HOME && process.env.HOME) {
+    mergedEnv.HOME = process.env.HOME;
+  }
+
   try {
-    const proc = Bun.spawn([command, ...args], {
+    const proc = Bun.spawn(finalCmd, {
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, ...customEnv },
+      env: mergedEnv,
     });
 
     let stdoutBuffer = "";
@@ -355,9 +376,26 @@ export async function testStdioCommand(
         resolve({
           ok: false,
           latencyMs,
-          error: `Timeout (8s) menunggu handshake JSON-RPC initialize. Output stderr: ${stderrBuffer.trim() || "(kosong)"}`,
+          error: `Timeout (15s) menunggu handshake JSON-RPC initialize. Output stderr: ${stderrBuffer.trim() || "(kosong)"}`,
         });
-      }, 8000);
+      }, 15000);
+
+      // Tangani jika proses keluar terlalu awal (misal command gagal / error runtime)
+      proc.exited.then((code) => {
+        if (resolved) return;
+        setTimeout(() => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          const latencyMs = Math.round(performance.now() - start);
+          const errDetail = stderrBuffer.trim() ? ` Stderr: ${stderrBuffer.trim()}` : "";
+          resolve({
+            ok: false,
+            latencyMs,
+            error: `Proses keluar dengan kode ${code}.${errDetail || " (periksa perintah atau argumen)"}`,
+          });
+        }, 50);
+      });
 
       // Reader stdout
       (async () => {
@@ -389,7 +427,7 @@ export async function testStdioCommand(
                     resolve({
                       ok: true,
                       latencyMs,
-                      serverInfo: json.result?.serverInfo ?? { name: command },
+                      serverInfo: json.result?.serverInfo ?? { name: finalCmd[0] || command },
                     });
                   }
                   return;

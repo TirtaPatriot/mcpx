@@ -181,6 +181,12 @@ export function detectServerBranding(
   if (low.includes("redis")) {
     return { id: "redis", name: serverName || "Redis", iconUrl: "/icons/redis.svg", iconPngUrl: "/icons/redis.png" };
   }
+  if (low.includes("python") || low.includes("uv") || low.includes("fastmcp") || low.includes("py-")) {
+    return { id: "python", name: serverName || "Python", iconUrl: "/icons/python.svg", iconPngUrl: "/icons/python.png" };
+  }
+  if (low.includes("golang") || /\bgo\b/.test(low) || low.includes("go-") || low.includes("-go")) {
+    return { id: "golang", name: serverName || "Go", iconUrl: "/icons/golang.svg", iconPngUrl: "/icons/golang.png" };
+  }
 
   return { id: serverId, name: serverName || serverId, iconUrl: "/icons/mcp.svg", iconPngUrl: "/icons/mcp.png" };
 }
