@@ -178,6 +178,8 @@ export function isValidBearer(header: string | null): boolean {
   if (scheme?.toLowerCase() !== "bearer" || !token) return false;
   const record = stmtGetAccessToken.get(token);
   if (!record) return false;
+  // Token anonim (tanpa user) tidak lagi diterima; harus login ulang
+  if (!record.user_id) return false;
   if (record.expires_at <= Date.now()) {
     stmtDeleteAccessToken.run(token);
     return false;

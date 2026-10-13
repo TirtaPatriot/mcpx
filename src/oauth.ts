@@ -463,7 +463,6 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
     resource: p.resource,
     code_challenge: p.codeChallenge,
     code_challenge_method: p.codeChallengeMethod,
-    user_id: sessionUser?.id,
   };
   const inputs = Object.entries(hidden)
     .filter(([, v]) => v !== undefined)
@@ -636,7 +635,8 @@ export async function handleTokenExchange({ request, body }: { request: Request;
     if (record.expires_at <= Date.now()) return fail("code kedaluwarsa");
     if (record.client_id !== clientId) return fail("code milik client lain");
 
-    userId = record.user_id ?? null;
+    if (!record.user_id) return fail("code tidak terikat ke user (login diperlukan)");
+    userId = record.user_id;
 
     const redirectUri = str(form.redirect_uri);
     if (record.redirect_uri !== null && redirectUri !== record.redirect_uri) {
@@ -659,7 +659,8 @@ export async function handleTokenExchange({ request, body }: { request: Request;
     if (record.expires_at <= Date.now()) return fail("refresh_token kedaluwarsa");
     if (record.client_id !== clientId) return fail("refresh_token milik client lain");
 
-    userId = record.user_id ?? null;
+    if (!record.user_id) return fail("refresh_token tidak terikat ke user (login ulang diperlukan)");
+    userId = record.user_id;
 
     if (record.revoked_at !== null) {
       if (Date.now() - record.revoked_at > REFRESH_GRACE_PERIOD_MS) {

@@ -197,7 +197,19 @@ const app = new Elysia()
       return page("Permintaan tidak valid", `<h1>Permintaan tidak valid</h1><p>${esc(params)}</p>`, 400);
     }
     const sessionUser = getSessionUser(request);
-    log(id, `• authorize: persetujuan client_id=${params.clientId} user=${sessionUser?.username ?? "tamu"} redirect=${params.redirectUri.origin}`);
+    if (!sessionUser) {
+      const u = new URL(request.url);
+      log(id, `• authorize: belum login, redirect ke /admin/login (client_id=${params.clientId})`);
+      addActivityLog(id, "GET", "/oauth/authorize", 302, performance.now() - startedAt, undefined, `Login required for ${params.clientId}`);
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: `/admin/login?next=${encodeURIComponent(u.pathname + u.search)}`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    log(id, `• authorize: persetujuan client_id=${params.clientId} user=${sessionUser.username} redirect=${params.redirectUri.origin}`);
     addActivityLog(id, "GET", "/oauth/authorize", 200, performance.now() - startedAt, undefined, `Consent shown for ${params.clientId}`);
     return consentPage(params, sessionUser);
   })
@@ -212,6 +224,13 @@ const app = new Elysia()
       return page("Permintaan tidak valid", `<h1>Permintaan tidak valid</h1><p>${esc(params)}</p>`, 400);
     }
 
+    const sessionUser = getSessionUser(request);
+    if (!sessionUser) {
+      log(id, `✗ authorize POST ditolak: tidak ada sesi login (client_id=${params.clientId})`);
+      addActivityLog(id, "POST", "/oauth/authorize", 401, performance.now() - startedAt, undefined, "Login required");
+      return page("Login diperlukan", `<h1>Login diperlukan</h1><p>Sesi login tidak ditemukan atau sudah berakhir. Ulangi proses penambahan koneksi dari aplikasi AI Anda.</p>`, 401);
+    }
+
     const redirect = new URL(params.redirectUri);
     if (form.decision !== "allow") {
       log(id, "• authorize: pengguna MENOLAK");
@@ -221,8 +240,7 @@ const app = new Elysia()
       return redirectTo(redirect);
     }
 
-    const sessionUser = getSessionUser(request);
-    const userId = sessionUser?.id ?? (form.user_id ? String(form.user_id) : null);
+    const userId = sessionUser.id;
 
     const code = newSecret();
     stmtInsertAuthCode.run(
@@ -236,7 +254,7 @@ const app = new Elysia()
     );
     redirect.searchParams.set("code", code);
     if (params.state) redirect.searchParams.set("state", params.state);
-    log(id, `✓ authorize: code diterbitkan (user=${sessionUser?.username ?? "anon"}), redirect ke ${redirect.origin}${redirect.pathname} (pkce=${!!params.codeChallenge})`);
+    log(id, `✓ authorize: code diterbitkan (user=${sessionUser.username}), redirect ke ${redirect.origin}${redirect.pathname} (pkce=${!!params.codeChallenge})`);
     addActivityLog(id, "POST", "/oauth/authorize", 303, performance.now() - startedAt, undefined, `Allowed for ${params.clientId}`);
     return redirectTo(redirect);
   })

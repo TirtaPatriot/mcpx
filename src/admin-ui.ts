@@ -2122,13 +2122,18 @@ export function renderAdminPage(request: Request): Response {
 }
 
 export function renderLoginPage(request: Request): Response {
+  // Hanya path internal yang diizinkan (cegah open redirect)
+  const rawNext = new URL(request.url).searchParams.get("next") ?? "";
+  const nextPath = rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/\\") ? rawNext : "/admin";
+
   const isAuth = validateAdminRequest(request);
   if (isAuth) {
     return new Response(null, {
       status: 302,
-      headers: { Location: "/admin", "Cache-Control": "no-store" },
+      headers: { Location: nextPath, "Cache-Control": "no-store" },
     });
   }
+  const nextJs = JSON.stringify(nextPath).replace(/</g, "\\u003c");
 
   const html = `<!doctype html>
 <html lang="id" class="dark">
@@ -2210,7 +2215,7 @@ export function renderLoginPage(request: Request): Response {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Username atau password salah');
-        window.location.href = '/admin';
+        window.location.href = ${nextJs};
       } catch (err) {
         errBox.innerText = err.message;
         errBox.classList.remove('hidden');
