@@ -431,6 +431,16 @@ const PAGE_STYLE = `
   button:hover { background: #475569; }
   button.primary { background: linear-gradient(135deg, #2563eb, #4f46e5); border: none; color: #fff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4); flex: 1.4; }
   button.primary:hover { background: linear-gradient(135deg, #1d4ed8, #4338ca); box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5); }
+  @media (max-width: 480px) {
+    body { padding: 12px; place-items: start center; }
+    .card { padding: 20px; border-radius: 20px; margin-top: 8px; }
+    .connection-bridge { margin-bottom: 18px; }
+    .avatar-box { width: 52px; height: 52px; border-radius: 14px; }
+    .info-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .info-value { text-align: left; }
+    .row { flex-direction: column-reverse; }
+    button { padding: 14px 20px; min-height: 48px; }
+  }
 `;
 
 export const page = (title: string, body: string, status = 200) =>

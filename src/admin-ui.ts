@@ -16,7 +16,8 @@ export function renderAdminPage(request: Request): Response {
 <html lang="id" class="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f17">
   <title>MCP Gateway — Dashboard Management</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/icon.png">
@@ -39,6 +40,91 @@ export function renderAdminPage(request: Request): Response {
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
     body { font-family: 'Inter', system-ui, sans-serif; }
     code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Mobile (< 640px): tabel → kartu, modal → bottom sheet, input tidak memicu zoom iOS ── */
+    html { -webkit-text-size-adjust: 100%; }
+    @media (max-width: 639px) {
+      input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px !important; }
+      button, select { min-height: 40px; }
+
+      #toast { left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom)); }
+      #defaultPassWarning > div { flex-wrap: wrap; gap: .5rem; }
+      #defaultPassWarning button { min-height: 0; }
+      #currentUserBadge { display: none !important; }
+
+      /* navigasi tab: strip yang menempel di bawah header, bisa digeser */
+      #navAside { position: sticky; top: 4rem; z-index: 30; margin: 0 -1rem; width: calc(100% + 2rem); padding: .5rem 1rem; background: rgba(11,15,23,.92); backdrop-filter: blur(8px); border-bottom: 1px solid #1f2937; }
+      #navTabs { scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; padding-bottom: 0; }
+      #navTabs::-webkit-scrollbar { display: none; }
+      #navTabs .nav-btn { flex-shrink: 0; white-space: nowrap; scroll-snap-align: start; padding: .5rem .8rem; }
+
+      /* grup tombol di header section jadi selebar layar */
+      #tab-clients > div:first-child > div:last-child { width: 100%; flex-wrap: wrap; }
+      #tab-clients > div:first-child > div:last-child > button,
+      #tab-servers > div:first-child > button,
+      #tab-users > div:first-child > button { flex: 1 1 auto; justify-content: center; padding-top: .65rem; padding-bottom: .65rem; }
+
+      /* tabel → kartu */
+      .rtable thead { display: none; }
+      .rtable, .rtable tbody, .rtable tr { display: block; width: 100%; }
+      .rtable tr { padding: .5rem 1rem; }
+      .rtable td { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .4rem 0 !important; text-align: right; min-width: 0; max-width: 100%; }
+      .rtable td[colspan] { display: block; text-align: center; }
+      .rtable td:not([colspan])::before { flex-shrink: 0; color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; font-family: 'Inter', system-ui, sans-serif; text-align: left; }
+      .rtable td > * { min-width: 0; }
+      .rtable td .truncate, .rtable td.truncate { max-width: none !important; white-space: normal; overflow: visible; word-break: break-all; }
+      .rtable td:last-child { flex-wrap: wrap; justify-content: flex-end; gap: .5rem; padding-top: .6rem !important; margin-top: .25rem; border-top: 1px solid rgba(55,65,81,.5); }
+      .rtable td:last-child::before { display: none; }
+      .rtable td:last-child > button, .rtable td:last-child > a { padding: .45rem .75rem; border-radius: .6rem; background: rgba(31,41,55,.8); }
+
+      /* label kolom (tabel dirender oleh JS, jadi pakai nth-child) */
+      #serversTableBody td:nth-child(1)::before { content: "Status"; }
+      #serversTableBody td:nth-child(2)::before { content: "Tipe"; }
+      #serversTableBody td:nth-child(3)::before { content: "Server"; }
+      #serversTableBody td:nth-child(4)::before { content: "Target"; }
+      #serversTableBody td:nth-child(5)::before { content: "Koneksi"; }
+      #serversTableBody td:nth-child(6)::before { content: "Aksi"; }
+      #clientsTableBody td:nth-child(1)::before { content: "Status"; }
+      #clientsTableBody td:nth-child(2)::before { content: "Client ID"; }
+      #clientsTableBody td:nth-child(3)::before { content: "Aplikasi"; }
+      #clientsTableBody td:nth-child(4)::before { content: "Secret"; }
+      #clientsTableBody td:nth-child(5)::before { content: "Sesi"; }
+      #clientsTableBody td:nth-child(6)::before { content: "Aksi"; }
+      #accessTokensBody td:nth-child(1)::before { content: "Token"; }
+      #accessTokensBody td:nth-child(2)::before { content: "Client ID"; }
+      #accessTokensBody td:nth-child(3)::before { content: "Pengguna"; }
+      #accessTokensBody td:nth-child(4)::before { content: "Dibuat"; }
+      #accessTokensBody td:nth-child(5)::before { content: "Kedaluwarsa"; }
+      #accessTokensBody td:nth-child(6)::before { content: "Aksi"; }
+      #refreshTokensBody td:nth-child(1)::before { content: "Token"; }
+      #refreshTokensBody td:nth-child(2)::before { content: "Client ID"; }
+      #refreshTokensBody td:nth-child(3)::before { content: "Pengguna"; }
+      #refreshTokensBody td:nth-child(4)::before { content: "Status"; }
+      #refreshTokensBody td:nth-child(5)::before { content: "Kedaluwarsa"; }
+      #refreshTokensBody td:nth-child(6)::before { content: "Aksi"; }
+      #logsTableBody td:nth-child(1)::before { content: "Waktu"; }
+      #logsTableBody td:nth-child(2)::before { content: "Method"; }
+      #logsTableBody td:nth-child(3)::before { content: "Path"; }
+      #logsTableBody td:nth-child(4)::before { content: "Status"; }
+      #logsTableBody td:nth-child(5)::before { content: "Durasi"; }
+      #logsTableBody td:nth-child(6)::before { content: "Info"; }
+      #usersTableBody td:nth-child(1)::before { content: "Pengguna"; }
+      #usersTableBody td:nth-child(2)::before { content: "Username"; }
+      #usersTableBody td:nth-child(3)::before { content: "Peran"; }
+      #usersTableBody td:nth-child(4)::before { content: "Status"; }
+      #usersTableBody td:nth-child(5)::before { content: "Dibuat"; }
+      #usersTableBody td:nth-child(6)::before { content: "Aksi"; }
+
+      /* modal → bottom sheet */
+      #serverModal, #clientModal, #aiModal, #generateTokenModal, #userModal { align-items: flex-end; padding: 0; }
+      #serverModal > div, #clientModal > div, #aiModal > div, #generateTokenModal > div, #userModal > div {
+        max-width: 100%; max-height: 92vh; padding: 1.1rem; padding-bottom: calc(1.1rem + env(safe-area-inset-bottom));
+        border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-width: 0;
+      }
+      #serverModal h3 + button, #clientModal h3 + button, #aiModal h3 + button, #generateTokenModal h3 + button, #userModal h3 + button {
+        font-size: 1.75rem; line-height: 1; min-width: 44px; min-height: 44px; margin: -.5rem -.5rem -.5rem 0;
+      }
+    }
   </style>
 </head>
 <body class="bg-dark-900 text-slate-100 min-h-screen flex flex-col antialiased">
@@ -50,28 +136,28 @@ export function renderAdminPage(request: Request): Response {
 
   <!-- Navbar -->
   <header class="border-b border-dark-700 bg-dark-800/80 backdrop-blur sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3 min-w-0">
         <div class="w-10 h-10 rounded-xl bg-dark-700/80 border border-dark-600 flex items-center justify-center p-1.5 shadow-lg shadow-blue-500/10 shrink-0">
           <img src="/logo.png" alt="MCP Gateway" class="w-full h-full object-contain">
         </div>
-        <div>
-          <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
-            OAuth 2.1 MCP Gateway
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">SQLite WAL</span>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + CLI (bunx, uv, go, npx)</span>
+        <div class="min-w-0">
+          <h1 class="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-2 truncate">
+            <span class="truncate">OAuth 2.1 MCP Gateway</span>
+            <span class="hidden md:inline text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">SQLite WAL</span>
+            <span class="hidden lg:inline text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + CLI (bunx, uv, go, npx)</span>
           </h1>
-          <p class="text-xs text-slate-400">Universal reverse proxy, process bridge & OAuth 2.1 manager untuk Semua AI (Gemini, Claude, Cursor, ChatGPT, LibreChat, dll.)</p>
+          <p class="hidden md:block text-xs text-slate-400 truncate">Universal reverse proxy, process bridge & OAuth 2.1 manager untuk Semua AI (Gemini, Claude, Cursor, ChatGPT, LibreChat, dll.)</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
         <div id="currentUserBadge" class="hidden sm:flex items-center gap-2 bg-dark-700/80 border border-dark-600 px-3 py-1.5 rounded-xl text-xs">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span id="currentUserName" class="font-medium text-slate-200">Admin</span>
           <span id="currentUserRole" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">ADMIN</span>
         </div>
-        <a href="/.well-known/oauth-authorization-server" target="_blank" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1 bg-dark-700/60 px-2.5 py-1.5 rounded-lg border border-dark-600">
+        <a href="/.well-known/oauth-authorization-server" target="_blank" class="hidden sm:flex text-xs text-slate-400 hover:text-white transition items-center gap-1 bg-dark-700/60 px-2.5 py-1.5 rounded-lg border border-dark-600">
           <span>RFC 8414 Discovery</span>
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
         </a>
@@ -94,10 +180,10 @@ export function renderAdminPage(request: Request): Response {
   </div>
 
   <!-- Main Container -->
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col md:flex-row gap-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 w-full flex flex-col md:flex-row gap-4 md:gap-6">
 
     <!-- Sidebar Navigation -->
-    <aside class="w-full md:w-56 shrink-0">
+    <aside id="navAside" class="w-full md:w-56 shrink-0">
       <nav class="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0" id="navTabs">
         <button onclick="switchTab('overview')" data-tab="overview" class="nav-btn active flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-left">
           <span>📊</span> Ringkasan
@@ -364,7 +450,7 @@ export function renderAdminPage(request: Request): Response {
 
         <div class="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden shadow-sm">
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+            <table class="rtable w-full text-left text-xs">
               <thead class="bg-dark-900/70 border-b border-dark-700 text-slate-400 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th class="py-3 px-4">Status</th>
@@ -402,7 +488,7 @@ export function renderAdminPage(request: Request): Response {
 
         <div class="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden shadow-sm">
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+            <table class="rtable w-full text-left text-xs">
               <thead class="bg-dark-900/70 border-b border-dark-700 text-slate-400 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th class="py-3 px-4">Status</th>
@@ -448,7 +534,7 @@ export function renderAdminPage(request: Request): Response {
             <span id="accessTokensCount" class="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-mono">0 token</span>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+            <table class="rtable w-full text-left text-xs">
               <thead class="bg-dark-900/30 border-b border-dark-700/60 text-slate-400 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th class="py-3 px-4">Token</th>
@@ -473,7 +559,7 @@ export function renderAdminPage(request: Request): Response {
             <span id="refreshTokensCount" class="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-mono">0 token</span>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+            <table class="rtable w-full text-left text-xs">
               <thead class="bg-dark-900/30 border-b border-dark-700/60 text-slate-400 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th class="py-3 px-4">Token</th>
@@ -522,7 +608,7 @@ export function renderAdminPage(request: Request): Response {
 
         <div class="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden shadow-sm">
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs font-mono">
+            <table class="rtable w-full text-left text-xs font-mono">
               <thead class="bg-dark-900/70 border-b border-dark-700 text-slate-400 uppercase tracking-wider text-[10px] font-sans">
                 <tr>
                   <th class="py-3 px-4">Waktu</th>
@@ -557,7 +643,7 @@ export function renderAdminPage(request: Request): Response {
 
         <div class="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden shadow-sm">
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+            <table class="rtable w-full text-left text-xs">
               <thead class="bg-dark-900/70 border-b border-dark-700 text-slate-400 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th class="py-3 px-4">Pengguna</th>
@@ -1164,6 +1250,8 @@ export function renderAdminPage(request: Request): Response {
         if (btn.dataset.tab === tabId) {
           btn.classList.add('bg-dark-800', 'text-white', 'border', 'border-dark-700');
           btn.classList.remove('text-slate-400');
+          // geser strip tab agar tab aktif terlihat di layar sempit
+          if (btn.scrollIntoView) btn.scrollIntoView({ inline: 'center', block: 'nearest' });
         }
       });
       const target = document.getElementById('tab-' + tabId);
@@ -2139,7 +2227,7 @@ export function renderLoginPage(request: Request): Response {
 <html lang="id" class="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Login — MCP Gateway Management</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/icon.png">
@@ -2161,11 +2249,15 @@ export function renderLoginPage(request: Request): Response {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body { font-family: 'Inter', system-ui, sans-serif; }
+    @media (max-width: 639px) {
+      input { font-size: 16px !important; }
+      #btnSubmit { min-height: 48px; }
+    }
   </style>
 </head>
 <body class="bg-dark-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
-  <div class="max-w-md w-full bg-dark-800 border border-dark-700 rounded-3xl p-8 shadow-2xl space-y-6">
+  <div class="max-w-md w-full bg-dark-800 border border-dark-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
     <div class="text-center space-y-3">
       <div class="w-16 h-16 rounded-2xl bg-dark-700/80 border border-dark-600 flex items-center justify-center p-2.5 mx-auto shadow-xl shadow-blue-500/10">
         <img src="/logo.png" alt="MCP Gateway" class="w-full h-full object-contain">
