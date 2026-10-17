@@ -43,10 +43,19 @@ import {
 } from "./auth";
 import { reloadMcpCache, testMcpServerConnection } from "./proxy";
 import { testStdioCommand } from "./stdio-manager";
+import { parseClientOverrides, parseOverridableEnv, type OverridableEnv } from "./env-policy";
 import { newSecret, hashPassword, verifyPassword, publicOrigin } from "./utils";
 
 // Only used to detect older installs that still use the default password of a previous version.
 const LEGACY_DEFAULT_PASSWORD = "admin123";
+
+/** The variables a command server lists as overridable; `null` for a missing or HTTP server. */
+function overridableFor(serverId: string): OverridableEnv | null {
+  const server = getMcpServer(serverId);
+  if (!server || server.server_type !== "command") return null;
+  const parsed = parseOverridableEnv(server.overridable_env);
+  return parsed.ok ? parsed.value : {};
+}
 import { ADMIN_SESSION_TTL_MS, DB_PATH } from "./config";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -214,6 +223,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       command?: string;
       args?: string;
       env_vars?: string;
+      overridable_env?: unknown;
       enabled?: boolean;
       description?: string;
       icon?: string;
@@ -260,6 +270,13 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       }
     }
 
+    let overridableEnv: string | undefined;
+    if (data.overridable_env !== undefined) {
+      const parsed = parseOverridableEnv(data.overridable_env);
+      if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
+      overridableEnv = JSON.stringify(parsed.value);
+    }
+
     saveMcpServer({
       id: cleanId,
       name: data.name.trim(),
@@ -269,6 +286,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       command: data.command?.trim() ?? "",
       args: data.args?.trim() ?? "",
       env_vars: data.env_vars ?? "{}",
+      overridable_env: overridableEnv,
       enabled: data.enabled ?? true,
       description: data.description?.trim(),
       icon: data.icon?.trim(),
@@ -291,10 +309,18 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       command?: string;
       args?: string;
       env_vars?: string;
+      overridable_env?: unknown;
       enabled?: boolean;
       description?: string;
       icon?: string;
     };
+
+    let overridableEnv: string | undefined;
+    if (data.overridable_env !== undefined) {
+      const parsed = parseOverridableEnv(data.overridable_env);
+      if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
+      overridableEnv = JSON.stringify(parsed.value);
+    }
 
     const serverType = data.server_type ?? existing.server_type ?? "http";
 
@@ -318,6 +344,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       command: data.command !== undefined ? data.command.trim() : existing.command,
       args: data.args !== undefined ? data.args.trim() : existing.args,
       env_vars: data.env_vars ?? existing.env_vars,
+      overridable_env: overridableEnv,
       enabled: data.enabled !== undefined ? data.enabled : existing.enabled === 1,
       description: data.description !== undefined ? data.description.trim() : existing.description,
       icon: data.icon !== undefined ? data.icon.trim() : existing.icon,
@@ -395,12 +422,20 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       redirect_uris?: string;
       enabled?: boolean;
       icon?: string;
+      env_overrides?: unknown;
     };
 
     if (!data.name) return json({ ok: false, error: "Client name is required" }, 400);
 
     const id = data.id?.trim() || `client-${newSecret().slice(0, 8)}`;
     const secret = data.secret?.trim() || newSecret();
+
+    let envOverrides: string | undefined;
+    if (data.env_overrides !== undefined) {
+      const parsed = parseClientOverrides(data.env_overrides, overridableFor);
+      if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
+      envOverrides = JSON.stringify(parsed.value);
+    }
 
     saveOAuthClient({
       id,
@@ -409,6 +444,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       redirect_uris: data.redirect_uris?.trim() ?? "",
       enabled: data.enabled ?? true,
       icon: data.icon?.trim(),
+      env_overrides: envOverrides,
     });
 
     return json({
@@ -428,7 +464,15 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       redirect_uris?: string;
       enabled?: boolean;
       icon?: string;
+      env_overrides?: unknown;
     };
+
+    let envOverrides: string | undefined;
+    if (data.env_overrides !== undefined) {
+      const parsed = parseClientOverrides(data.env_overrides, overridableFor);
+      if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
+      envOverrides = JSON.stringify(parsed.value);
+    }
 
     saveOAuthClient({
       id: params.id,
@@ -437,6 +481,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       redirect_uris: data.redirect_uris !== undefined ? data.redirect_uris.trim() : existing.redirect_uris,
       enabled: data.enabled !== undefined ? data.enabled : existing.enabled === 1,
       icon: data.icon !== undefined ? data.icon.trim() : existing.icon,
+      env_overrides: envOverrides,
     });
 
     return json({ ok: true, message: `Client "${params.id}" updated` });

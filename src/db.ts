@@ -33,6 +33,7 @@ db.run(`
     command TEXT DEFAULT '',
     args TEXT DEFAULT '',
     env_vars TEXT DEFAULT '{}',
+    overridable_env TEXT DEFAULT '{}',
     enabled INTEGER NOT NULL DEFAULT 1,
     description TEXT DEFAULT '',
     icon TEXT DEFAULT '',
@@ -49,6 +50,7 @@ db.run(`
     redirect_uris TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
     icon TEXT DEFAULT '',
+    env_overrides TEXT DEFAULT '{}',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -139,6 +141,8 @@ try { db.run("ALTER TABLE mcp_servers ADD COLUMN command TEXT DEFAULT '';"); } c
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN args TEXT DEFAULT '';"); } catch {}
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN env_vars TEXT DEFAULT '{}';"); } catch {}
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN icon TEXT DEFAULT '';"); } catch {}
+try { db.run("ALTER TABLE mcp_servers ADD COLUMN overridable_env TEXT DEFAULT '{}';"); } catch {}
+try { db.run("ALTER TABLE oauth_clients ADD COLUMN env_overrides TEXT DEFAULT '{}';"); } catch {}
 try { db.run("ALTER TABLE oauth_clients ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;"); } catch {}
 try { db.run("ALTER TABLE oauth_clients ADD COLUMN icon TEXT DEFAULT '';"); } catch {}
 try { db.run("ALTER TABLE admin_sessions ADD COLUMN user_id TEXT;"); } catch {}
@@ -175,6 +179,8 @@ export interface McpServerRow {
   command: string;
   args: string;
   env_vars: string;
+  /** JSON: which variables may be overridden (see env-policy.ts). */
+  overridable_env: string;
   enabled: number;
   description: string;
   icon?: string;
@@ -189,6 +195,8 @@ export interface OAuthClientRow {
   redirect_uris: string;
   enabled: number;
   icon?: string;
+  /** JSON: server id → variable → value (see env-policy.ts). */
+  env_overrides: string;
   created_at: number;
   updated_at: number;
 }
@@ -429,11 +437,11 @@ const stmtGetAllMcpServers = db.query<McpServerRow, []>(
 const stmtGetMcpServer = db.query<McpServerRow, [string]>(
   "SELECT * FROM mcp_servers WHERE id = ?",
 );
-const stmtInsertMcpServer = db.query<void, [string, string, string, string, string, string, string, string, number, string, string, number, number]>(
-  "INSERT INTO mcp_servers (id, name, url, headers, server_type, command, args, env_vars, enabled, description, icon, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+const stmtInsertMcpServer = db.query<void, [string, string, string, string, string, string, string, string, string, number, string, string, number, number]>(
+  "INSERT INTO mcp_servers (id, name, url, headers, server_type, command, args, env_vars, overridable_env, enabled, description, icon, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 );
-const stmtUpdateMcpServer = db.query<void, [string, string, string, string, string, string, string, number, string, string, number, string]>(
-  "UPDATE mcp_servers SET name = ?, url = ?, headers = ?, server_type = ?, command = ?, args = ?, env_vars = ?, enabled = ?, description = ?, icon = ?, updated_at = ? WHERE id = ?",
+const stmtUpdateMcpServer = db.query<void, [string, string, string, string, string, string, string, string, number, string, string, number, string]>(
+  "UPDATE mcp_servers SET name = ?, url = ?, headers = ?, server_type = ?, command = ?, args = ?, env_vars = ?, overridable_env = ?, enabled = ?, description = ?, icon = ?, updated_at = ? WHERE id = ?",
 );
 const stmtDeleteMcpServer = db.query<void, [string]>(
   "DELETE FROM mcp_servers WHERE id = ?",
@@ -459,6 +467,7 @@ export function saveMcpServer(server: {
   command?: string;
   args?: string;
   env_vars?: string;
+  overridable_env?: string;
   enabled?: boolean | number;
   description?: string;
   icon?: string;
@@ -472,6 +481,7 @@ export function saveMcpServer(server: {
   const cmdStr = server.command ?? "";
   const argsStr = server.args ?? "";
   const envStr = server.env_vars ?? "{}";
+  const overridableStr = server.overridable_env ?? existing?.overridable_env ?? "{}";
   const desc = server.description ?? "";
   const iconStr = server.icon !== undefined ? server.icon.trim() : (existing?.icon || "");
 
@@ -484,6 +494,7 @@ export function saveMcpServer(server: {
       cmdStr,
       argsStr,
       envStr,
+      overridableStr,
       enabledNum,
       desc,
       iconStr,
@@ -500,6 +511,7 @@ export function saveMcpServer(server: {
       cmdStr,
       argsStr,
       envStr,
+      overridableStr,
       enabledNum,
       desc,
       iconStr,
@@ -528,11 +540,11 @@ const stmtGetAllOAuthClients = db.query<OAuthClientRow, []>(
 const stmtGetOAuthClient = db.query<OAuthClientRow, [string]>(
   "SELECT * FROM oauth_clients WHERE id = ?",
 );
-const stmtInsertOAuthClient = db.query<void, [string, string, string, string, number, string, number, number]>(
-  "INSERT INTO oauth_clients (id, name, secret, redirect_uris, enabled, icon, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+const stmtInsertOAuthClient = db.query<void, [string, string, string, string, number, string, string, number, number]>(
+  "INSERT INTO oauth_clients (id, name, secret, redirect_uris, enabled, icon, env_overrides, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 );
-const stmtUpdateOAuthClient = db.query<void, [string, string, string, number, string, number, string]>(
-  "UPDATE oauth_clients SET name = ?, secret = ?, redirect_uris = ?, enabled = ?, icon = ?, updated_at = ? WHERE id = ?",
+const stmtUpdateOAuthClient = db.query<void, [string, string, string, number, string, string, number, string]>(
+  "UPDATE oauth_clients SET name = ?, secret = ?, redirect_uris = ?, enabled = ?, icon = ?, env_overrides = ?, updated_at = ? WHERE id = ?",
 );
 const stmtDeleteOAuthClient = db.query<void, [string]>(
   "DELETE FROM oauth_clients WHERE id = ?",
@@ -553,17 +565,19 @@ export function saveOAuthClient(client: {
   redirect_uris?: string;
   enabled?: boolean | number;
   icon?: string;
+  env_overrides?: string;
 }): void {
   const existing = getOAuthClient(client.id);
   const now = Date.now();
   const redirectUris = client.redirect_uris ?? "";
   const enabledNum = client.enabled === false || client.enabled === 0 ? 0 : 1;
   const iconStr = client.icon !== undefined ? client.icon.trim() : (existing?.icon || "");
+  const overridesStr = client.env_overrides ?? existing?.env_overrides ?? "{}";
 
   if (existing) {
-    stmtUpdateOAuthClient.run(client.name, client.secret, redirectUris, enabledNum, iconStr, now, client.id);
+    stmtUpdateOAuthClient.run(client.name, client.secret, redirectUris, enabledNum, iconStr, overridesStr, now, client.id);
   } else {
-    stmtInsertOAuthClient.run(client.id, client.name, client.secret, redirectUris, enabledNum, iconStr, now, now);
+    stmtInsertOAuthClient.run(client.id, client.name, client.secret, redirectUris, enabledNum, iconStr, overridesStr, now, now);
   }
 }
 
