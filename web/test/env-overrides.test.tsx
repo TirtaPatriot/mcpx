@@ -232,3 +232,74 @@ describe("client dialog: environment overrides", () => {
     restore();
   });
 });
+
+describe("Connect dialog: URL builder", () => {
+  const BASE = "https://gw.example.com/mcp/dokploy";
+  const copyButton = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === "Copy URL");
+  const shownUrl = () => document.querySelector('[data-url-builder] [aria-live="polite"]')?.textContent;
+
+  async function openConnect(servers: unknown[]) {
+    const before = routes["/api/admin/servers"];
+    routes["/api/admin/servers"] = { ok: true, servers };
+    await mount();
+    await click("MCP Servers");
+    await waitFor(() => !!document.querySelector('button[aria-label^="Connect ("]'), "connect button");
+    await clickEl(document.querySelector('button[aria-label^="Connect ("]'));
+    await waitFor(() => !!byRole("dialog", "Connect to"), "dialog");
+    return () => (routes["/api/admin/servers"] = before);
+  }
+  const choose = async (variable: string, value: string) => {
+    const el = fieldsLabelled(variable)[0] as unknown as HTMLSelectElement | HTMLInputElement;
+    el.value = value;
+    el.dispatchEvent(new Event(el.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+    await tick();
+  };
+
+  test("starts with the plain endpoint", async () => {
+    const restore = await openConnect([CMD_WITH_VARS]);
+    expect(shownUrl()).toBe(BASE);
+    restore();
+  });
+
+  test("choosing a value puts it in the URL, and Default takes it out again", async () => {
+    const restore = await openConnect([CMD_WITH_VARS]);
+    await choose("DOKPLOY_TOOL_PRESET", "minimal");
+    expect(shownUrl()).toBe(`${BASE}?env.DOKPLOY_TOOL_PRESET=minimal`);
+    await choose("DOKPLOY_TOOL_PRESET", "");
+    expect(shownUrl()).toBe(BASE);
+    restore();
+  });
+
+  test("Copy URL copies exactly the URL shown and says so", async () => {
+    const restore = await openConnect([CMD_WITH_VARS]);
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: (t: string) => (copied.push(t), Promise.resolve()) }, configurable: true });
+    await choose("DOKPLOY_TOOL_PRESET", "minimal");
+    await clickEl(copyButton());
+    expect(copied).toEqual([`${BASE}?env.DOKPLOY_TOOL_PRESET=minimal`]);
+    expect(text()).toContain("Copied to clipboard!");
+    restore();
+  });
+
+  test("an invalid value is explained and Copy URL is off", async () => {
+    const restore = await openConnect([CMD_WITH_VARS]);
+    await choose("REGION_HINT", "a".repeat(300));
+    expect(document.querySelector('[data-url-builder] [role="alert"]')?.textContent).toContain("at most 256 characters");
+    expect(copyButton()!.disabled).toBe(true);
+    restore();
+  });
+
+  test("the URL is announced politely when it changes, and the note names the alternative", async () => {
+    const restore = await openConnect([CMD_WITH_VARS]);
+    expect(document.querySelector('[data-url-builder] [aria-live="polite"]')).not.toBeNull();
+    expect(document.querySelector("[data-url-builder]")!.textContent).toContain("must keep the query string");
+    expect(document.querySelector("[data-url-builder]")!.textContent).toContain("per OAuth client");
+    restore();
+  });
+
+  test("a server without overridable variables shows no builder", async () => {
+    const restore = await openConnect([CMD_WITHOUT_VARS]);
+    expect(document.querySelector("[data-url-builder]")).toBeNull();
+    restore();
+  });
+});

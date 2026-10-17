@@ -163,3 +163,29 @@ describe("client dialog with environment overrides", () => {
     Object.assign(routes, { "/api/admin/servers": original.servers, "/api/admin/clients": original.clients });
   });
 });
+
+describe("connect dialog with the URL builder", () => {
+  test("passes axe with a chosen value and an invalid free-text value", async () => {
+    const original = routes["/api/admin/servers"];
+    routes["/api/admin/servers"] = {
+      ok: true,
+      servers: [{ ...SERVER, id: "dokploy", name: "Dokploy MCP", overridable_env: JSON.stringify({ DOKPLOY_TOOL_PRESET: { values: ["minimal", "full"] }, REGION_HINT: {} }) }],
+    };
+    await mount();
+    await click("MCP Servers");
+    await waitFor(() => !!document.querySelector('button[aria-label^="Connect ("]'), "connect button");
+    await clickEl(document.querySelector('button[aria-label^="Connect ("]'));
+    await waitFor(() => !!document.querySelector("[data-url-builder]"), "builder");
+    const select = [...document.querySelectorAll("label")].find((l) => l.textContent === "DOKPLOY_TOOL_PRESET");
+    const field = document.getElementById(select!.getAttribute("for")!) as HTMLSelectElement;
+    field.value = "minimal";
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    const free = document.getElementById([...document.querySelectorAll("label")].find((l) => l.textContent === "REGION_HINT")!.getAttribute("for")!) as HTMLInputElement;
+    free.value = "a".repeat(300);
+    free.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    expect(document.querySelector('[data-url-builder] [role="alert"]')).not.toBeNull();
+    await expectAccessible("connect dialog with URL builder");
+    routes["/api/admin/servers"] = original;
+  });
+});

@@ -1,6 +1,6 @@
-import { validateValue, type ClientEnvOverrides } from "../../../src/env-policy";
+import type { ClientEnvOverrides } from "../../../src/env-policy";
 import { withOverride, type EligibleServer } from "../overridable";
-import { Field, inputCls, monoInputCls } from "../ui";
+import { OverrideField } from "./OverrideField";
 
 /**
  * The "Environment overrides" part of the OAuth client dialog: for each server that lists
@@ -41,26 +41,9 @@ export function EnvOverridesSection(props: {
         servers.map((server) => (
           <div key={server.id} role="group" aria-label={server.name} class="space-y-2 rounded-lg bg-dark-900/60 p-2.5">
             <h5 class="text-xs font-medium text-slate-200">{server.name}</h5>
-            {Object.entries(server.spec).map(([name, spec]) => {
-              const current = value[server.id]?.[name] ?? "";
-              const error = current && !spec.values?.length ? validateValue(name, current, spec) : null;
-              return (
-                <Field key={name} label={<span class="font-mono">{name}</span>} hint={spec.description} error={error ?? undefined}>
-                  {spec.values && spec.values.length > 0 ? (
-                    <select value={current} onChange={(e) => onChange(withOverride(value, server.id, name, e.currentTarget.value))} class={inputCls}>
-                      <option value="">Default (no override)</option>
-                      {spec.values.map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input type="text" value={current} onInput={(e) => onChange(withOverride(value, server.id, name, e.currentTarget.value))} placeholder="Default (no override)" class={monoInputCls} />
-                  )}
-                </Field>
-              );
-            })}
+            {Object.entries(server.spec).map(([name, spec]) => (
+              <OverrideField key={name} name={name} spec={spec} value={value[server.id]?.[name] ?? ""} onChange={(v) => onChange(withOverride(value, server.id, name, v))} />
+            ))}
           </div>
         ))
       )}

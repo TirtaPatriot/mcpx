@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { useConfirm } from "../components/Confirm";
 import { PlatformGuide } from "../components/PlatformGuide";
+import { EnvUrlBuilder } from "../components/EnvUrlBuilder";
 import { OverridableEnvEditor } from "../components/OverridableEnvEditor";
 import { RowActions } from "../components/RowActions";
 import { overridableErrors, rowsToJson, specToRows } from "../overridable";
@@ -394,10 +395,11 @@ function ConnectServerModal(props: { server: McpServer; onClose: () => void }) {
             {me.origin}/mcp/{server.id}
           </span>
         </div>
-        <button type="button" onClick={() => copyText(`${me.origin}/mcp/${server.id}`)} class="text-blue-400 hover:underline text-xs shrink-0">
+        <button type="button" aria-label="Copy endpoint" onClick={() => copyText(`${me.origin}/mcp/${server.id}`)} class="text-blue-400 hover:underline text-xs shrink-0">
           Copy
         </button>
       </div>
+      <EnvUrlBuilder origin={me.origin} server={server} />
       <div class="text-xs">
         <PlatformGuide
           origin={me.origin}
