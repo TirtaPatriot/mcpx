@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { randomBytes } from "node:crypto";
 import {
   DB_PATH,
   ENV_CLIENT_ID,
@@ -807,22 +808,25 @@ setInterval(() => {
 // Seeding & Inisialisasi Otomatis
 // ─────────────────────────────────────────────────────────────────────────────
 
+export const generateAdminPassword = () => randomBytes(12).toString("base64url");
+
 export function seedInitialData(): { defaultAdminCreated: boolean; initialPassword?: string } {
   let defaultAdminCreated = false;
   let initialPassword: string | undefined = undefined;
 
   // 1. Admin Password & Default Admin User
-  const pass = ADMIN_PASSWORD || "admin123";
-  const passHash = hashPassword(pass);
+  // Tanpa ADMIN_PASSWORD pada instalasi baru, buat password acak (dicetak sekali di log startup).
   const existingPassHash = getSetting("admin_password_hash");
+  let pass = ADMIN_PASSWORD;
+  if (!pass && !existingPassHash) {
+    pass = generateAdminPassword();
+    defaultAdminCreated = true;
+    initialPassword = pass;
+    setSetting("admin_password_temporary", "1");
+  }
+  const passHash = pass ? hashPassword(pass) : undefined;
 
-  if (!existingPassHash) {
-    setSetting("admin_password_hash", passHash);
-    if (!ADMIN_PASSWORD) {
-      defaultAdminCreated = true;
-      initialPassword = pass;
-    }
-  } else if (ADMIN_PASSWORD) {
+  if (passHash && (!existingPassHash || ADMIN_PASSWORD)) {
     setSetting("admin_password_hash", passHash);
   }
 
@@ -833,7 +837,7 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
       id: "usr-admin",
       username: "admin",
       name: "Administrator",
-      password: ADMIN_PASSWORD || (existingPassHash ? undefined : "admin123"),
+      password: pass,
       role: "admin",
       enabled: 1,
     });
@@ -841,7 +845,7 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
       db.run("UPDATE users SET password_hash = ? WHERE id = 'usr-admin'", [existingPassHash]);
     }
     console.log(`[db] Pengguna admin default berhasil diinisialisasi (username: admin)`);
-  } else if (ADMIN_PASSWORD) {
+  } else if (ADMIN_PASSWORD && passHash) {
     const adminUser = getUserByUsername("admin");
     if (adminUser) {
       db.run("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?", [passHash, Date.now(), adminUser.id]);

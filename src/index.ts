@@ -284,7 +284,7 @@ console.log(`⚡ OAuth 2.1 MCP Gateway + UI Management aktif!`);
 console.log(`   Host: http://${app.server?.hostname}:${app.server?.port}`);
 console.log(`   Dashboard UI: http://localhost:${PORT}/admin`);
 if (defaultAdminCreated) {
-  console.log(`   ⚠️  Password Admin Default: "${initialPassword}" (Silakan ganti di menu Pengaturan)`);
+  console.log(`   🔑 Login admin pertama: username "admin", password "${initialPassword}" (dibuat acak, hanya tampil sekali; ganti di menu Pengaturan)`);
 }
 console.log(`   Database: ${DB_PATH} (SQLite WAL mode)`);
 console.log(`   Access Token TTL: ${(ACCESS_TOKEN_TTL_MS / 86400000).toFixed(0)} hari | Refresh Grace: ${REFRESH_GRACE_PERIOD_MS / 1000}s`);

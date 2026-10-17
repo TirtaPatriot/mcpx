@@ -20,6 +20,7 @@ import {
   clearActivityLogs,
   getStats,
   getSetting,
+  setSetting,
   getAllUsers,
   getUserById,
   getUserByUsername,
@@ -43,6 +44,9 @@ import {
 import { reloadMcpCache, testMcpServerConnection } from "./proxy";
 import { testStdioCommand } from "./stdio-manager";
 import { newSecret, hashPassword, verifyPassword } from "./utils";
+
+// Hanya untuk mendeteksi instalasi lama yang masih memakai password bawaan versi sebelumnya.
+const LEGACY_DEFAULT_PASSWORD = "admin123";
 import { ADMIN_SESSION_TTL_MS, DB_PATH } from "./config";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -122,8 +126,10 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
   // ── Profil & Keamanan ────────────────────────────────────────────────────
   .get("/me", ({ currentUser }) => {
     if (!currentUser) return json({ ok: false }, 401);
-    const defaultHash = hashPassword("admin123");
+    // Password sementara (hasil generate otomatis) atau sisa default lama "admin123" dari versi sebelumnya.
     const currentHash = getSetting("admin_password_hash");
+    const isTemporary =
+      getSetting("admin_password_temporary") === "1" || currentHash === hashPassword(LEGACY_DEFAULT_PASSWORD);
     return json({
       ok: true,
       authenticated: true,
@@ -133,7 +139,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
         name: currentUser.name,
         role: currentUser.role,
       },
-      isDefaultPassword: currentHash === defaultHash,
+      isDefaultPassword: isTemporary,
       dbPath: DB_PATH,
     });
   })
@@ -165,6 +171,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     }
     if (currentUser.role === "admin" && currentUser.username === "admin") {
       updateAdminPassword(data.newPassword);
+      setSetting("admin_password_temporary", "0");
     }
     return json({ ok: true, message: "Password berhasil diperbarui" });
   })

@@ -10,7 +10,8 @@ services:
     environment:
       PORT: "3000"
       DB_PATH: ${DB_PATH:-/app/data/tokens.db}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      # Kosong = password acak dibuat saat start pertama dan dicetak di log (docker compose logs)
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Opsional: Jika diisi, otomatis di-seed ke database SQLite pada awal start
       CLIENT_ID: ${CLIENT_ID:-}
       CLIENT_SECRET: ${CLIENT_SECRET:-}

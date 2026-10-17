@@ -173,7 +173,7 @@ export function renderAdminPage(request: Request): Response {
     <div class="max-w-7xl mx-auto flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="text-base">⚠️</span>
-        <span>Anda masih menggunakan password bawaan (<strong>admin123</strong>). Segera ganti password di tab <strong>Pengaturan</strong> demi keamanan.</span>
+        <span>Anda masih menggunakan password sementara. Segera ganti password di tab <strong>Pengaturan</strong> demi keamanan.</span>
       </div>
       <button onclick="switchTab('settings')" class="underline hover:text-amber-200">Ganti Sekarang &rarr;</button>
     </div>
@@ -2279,7 +2279,7 @@ export function renderLoginPage(request: Request): Response {
       <div>
         <label class="block text-slate-300 font-medium mb-1.5">Password</label>
         <input type="password" id="password" required placeholder="Masukkan password..." class="w-full bg-dark-900 border border-dark-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
-        <p class="text-[11px] text-slate-500 mt-1.5">Akun default: <code>admin</code> / <code>admin123</code></p>
+        <p class="text-[11px] text-slate-500 mt-1.5">Instalasi baru: username <code>admin</code>, password ada di log startup atau variabel <code>ADMIN_PASSWORD</code>.</p>
       </div>
 
       <button type="submit" id="btnSubmit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl text-sm transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2">
