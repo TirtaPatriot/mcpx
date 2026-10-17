@@ -52,10 +52,11 @@ const TOOL_PREFIXES = ["PYTHON", "GIT_", "UV_", "BUN_", "NPM_"];
 const POINTS_OR_RUNS = /URL|URI|HOST|ENDPOINT|ADDR|PROXY|CMD|COMMAND|EXEC|SCRIPT|PLUGIN|DIR|FILE|PATH/i;
 
 /**
- * Why `name` can never be made overridable, or null when it can be listed.
- * The text is shown to the admin, so it says what the variable would let someone do.
+ * Why `name` is on the hard deny list, or null. These names change which code runs, where traffic
+ * goes or what the gateway itself is configured with, so they are refused everywhere they could be
+ * set from outside: as overridable variables and in MCP_PASSTHROUGH_ENV.
  */
-export function denyReason(name: string): string | null {
+export function hardDenyReason(name: string): string | null {
   const upper = name.toUpperCase();
   if (PROGRAM_LOOKUP.has(upper)) return `${name} cannot be overridden: it controls which programs run or how commands are read`;
   if (LOADER_PREFIXES.some((p) => upper.startsWith(p))) return `${name} cannot be overridden: it controls which libraries a program loads`;
@@ -69,6 +70,16 @@ export function denyReason(name: string): string | null {
   if (GO_TOOLCHAIN.test(upper) || TOOL_PREFIXES.some((p) => upper.startsWith(p))) {
     return `${name} cannot be overridden: it configures a build or runtime tool and can change which code runs`;
   }
+  return null;
+}
+
+/**
+ * Why `name` can never be made overridable, or null when it can be listed.
+ * The text is shown to the admin, so it says what the variable would let someone do.
+ */
+export function denyReason(name: string): string | null {
+  const hard = hardDenyReason(name);
+  if (hard) return hard;
   if (SECRET_LOOKING.test(name)) {
     return `${name} looks like a secret (its name contains KEY, TOKEN, SECRET, PASSWORD or CREDENTIAL); values sent this way end up in URLs and logs, so secrets cannot be overridden`;
   }

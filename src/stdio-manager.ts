@@ -1,5 +1,7 @@
 import type { Subprocess } from "bun";
 import { dirname } from "node:path";
+import { MCP_PASSTHROUGH_ENV } from "./config";
+import { hardDenyReason } from "./env-policy";
 import { newSecret, log } from "./utils";
 
 interface PendingRpcRequest {
@@ -24,22 +26,46 @@ export interface StdioSession {
 const activeSessions = new Map<string, StdioSession>();
 const clientKeyToSessionId = new Map<string, string>();
 
-function getDefaultExecutionEnv(customEnv: Record<string, string>): Record<string, string> {
-  const cacheBase = process.env.CACHE_DIR || (process.env.DB_PATH ? dirname(process.env.DB_PATH) + "/cache" : "./data/cache");
-  const merged: Record<string, string> = {
+// The harmless part of the host environment that a spawned MCP process still gets.
+const BASE_ENV = new Set([
+  "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "TZ", "TMPDIR", "TERM",
+  "SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS",
+  "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy",
+]);
+
+/**
+ * The environment of an MCP process: a small, explicit part of the host's, then the server's own
+ * `env_vars`, then any overrides. The gateway's own environment (ADMIN_PASSWORD, CLIENT_SECRET, ...)
+ * is deliberately not inherited, so an MCP server cannot read the gateway's secrets.
+ * `passthrough` (MCP_PASSTHROUGH_ENV) adds named host variables, except the hard-denied ones.
+ */
+export function buildProcessEnv(input: {
+  serverEnv: Record<string, string>;
+  overrides?: Record<string, string>;
+  host?: Record<string, string | undefined>;
+  passthrough?: string[];
+}): Record<string, string> {
+  const host = input.host ?? process.env;
+  const passthrough = input.passthrough ?? MCP_PASSTHROUGH_ENV;
+  const cacheBase = host.CACHE_DIR || (host.DB_PATH ? dirname(host.DB_PATH) + "/cache" : "./data/cache");
+
+  const env: Record<string, string> = {
     PYTHONUNBUFFERED: "1",
-    UV_CACHE_DIR: process.env.UV_CACHE_DIR || `${cacheBase}/uv`,
-    GOCACHE: process.env.GOCACHE || `${cacheBase}/go-build`,
-    GOPATH: process.env.GOPATH || `${cacheBase}/go`,
-    BUN_INSTALL_CACHE_DIR: process.env.BUN_INSTALL_CACHE_DIR || `${cacheBase}/bun`,
-    npm_config_cache: process.env.npm_config_cache || `${cacheBase}/npm`,
-    ...(process.env as Record<string, string>),
-    ...customEnv,
+    UV_CACHE_DIR: host.UV_CACHE_DIR || `${cacheBase}/uv`,
+    GOCACHE: host.GOCACHE || `${cacheBase}/go-build`,
+    GOPATH: host.GOPATH || `${cacheBase}/go`,
+    BUN_INSTALL_CACHE_DIR: host.BUN_INSTALL_CACHE_DIR || `${cacheBase}/bun`,
+    npm_config_cache: host.npm_config_cache || `${cacheBase}/npm`,
   };
-  if (!merged.HOME && process.env.HOME) {
-    merged.HOME = process.env.HOME;
+  for (const [name, value] of Object.entries(host)) {
+    if (value === undefined) continue;
+    if (BASE_ENV.has(name) || name.startsWith("LC_")) env[name] = value;
   }
-  return merged;
+  for (const name of passthrough) {
+    const value = host[name];
+    if (value !== undefined && !hardDenyReason(name)) env[name] = value;
+  }
+  return { ...env, ...input.serverEnv, ...input.overrides };
 }
 
 export function parseArgs(raw: string): string[] {
@@ -139,8 +165,7 @@ export function spawnStdioSession(
   const sessionId = existingSessionId || newSecret().slice(0, 16);
   const finalCmd = resolveCommandAndArgs(command || "bunx", argsStr);
   if (finalCmd.length === 0) finalCmd.push("bunx");
-  const customEnv = parseEnv(envStr);
-  const mergedEnv = getDefaultExecutionEnv(customEnv);
+  const mergedEnv = buildProcessEnv({ serverEnv: parseEnv(envStr) });
 
   log("stdio", `🚀 Starting MCP process [${serverName}] (session: ${sessionId}): ${finalCmd.join(" ")}`);
 
@@ -355,8 +380,7 @@ export async function testStdioCommand(
   const start = performance.now();
   const finalCmd = resolveCommandAndArgs(command || "bunx", argsStr);
   if (finalCmd.length === 0) finalCmd.push("bunx");
-  const customEnv = parseEnv(envStr);
-  const mergedEnv = getDefaultExecutionEnv(customEnv);
+  const mergedEnv = buildProcessEnv({ serverEnv: parseEnv(envStr) });
 
   try {
     const proc = Bun.spawn(finalCmd, {

@@ -10,6 +10,12 @@ export const REFRESH_GRACE_PERIOD_MS = Number(process.env.REFRESH_GRACE_PERIOD ?
 export const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
 export const ADMIN_SESSION_TTL_MS = 7 * 24 * 3600 * 1000; // 7 days
 
+/** Extra host variables that MCP processes may inherit (see buildProcessEnv). Opt-in; the hard deny list still applies. */
+export const MCP_PASSTHROUGH_ENV = (process.env.MCP_PASSTHROUGH_ENV ?? "")
+  .split(",")
+  .map((name) => name.trim())
+  .filter(Boolean);
+
 export const LOG_SSE_CHUNKS = (process.env.LOG_SSE_CHUNKS ?? "true") !== "false";
 
 export const DEFAULT_ALLOWED_REDIRECT_HOSTS =
