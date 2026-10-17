@@ -1,5 +1,7 @@
 🇬🇧 English · 🇮🇩 [Bahasa Indonesia](README.id.md)
 
+<p align="center"><img src="public/logo.png" alt="mcpx logo" width="96"></p>
+
 # mcpx — OAuth 2.1 gateway for MCP servers
 
 mcpx puts OAuth 2.1 and Bearer-token authentication in front of your [MCP](https://modelcontextprotocol.io) servers, so Claude, Gemini, ChatGPT, Cursor and other AI clients can reach them safely over the internet. It comes with a web dashboard and a SQLite database (Bun + ElysiaJS).
