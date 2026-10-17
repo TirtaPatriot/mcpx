@@ -99,7 +99,7 @@ export function Servers() {
 
       <SearchInput value={query} onInput={setQuery} label="Search MCP servers" placeholder="Search servers..." />
 
-      <DataTable label="MCP servers" head={["Status", "Type", "ID & name", "Target / command", "Connection", "Actions"]}>
+      <DataTable busy={servers === null} label="MCP servers" head={["Status", "Type", "ID & name", "Target / command", "Connection", "Actions"]}>
         {servers === null ? (
           <SkeletonRows cols={6} />
         ) : servers.length === 0 ? (
@@ -186,24 +186,26 @@ function ServerRow(props: {
         )}
       </Td>
       <Td label="Connection">
+        <div aria-live="polite">
         {!ping ? (
-          <button type="button" onClick={props.onPing} class="text-[11px] bg-dark-700 hover:bg-dark-600 border border-dark-600 px-2.5 py-1 rounded-lg text-slate-200 transition">
+          <button type="button" aria-label={`Test ping (${s.name})`} onClick={props.onPing} class="text-[11px] bg-dark-700 hover:bg-dark-600 border border-dark-600 px-2.5 py-1 rounded-lg text-slate-200 transition">
             Test ping
           </button>
         ) : ping.loading ? (
-          <span class="text-[11px] text-slate-400 animate-pulse">Testing...</span>
+          <span class="text-[11px] text-slate-400">Testing...</span>
         ) : ping.failed ? (
-          <span class="text-[11px] text-red-400">✗ Error</span>
+          <span class="text-[11px] text-red-400"><span aria-hidden="true">✗</span> Error</span>
         ) : ping.result?.ok ? (
           <span class="text-[11px] text-emerald-400 font-mono">
-            ✓ {ping.result.status || "OK"}
+            <span aria-hidden="true">✓</span> {ping.result.status || "OK"}
             {ping.result.serverInfo?.name ? ` (${ping.result.serverInfo.name})` : ""} ({ping.result.latencyMs}ms)
           </span>
         ) : (
           <span class="text-[11px] text-red-400 font-mono" title={ping.result?.error || ""}>
-            ✗ Failed ({ping.result?.latencyMs}ms)
+            <span aria-hidden="true">✗</span> Failed ({ping.result?.latencyMs}ms)
           </span>
         )}
+        </div>
       </Td>
       <Td label="Actions" actions>
         <RowActions
@@ -310,10 +312,10 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
         <Field label="Execution type" group>
           <div class="grid grid-cols-2 gap-2">
             <button type="button" aria-pressed={type === "http"} onClick={() => setType("http")} class={typeBtn(type === "http", "border-blue-500 bg-blue-600/20")}>
-              <span>🌐</span> Upstream URL (HTTP)
+              <span aria-hidden="true">🌐</span> Upstream URL (HTTP)
             </button>
             <button type="button" aria-pressed={type === "command"} onClick={() => setType("command")} class={typeBtn(type === "command", "border-purple-500 bg-purple-600/20")}>
-              <span>⚡</span> CLI / Stdio (bunx, uv, go run, npx)
+              <span aria-hidden="true">⚡</span> CLI / Stdio (bunx, uv, go run, npx)
             </button>
           </div>
         </Field>

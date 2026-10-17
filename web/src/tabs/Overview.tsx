@@ -21,6 +21,7 @@ function StatusItem(props: { label: string; value: number; total?: number; tab: 
         {props.value}
         {props.total !== undefined && <span class="text-xs font-normal text-slate-400"> of {props.total} active</span>}
       </span>
+      <span class="sr-only">Open {props.label}</span>
     </button>
   );
 }
@@ -88,7 +89,7 @@ export function Overview() {
 
   return (
     <section class="space-y-6">
-      <div class={`${cardCls} grid grid-cols-2 md:grid-cols-5 divide-dark-700 md:divide-x overflow-hidden`}>
+      <div role="group" aria-label="Gateway summary" class={`${cardCls} grid grid-cols-2 md:grid-cols-5 divide-dark-700 md:divide-x overflow-hidden`}>
         <StatusItem label="MCP servers" value={s?.servers.active ?? 0} total={s?.servers.total ?? 0} tab="servers" dot="bg-blue-400" />
         <StatusItem label="OAuth clients" value={s?.clients.active ?? 0} total={s?.clients.total ?? 0} tab="clients" dot="bg-emerald-400" />
         <StatusItem label="Access tokens" value={s?.tokens.access ?? 0} tab="tokens" dot="bg-purple-400" />

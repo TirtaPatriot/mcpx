@@ -46,7 +46,7 @@ export function Users() {
   return (
     <section class="space-y-6">
       <SectionHeader
-        title={<><span>👥</span> Users & team</>}
+        title={<><span aria-hidden="true">👥</span> Users & team</>}
         subtitle="Manage user accounts, the admin/user role, and gateway access."
       >
         <button type="button" onClick={() => setEditing("new")} class={`${btnPrimary} text-xs flex items-center gap-1.5`}>
@@ -56,7 +56,7 @@ export function Users() {
 
       <SearchInput value={query} onInput={setQuery} label="Search users" placeholder="Search users..." />
 
-      <DataTable label="Users" head={["User", "Username", "Role", "Status", "Created", "Actions"]}>
+      <DataTable busy={users === null} label="Users" head={["User", "Username", "Role", "Status", "Created", "Actions"]}>
         {users === null ? (
           <SkeletonRows cols={6} />
         ) : users.length === 0 ? (

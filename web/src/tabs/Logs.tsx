@@ -80,7 +80,7 @@ export function Logs() {
           {live && <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" aria-hidden="true" />}
         </label>
         <button type="button" onClick={() => setReloadKey((k) => k + 1)} class="bg-dark-700 hover:bg-dark-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl border border-dark-600 transition flex items-center gap-1">
-          <span>🔄</span> Refresh
+          <span aria-hidden="true">🔄</span> Refresh
         </button>
         <button type="button" onClick={clear} class="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-1.5 rounded-xl border border-red-500/20 transition">
           Clear
@@ -111,7 +111,7 @@ export function Logs() {
         />
       </div>
 
-      <DataTable label="Gateway activity log" head={["Time", "Method", "Path", "Status", "Duration", "Info"]} mono>
+      <DataTable busy={logs === null} label="Gateway activity log" head={["Time", "Method", "Path", "Status", "Duration", "Info"]} mono>
         {logs === null ? (
           <SkeletonRows cols={6} rows={5} />
         ) : logs.length === 0 ? (

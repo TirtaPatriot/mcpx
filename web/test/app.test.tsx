@@ -390,3 +390,46 @@ describe("dialog focus", () => {
     expect(tabs()[tabs().length - 1].getAttribute("aria-selected")).toBe("true");
   });
 });
+
+describe("what assistive technology hears", () => {
+  test("a table says it is busy while its data loads, and stops saying so afterwards", async () => {
+    await mount();
+    const real = globalThis.fetch;
+    let release!: () => void;
+    // Hold the servers response back to look at the loading state.
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith("/api/admin/servers") ? new Promise((resolve) => (release = () => resolve(real(input, init)))) : real(input, init)) as typeof fetch;
+    await click("MCP Servers");
+    expect(document.querySelector("table")!.getAttribute("aria-busy")).toBe("true");
+    release();
+    await waitFor(() => text().includes("/mcp/dokploy/*"), "rows");
+    expect(document.querySelector("table")!.getAttribute("aria-busy")).toBeNull();
+  });
+
+  test("a connection test names its server and announces the result", async () => {
+    routes["/api/admin/servers/dokploy/test"] = { ok: true, result: { ok: true, status: "Ready", latencyMs: 12 } };
+    await mount();
+    await click("MCP Servers");
+    await waitFor(() => text().includes("/mcp/dokploy/*"), "row");
+    const button = document.querySelector<HTMLButtonElement>('button[aria-label^="Test ping ("]')!;
+    expect(button.getAttribute("aria-label")).toContain("Dokploy");
+    const region = button.closest('[aria-live="polite"]')!;
+    await clickEl(button);
+    await waitFor(() => region.textContent!.includes("Ready"), "result inside the live region");
+    delete routes["/api/admin/servers/dokploy/test"];
+  });
+
+  test("the account badge says whose account it is, and the nav is the only navigation landmark", async () => {
+    await mount();
+    expect(document.querySelector("header")!.textContent).toContain("Signed in as");
+    expect(document.querySelectorAll("nav").length).toBe(1);
+    expect(document.querySelector("aside")).toBeNull();
+  });
+
+  test("the summary is one named group of buttons that each say what they open", async () => {
+    await mount();
+    const group = document.querySelector('[role="group"][aria-label="Gateway summary"]')!;
+    expect(group.querySelectorAll("button").length).toBe(5);
+    expect(group.textContent).toContain("Open OAuth clients");
+  });
+});

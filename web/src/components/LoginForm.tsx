@@ -48,7 +48,7 @@ export function Login() {
     <main class="max-w-md w-full bg-dark-800 border border-dark-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
       <div class="text-center space-y-3">
         <div class="w-16 h-16 rounded-2xl bg-dark-700/80 border border-dark-600 flex items-center justify-center p-2.5 mx-auto shadow-xl shadow-blue-500/10">
-          <img src="/logo.png" alt="MCP X" class="w-full h-full object-contain" />
+          <img src="/logo.png" alt="" class="w-full h-full object-contain" />
         </div>
         <div>
           <h1 class="text-xl font-bold text-strong tracking-tight">MCP X</h1>
@@ -103,7 +103,7 @@ export function Login() {
           disabled={busy}
           class="w-full min-h-12 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl text-sm transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2"
         >
-          {busy ? "Signing in..." : <><span>Sign in to the dashboard</span> &rarr;</>}
+          {busy ? "Signing in..." : <><span>Sign in to the dashboard</span> <span aria-hidden="true">&rarr;</span></>}
         </button>
       </form>
     </main>

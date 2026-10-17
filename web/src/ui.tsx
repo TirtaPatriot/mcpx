@@ -91,12 +91,12 @@ export function SectionHeader(props: { title: ComponentChildren; subtitle?: Comp
 }
 
 /** Table that turns into cards on narrow screens; each <td> uses data-label for its caption. */
-export function DataTable(props: { head: string[]; label: string; children: ComponentChildren; mono?: boolean }) {
+export function DataTable(props: { head: string[]; label: string; busy?: boolean; children: ComponentChildren; mono?: boolean }) {
   const last = props.head.length - 1;
   return (
     <div class={`${cardCls} overflow-hidden shadow-sm`}>
       <div class="overflow-x-auto">
-        <table role="table" class={`rtable w-full text-left text-xs ${props.mono ? "font-mono" : ""}`}>
+        <table role="table" aria-busy={props.busy ? true : undefined} class={`rtable w-full text-left text-xs ${props.mono ? "font-mono" : ""}`}>
           <caption class="sr-only">{props.label}</caption>
           <thead role="rowgroup" class={`bg-dark-900/70 border-b border-dark-700 text-slate-400 text-xs font-medium ${props.mono ? "font-sans" : ""}`}>
             <tr role="row">

@@ -53,7 +53,7 @@ export function GenerateTokenModal(props: { initialClientId: string; onClose: ()
   };
 
   return (
-    <Modal title={<><span>🔑</span> Create access token / API key</>} onClose={props.onClose}>
+    <Modal title={<><span aria-hidden="true">🔑</span> Create access token / API key</>} onClose={props.onClose}>
       <p class="text-xs text-slate-300 leading-relaxed">
         Create a static Bearer access token for AI clients that cannot use the browser-redirect OAuth flow (such as Claude Desktop, Cursor, Open WebUI, LibreChat, etc.)
       </p>
@@ -96,7 +96,7 @@ export function GenerateTokenModal(props: { initialClientId: string; onClose: ()
             disabled={busy}
             class="bg-purple-600 hover:bg-purple-500 text-white font-medium px-4 py-2 rounded-xl transition shadow-md shadow-purple-600/30 flex items-center gap-1.5"
           >
-            <span>⚡</span> Issue token
+            <span aria-hidden="true">⚡</span> Issue token
           </button>
         </div>
       </form>
@@ -105,7 +105,7 @@ export function GenerateTokenModal(props: { initialClientId: string; onClose: ()
         <div class="space-y-3 pt-3 border-t border-dark-700 text-xs">
           <div class="bg-emerald-950/40 border border-emerald-800/40 p-3 rounded-xl space-y-2">
             <div class="flex items-center justify-between text-emerald-300 font-semibold">
-              <span>✓ Access token created</span>
+              <span><span aria-hidden="true">✓</span> Access token created</span>
               <span class="text-[10px] font-normal text-emerald-400 font-mono">Expires: {new Date(result.expiresAt).toLocaleDateString()}</span>
             </div>
             <div class="flex items-center gap-2">

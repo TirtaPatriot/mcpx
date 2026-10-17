@@ -1,12 +1,12 @@
 import type { Brand, ConsentPageData } from "../../../src/consent-data";
 import { btnGhost } from "../ui";
 
-function Avatar(props: { src: string; alt: string }) {
+function Avatar(props: { src: string }) {
   return (
     <div class="w-16 h-16 rounded-2xl bg-dark-900 border border-dark-700 flex items-center justify-center p-2.5 shadow-lg shrink-0">
       <img
         src={props.src}
-        alt={props.alt}
+        alt=""
         class="w-full h-full object-contain"
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).src = "/icons/universal.svg";
@@ -54,13 +54,13 @@ export function ConsentView({ data }: { data: ConsentPageData }) {
   return (
     <main class={`${card} space-y-6`}>
       <div class="flex items-center justify-center gap-4" aria-hidden="false">
-        <Avatar src={client.iconUrl} alt={client.name} />
+        <Avatar src={client.iconUrl} />
         <span class="flex items-center gap-1.5 text-slate-500" aria-hidden="true">
           <span class="w-6 h-0.5 rounded bg-gradient-to-r from-blue-500 to-violet-500" />
           <span class="w-7 h-7 rounded-full bg-dark-900 border border-dark-600 flex items-center justify-center text-[13px] text-purple-400">⚡</span>
           <span class="w-6 h-0.5 rounded bg-gradient-to-r from-blue-500 to-violet-500" />
         </span>
-        <Avatar src="/logo.png" alt="MCP X" />
+        <Avatar src="/logo.png" />
       </div>
 
       <div class="text-center">

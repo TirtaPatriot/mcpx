@@ -34,7 +34,7 @@ export function Settings() {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class={`${cardCls} p-5 space-y-4`}>
           <h3 class="text-sm font-semibold text-strong flex items-center gap-2">
-            <span>🔐</span> Change admin password
+            <span aria-hidden="true">🔐</span> Change admin password
           </h3>
           <form onSubmit={submit} class="space-y-3 text-xs">
             <Field label="Current password">
@@ -51,7 +51,7 @@ export function Settings() {
 
         <div class={`${cardCls} p-5 space-y-3 text-xs`}>
           <h3 class="text-sm font-semibold text-strong flex items-center gap-2">
-            <span>🌐</span> Discovery & standard endpoints
+            <span aria-hidden="true">🌐</span> Discovery & standard endpoints
           </h3>
           <div class="space-y-2">
             {links.map(([label, href]) => (

@@ -101,7 +101,7 @@ export function Clients() {
         subtitle="Manage OAuth credentials and Bearer tokens for your AI clients (Claude, Cursor, Gemini, ChatGPT, LibreChat, etc.)"
       >
         <button type="button" onClick={() => openGenToken()} class={`${btnPurple} text-xs px-3.5 flex items-center gap-1.5`}>
-          <span>🔑</span> Create access token / API key
+          <span aria-hidden="true">🔑</span> Create access token / API key
         </button>
         <button type="button" onClick={() => setEditing("new")} class={`${btnPrimary} text-xs px-3.5 flex items-center gap-1.5`}>
           <span>+</span> Add OAuth client
@@ -110,7 +110,7 @@ export function Clients() {
 
       <SearchInput value={query} onInput={setQuery} label="Search OAuth clients" placeholder="Search clients..." />
 
-      <DataTable label="OAuth clients" head={["Status", "Client ID", "Application name", "Client secret", "Active sessions", "Actions"]}>
+      <DataTable busy={clients === null} label="OAuth clients" head={["Status", "Client ID", "Application name", "Client secret", "Active sessions", "Actions"]}>
         {clients === null ? (
           <SkeletonRows cols={6} />
         ) : clients.length === 0 ? (
@@ -281,7 +281,7 @@ function AiGuideModal(props: { client: OAuthClient; onClose: () => void }) {
   );
 
   return (
-    <Modal title={<><span>🤖</span> AI integration guide</>} onClose={props.onClose} size="xl" closeOnOverlay>
+    <Modal title={<><span aria-hidden="true">🤖</span> AI integration guide</>} onClose={props.onClose} size="xl" closeOnOverlay>
       <div class="bg-dark-900/90 p-3 rounded-xl border border-dark-700 text-xs font-mono grid grid-cols-1 sm:grid-cols-2 gap-2">
         {credBox("Client ID", client.id)}
         {credBox("Client secret", client.secret)}

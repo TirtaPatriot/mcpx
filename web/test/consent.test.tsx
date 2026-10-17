@@ -72,8 +72,10 @@ describe("consent page", () => {
     expect(document.querySelector("main")).not.toBeNull();
     expect(document.querySelectorAll("h1").length).toBe(1);
     expect(document.querySelector("dl")).not.toBeNull();
-    expect(document.querySelector("img[alt='Claude']")).not.toBeNull();
-    expect(document.querySelector("img[alt='MCP X']")).not.toBeNull();
+    // The pictures repeat what the heading and text already say, so they are decorative.
+    const pictures = [...document.querySelectorAll("img")];
+    expect(pictures.length).toBeGreaterThan(0);
+    expect(pictures.every((img) => img.getAttribute("alt") === "")).toBe(true);
   });
 });
 

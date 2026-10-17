@@ -68,7 +68,7 @@ export function Tokens() {
     <section class="space-y-6">
       <SectionHeader title="Tokens & sessions" subtitle="Monitor and revoke the active access and refresh tokens stored in SQLite, per client">
         <button type="button" onClick={() => openGenToken()} class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-1.5 rounded-xl transition shadow-md shadow-purple-600/20 flex items-center gap-1">
-          <span>🔑</span> + Create access token
+          <span aria-hidden="true">🔑</span> + Create access token
         </button>
         <SearchInput value={query} onInput={setQuery} label="Search tokens" placeholder="Search tokens..." />
         <select
@@ -96,7 +96,7 @@ export function Tokens() {
 
       <div class="space-y-2">
         <TableTitle title="Active access tokens (Bearer)" count={access.length} color="bg-blue-500/10 text-blue-400" />
-        <DataTable label="Active access tokens" head={["Token", "Client ID", "User", "Created", "Expires", "Actions"]}>
+        <DataTable busy={loading} label="Active access tokens" head={["Token", "Client ID", "User", "Created", "Expires", "Actions"]}>
           {loading ? (
             <SkeletonRows cols={6} />
           ) : access.length === 0 ? (
@@ -125,7 +125,7 @@ export function Tokens() {
 
       <div class="space-y-2">
         <TableTitle title="Refresh tokens" count={refresh.length} color="bg-purple-500/10 text-purple-400" />
-        <DataTable label="Refresh tokens" head={["Token", "Client ID", "User", "Status", "Expires", "Actions"]}>
+        <DataTable busy={loading} label="Refresh tokens" head={["Token", "Client ID", "User", "Status", "Expires", "Actions"]}>
           {loading ? (
             <SkeletonRows cols={6} />
           ) : refresh.length === 0 ? (
@@ -137,7 +137,7 @@ export function Tokens() {
                 <Td label="Client ID" class="font-medium text-strong">{t.client_id}</Td>
                 <Td label="User"><Owner t={t} /></Td>
                 <Td label="Status">
-                  {t.revoked_at ? <span class="text-amber-400">Rotated / revoked</span> : <span class="text-emerald-400">● Valid</span>}
+                  {t.revoked_at ? <span class="text-amber-400">Rotated / revoked</span> : <span class="text-emerald-400"><span aria-hidden="true">● </span>Valid</span>}
                 </Td>
                 <Td label="Expires" class="text-slate-400">{new Date(t.expires_at).toLocaleString()}</Td>
                 <Td label="Actions" actions>

@@ -70,7 +70,7 @@ export function PlatformGuide(props: { origin: string; serverId?: string; onCrea
             <UrlRow label="Token URL" value={tokenUrl} />
           </div>
           <p class={note}>
-            💡 <em>Supports OAuth 2.1 auto-discovery (RFC 8414 &amp; RFC 9728) for Custom Tools and Gems in Google Gemini on web and mobile.</em>
+            <span aria-hidden="true">💡</span> <em>Supports OAuth 2.1 auto-discovery (RFC 8414 &amp; RFC 9728) for Custom Tools and Gems in Google Gemini on web and mobile.</em>
           </p>
         </div>
       )}
@@ -79,7 +79,7 @@ export function PlatformGuide(props: { origin: string; serverId?: string; onCrea
         <div class="space-y-2">
           <CodeBlock title="claude_desktop_config.json:" code={mcpConfigJson(origin, PLACEHOLDER, serverId)} />
           <div class={`flex items-center justify-between ${note}`}>
-            <span>💡 Use a Bearer token for a direct connection, without the browser OAuth flow.</span>
+            <span><span aria-hidden="true">💡</span> Use a Bearer token for a direct connection, without the browser OAuth flow.</span>
             <button type="button" onClick={props.onCreateToken} class="text-purple-400 hover:underline font-medium">
               + Create access token for Claude
             </button>
@@ -94,7 +94,7 @@ export function PlatformGuide(props: { origin: string; serverId?: string; onCrea
             <UrlRow label="Token URL" value={tokenUrl} />
           </div>
           <p class={note}>
-            💡 <em>In Custom GPT Actions choose <strong>OAuth</strong> authentication, enter the Client ID and Secret from the OAuth Clients tab, and pick Basic Auth for the token exchange. Redirects from <code>chatgpt.com</code> and <code>openai.com</code> are allowed automatically.</em>
+            <span aria-hidden="true">💡</span> <em>In Custom GPT Actions choose <strong>OAuth</strong> authentication, enter the Client ID and Secret from the OAuth Clients tab, and pick Basic Auth for the token exchange. Redirects from <code>chatgpt.com</code> and <code>openai.com</code> are allowed automatically.</em>
           </p>
         </div>
       )}
@@ -103,7 +103,7 @@ export function PlatformGuide(props: { origin: string; serverId?: string; onCrea
         <div class="space-y-2">
           <CodeBlock title="Cursor config (.cursor/mcp.json or Settings > Features > MCP):" code={mcpConfigJson(origin, PLACEHOLDER, serverId)} />
           <div class={`flex items-center justify-between ${note}`}>
-            <span>💡 Cursor supports remote SSE MCP servers with an Authorization Bearer header.</span>
+            <span><span aria-hidden="true">💡</span> Cursor supports remote SSE MCP servers with an Authorization Bearer header.</span>
             <button type="button" onClick={props.onCreateToken} class="text-purple-400 hover:underline font-medium">
               + Create access token for Cursor
             </button>
@@ -119,7 +119,7 @@ export function PlatformGuide(props: { origin: string; serverId?: string; onCrea
             code={`curl -N -H "Authorization: Bearer ${PLACEHOLDER}" \\\n  -H "Accept: text/event-stream" \\\n  ${origin}/mcp/${serverId}`}
           />
           <p class={note}>
-            💡 <em>Works as-is with LibreChat, Open WebUI, Dify, LangChain, or any custom agent framework.</em>
+            <span aria-hidden="true">💡</span> <em>Works as-is with LibreChat, Open WebUI, Dify, LangChain, or any custom agent framework.</em>
           </p>
         </div>
       )}
