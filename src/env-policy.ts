@@ -34,12 +34,22 @@ const has = (obj: object, key: string) => Object.prototype.hasOwnProperty.call(o
 // Names that can never be listed, grouped by why. Matching is case-insensitive.
 const GATEWAY_SETTINGS = new Set(["ADMIN_PASSWORD", "CLIENT_ID", "CLIENT_SECRET", "MCP_SERVERS", "DB_PATH", "PUBLIC_URL", "MCP_PASSTHROUGH_ENV"]);
 const PROGRAM_LOOKUP = new Set(["PATH", "HOME", "SHELL", "IFS"]);
-const RUNTIME_START = new Set(["NODE_OPTIONS", "NODE_PATH", "NODE_EXTRA_CA_CERTS"]);
+const SHELL_STARTUP = new Set(["BASH_ENV", "ENV", "PROMPT_COMMAND"]);
+// Runtimes and tools that read an environment variable to decide what code to load on start.
+const RUNTIME_EXACT = new Set(["JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GCONV_PATH"]);
+const RUNTIME_PREFIXES = ["NODE_", "DENO_", "PERL", "RUBY"];
+const NETWORK_ROUTING = new Set(["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "FTP_PROXY"]);
+const TRUST_STORE = new Set(["SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"]);
 const LOADER_PREFIXES = ["LD_", "DYLD_"];
 // Go toolchain variables (GOFLAGS, GOPATH, GOPROXY, ...) never contain an underscore,
 // which keeps unrelated names such as GOOGLE_PROJECT_ID usable.
 const GO_TOOLCHAIN = /^GO[A-Z0-9]*$/;
 const TOOL_PREFIXES = ["PYTHON", "GIT_", "UV_", "BUN_", "NPM_"];
+
+// A name that points at somewhere (a URL, host, directory, file) or runs something (a command,
+// script, plugin) can send a server's own credentials or data elsewhere when set to free text,
+// so such a variable is only accepted together with the exact values that may be used.
+const POINTS_OR_RUNS = /URL|URI|HOST|ENDPOINT|ADDR|PROXY|CMD|COMMAND|EXEC|SCRIPT|PLUGIN|DIR|FILE|PATH/i;
 
 /**
  * Why `name` can never be made overridable, or null when it can be listed.
@@ -49,7 +59,12 @@ export function denyReason(name: string): string | null {
   const upper = name.toUpperCase();
   if (PROGRAM_LOOKUP.has(upper)) return `${name} cannot be overridden: it controls which programs run or how commands are read`;
   if (LOADER_PREFIXES.some((p) => upper.startsWith(p))) return `${name} cannot be overridden: it controls which libraries a program loads`;
-  if (RUNTIME_START.has(upper)) return `${name} cannot be overridden: it changes how the runtime starts`;
+  if (SHELL_STARTUP.has(upper) || upper.startsWith("BASH_FUNC_")) return `${name} cannot be overridden: it changes what a shell runs when it starts`;
+  if (RUNTIME_EXACT.has(upper) || RUNTIME_PREFIXES.some((p) => upper.startsWith(p))) {
+    return `${name} cannot be overridden: it changes how a runtime starts and can change which code runs`;
+  }
+  if (NETWORK_ROUTING.has(upper)) return `${name} cannot be overridden: it controls where network traffic goes`;
+  if (TRUST_STORE.has(upper)) return `${name} cannot be overridden: it controls which certificates are trusted`;
   if (GATEWAY_SETTINGS.has(upper)) return `${name} cannot be overridden: it is a setting of the gateway itself`;
   if (GO_TOOLCHAIN.test(upper) || TOOL_PREFIXES.some((p) => upper.startsWith(p))) {
     return `${name} cannot be overridden: it configures a build or runtime tool and can change which code runs`;
@@ -113,6 +128,9 @@ export function parseOverridableEnv(raw: unknown): Result<OverridableEnv> {
     if (description !== undefined) {
       if (typeof description !== "string") return fail(`${name}: "description" must be text`);
       clean.description = description;
+    }
+    if (POINTS_OR_RUNS.test(name) && !(clean.values && clean.values.length > 0)) {
+      return fail(`${name} points at somewhere or runs something, so it needs an explicit list of values (for example {"values": ["https://dokploy.example.com"]})`);
     }
     out[name] = clean;
   }

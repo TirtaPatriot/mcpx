@@ -75,10 +75,20 @@ A request authenticated with a static token (no OAuth client) gets step 4 only.
 **Hard deny list.** These names can never be listed, even by an admin, because overriding
 them amounts to running arbitrary code or changing which code runs:
 
-`PATH`, `HOME`, `SHELL`, `IFS`, `LD_*`, `DYLD_*`, `NODE_OPTIONS`, `NODE_PATH`, `NODE_EXTRA_CA_CERTS`,
-`PYTHON*`, `GO*`, `GIT_*`, `UV_*`, `BUN_*`, `NPM_*`, `npm_config_*` (compared case-insensitively),
-and the gateway's own settings: `ADMIN_PASSWORD`, `CLIENT_ID`, `CLIENT_SECRET`, `MCP_SERVERS`,
-`DB_PATH`, `PUBLIC_URL`, `MCP_PASSTHROUGH_ENV`.
+`PATH`, `HOME`, `SHELL`, `IFS`, `LD_*`, `DYLD_*`, `NODE_*`, `DENO_*`, `PERL*`, `RUBY*`, `PYTHON*`,
+the Go toolchain's variables (names like `GOFLAGS` and `GOPROXY`: `GO` followed by letters and digits
+only, so `GOOGLE_PROJECT_ID` stays usable), `GIT_*`, `UV_*`, `BUN_*`, `NPM_*`, `npm_config_*`,
+`BASH_ENV`, `ENV`, `BASH_FUNC_*`, `PROMPT_COMMAND`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`,
+`JDK_JAVA_OPTIONS`, `GCONV_PATH`, traffic routing (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`,
+`NO_PROXY`, `FTP_PROXY`), trust stores (`SSL_CERT_FILE`, `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`,
+`CURL_CA_BUNDLE`), and the gateway's own settings: `ADMIN_PASSWORD`, `CLIENT_ID`, `CLIENT_SECRET`,
+`MCP_SERVERS`, `DB_PATH`, `PUBLIC_URL`, `MCP_PASSTHROUGH_ENV`. Matching is case-insensitive.
+
+**Names that point somewhere or run something.** A name containing `URL`, `URI`, `HOST`, `ENDPOINT`,
+`ADDR`, `PROXY`, `CMD`, `COMMAND`, `EXEC`, `SCRIPT`, `PLUGIN`, `DIR`, `FILE` or `PATH` can only be
+listed together with an explicit, non-empty `values` list. Free text there would let a connecting
+client point the server at a host or file of its choosing, and the server would send its own
+credentials (set by the admin in `env_vars`) along with it.
 
 **Names that look like secrets.** Names matching `KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PASSWD`
 (case-insensitive, anywhere in the name) cannot be listed. A value sent in a URL stays in

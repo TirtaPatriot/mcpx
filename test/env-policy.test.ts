@@ -35,6 +35,45 @@ describe("denyReason", () => {
   });
 });
 
+describe("denyReason: more ways to change which code runs or where traffic goes", () => {
+  test.each([
+    "BASH_ENV", "ENV", "BASH_FUNC_foo%%", "PROMPT_COMMAND", "PERL5OPT", "PERLLIB", "RUBYOPT", "RUBYLIB",
+    "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GCONV_PATH", "DENO_DIR", "NODE_TLS_REJECT_UNAUTHORIZED", "NODE_FOO",
+    "HTTP_PROXY", "https_proxy", "ALL_PROXY", "NO_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE",
+  ])("%s can never be listed", (name) => {
+    expect(denyReason(name)).toBeString();
+  });
+
+  test("traffic redirection and certificate settings say why", () => {
+    expect(denyReason("HTTPS_PROXY")).toContain("where network traffic goes");
+    expect(denyReason("SSL_CERT_FILE")).toContain("which certificates are trusted");
+  });
+});
+
+describe("parseOverridableEnv: names that point somewhere or run something", () => {
+  test.each(["DOKPLOY_URL", "API_ENDPOINT", "DB_HOST", "DATA_DIR", "CONFIG_FILE", "LOG_PATH", "PRE_COMMAND", "INIT_SCRIPT", "UPSTREAM_ADDR", "SERVICE_URI", "PLUGIN_NAME"])(
+    "%s needs an explicit list of values",
+    (name) => {
+      const r = parseOverridableEnv({ [name]: {} });
+      expect(r.ok ? "" : r.error).toContain("explicit list of values");
+      expect(r.ok ? "" : r.error).toContain(name);
+    },
+  );
+
+  test("an empty list of values does not count as explicit", () => {
+    expect(parseOverridableEnv({ DB_HOST: { values: [] } }).ok).toBe(false);
+  });
+
+  test("with the exact values listed, such a name is accepted", () => {
+    const spec = { DOKPLOY_URL: { values: ["https://dokploy.example.com"] } };
+    expect(parseOverridableEnv(spec)).toEqual({ ok: true, value: spec });
+  });
+
+  test("an ordinary name still accepts free text", () => {
+    expect(parseOverridableEnv({ DOKPLOY_TOOL_PRESET: {} }).ok).toBe(true);
+  });
+});
+
 describe("parseOverridableEnv", () => {
   test("the Dokploy example parses to the same object", () => {
     expect(parseOverridableEnv(JSON.stringify(PRESET))).toEqual({ ok: true, value: PRESET });

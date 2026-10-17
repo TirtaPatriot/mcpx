@@ -13,7 +13,8 @@
 ## Global Constraints
 
 - Names match `^[A-Z][A-Z0-9_]{0,63}$`. Values are at most 256 characters, no control characters or newlines, and must be in the entry's `values` when it has one.
-- Hard deny list, never listable, compared case-insensitively: `PATH`, `HOME`, `SHELL`, `IFS`, `LD_*`, `DYLD_*`, `NODE_OPTIONS`, `NODE_PATH`, `NODE_EXTRA_CA_CERTS`, `PYTHON*`, `GO*`, `GIT_*`, `UV_*`, `BUN_*`, `NPM_*`, `npm_config_*`, `ADMIN_PASSWORD`, `CLIENT_ID`, `CLIENT_SECRET`, `MCP_SERVERS`, `DB_PATH`, `PUBLIC_URL`, `MCP_PASSTHROUGH_ENV`.
+- Hard deny list, never listable, compared case-insensitively: see "Validation rules" in the spec (shell startup, runtime and tool hooks, loader, traffic routing, trust store and the gateway's own settings). Implemented and tested in `src/env-policy.ts`.
+- A name containing `URL|URI|HOST|ENDPOINT|ADDR|PROXY|CMD|COMMAND|EXEC|SCRIPT|PLUGIN|DIR|FILE|PATH` is only listable with an explicit non-empty `values` list.
 - Names containing `KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `CREDENTIAL` or `PASSWD` (case-insensitive) are never listable.
 - Precedence: base environment < server `env_vars` < client overrides < URL overrides. Only names in the server's `overridable_env` take part in the last two.
 - A URL override that is unknown or invalid fails with HTTP 400 `{"error":"invalid_env_override","error_description":"..."}`; a client override that is no longer allowed is skipped and logged.
