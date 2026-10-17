@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Fonts are bundled, not fetched from a third party: the dashboard also runs behind firewalls,
+   and a font request that hangs would otherwise delay the whole page. */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 
 @theme {
   --color-brand-50: #eff6ff;
@@ -13,8 +17,8 @@
   --color-strong: #ffffff;
   /* Tailwind's slate-500 is below 4.5:1 on these surfaces; the hint text that uses it needs more. */
   --color-slate-500: #7a889d;
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 }
 
 /*

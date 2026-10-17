@@ -70,3 +70,16 @@ describe("theme-safe styles", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("self-contained pages", () => {
+  test("no page loads anything from a third party", () => {
+    // A render-blocking request to another host stalls the page when that host is unreachable,
+    // for example behind a firewall.
+    for (const page of ["index.html", "login.html", "consent.html"]) {
+      const html = readFileSync(join(import.meta.dir, "..", page), "utf8");
+      expect(html.match(/(?:src|href)="https?:\/\/[^"]+"/g) ?? [], page).toEqual([]);
+    }
+    expect(css).not.toMatch(/url\(\s*["']?https?:\/\//);
+    expect(css).not.toMatch(/@import\s+url\(/);
+  });
+});
