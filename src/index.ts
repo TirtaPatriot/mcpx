@@ -286,7 +286,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
 }
 
 console.log(`\n=============================================================`);
-console.log(`⚡ OAuth 2.1 MCP Gateway + dashboard is running!`);
+console.log(`⚡ MCP X (OAuth 2.1 gateway + dashboard) is running!`);
 console.log(`   Host: http://${app.server?.hostname}:${app.server?.port}`);
 console.log(`   Dashboard UI: http://localhost:${PORT}/admin`);
 if (defaultAdminCreated) {

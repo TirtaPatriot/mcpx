@@ -49,10 +49,10 @@ function Login() {
     <div class="max-w-md w-full bg-dark-800 border border-dark-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
       <div class="text-center space-y-3">
         <div class="w-16 h-16 rounded-2xl bg-dark-700/80 border border-dark-600 flex items-center justify-center p-2.5 mx-auto shadow-xl shadow-blue-500/10">
-          <img src="/logo.png" alt="MCP Gateway" class="w-full h-full object-contain" />
+          <img src="/logo.png" alt="MCP X" class="w-full h-full object-contain" />
         </div>
         <div>
-          <h1 class="text-xl font-bold text-white tracking-tight">MCP Gateway Dashboard</h1>
+          <h1 class="text-xl font-bold text-white tracking-tight">MCP X</h1>
           <p class="text-xs text-slate-400 mt-1">Universal OAuth 2.1 and reverse proxy for every AI client</p>
         </div>
       </div>

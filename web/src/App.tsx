@@ -88,11 +88,11 @@ export function App() {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-10 h-10 rounded-xl bg-dark-700/80 border border-dark-600 flex items-center justify-center p-1.5 shadow-lg shadow-blue-500/10 shrink-0">
-              <img src="/logo.png" alt="MCP Gateway" class="w-full h-full object-contain" />
+              <img src="/logo.png" alt="MCP X" class="w-full h-full object-contain" />
             </div>
             <div class="min-w-0">
               <h1 class="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-2 truncate">
-                <span class="truncate">OAuth 2.1 MCP Gateway</span>
+                <span class="truncate">MCP X</span>
                 <span class="hidden md:inline text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">SQLite WAL</span>
                 <span class="hidden lg:inline text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + CLI (bunx, uv, go, npx)</span>
               </h1>

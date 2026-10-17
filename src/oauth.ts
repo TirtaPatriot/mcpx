@@ -530,8 +530,8 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
           <div class="connector-badge">⚡</div>
           <div class="connector-line"></div>
         </div>
-        <div class="avatar-box" title="MCP Gateway">
-          <img src="/logo.png" alt="MCP Gateway" onerror="this.src='/icons/mcp.svg'">
+        <div class="avatar-box" title="MCP X">
+          <img src="/logo.png" alt="MCP X" onerror="this.src='/icons/mcp.svg'">
         </div>
       </div>
 
