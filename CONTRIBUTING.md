@@ -16,6 +16,8 @@ bun run dev              # gateway on :3000 + Vite on :5173
 
 `bun run dev` starts the gateway (watch mode) and the Vite dev server together. Open the dashboard at <http://localhost:5173/_app/login.html>; Vite proxies the API to the gateway and hot-reloads UI changes. Without Vite, `bun run build` once and use <http://localhost:3000/admin>.
 
+The OAuth consent page is rendered by the gateway from the last build, so run `bun run build` after changing it. To iterate on its look, open <http://localhost:5173/_app/consent.html>: in dev mode it shows sample data.
+
 On first start the log prints the generated admin password (username `admin`). Set `ADMIN_PASSWORD` in `.env` if you would rather pick your own. Data lives in `./data/` and is git-ignored.
 
 ## Before you open a PR
@@ -38,8 +40,9 @@ CI runs the same checks plus a Docker build.
 | `src/proxy.ts` | Reverse proxy to upstream MCP servers |
 | `src/stdio-manager.ts` | Runs stdio MCP servers (bunx, npx, uvx, go run, python) and bridges them to HTTP |
 | `src/admin-api.ts` | JSON API behind the dashboard |
-| `web/` | Dashboard: Vite + Preact + TypeScript + Tailwind. `src/tabs/` has one component per tab, `src/api.ts` the fetch helper, `src/ui.tsx` shared pieces |
-| `src/web.ts` | Serves the built dashboard (`web/dist`) behind the admin session |
+| `web/` | Dashboard: Vite + Preact + TypeScript + Tailwind. `src/tabs/` has one component per tab, `src/api.ts` the fetch helper, `src/ui.tsx` shared pieces. The OAuth consent page is `consent.html` + `src/components/ConsentView.tsx` |
+| `src/web.ts` | Serves the built pages (`web/dist`): the dashboard behind the admin session, and the consent page filled with data |
+| `src/consent-data.ts` | The data contract between the server and the consent page (types only) |
 | `src/utils.ts`, `src/icons.ts` | Helpers |
 | `test/` | Server tests (`bun test`); `test/setup.ts` points the database at a temp directory |
 | `web/test/` | Dashboard tests (`bun run test:web`): components rendered in happy-dom with a mocked `fetch` |

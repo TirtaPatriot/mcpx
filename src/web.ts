@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import { validateAdminRequest } from "./auth";
+import type { ConsentPageData } from "./consent-data";
+import { esc } from "./utils";
 
 /** Output folder of `bun run build` (web/dist). */
 export const DEFAULT_DIST = resolve(import.meta.dir, "../web/dist");
@@ -43,7 +45,33 @@ export function createWebServer(dist = DEFAULT_DIST) {
       : buildMissing();
   };
 
+  /**
+   * The consent and message pages are the same built page, filled with data by the gateway.
+   * The data goes into a JSON <script> block, with "<" escaped so it can never close the tag.
+   */
+  const dataPage = (data: ConsentPageData, title: string, status: number) => {
+    const file = Bun.file(resolve(dist, "consent.html"));
+    if (file.size === 0) return buildMissing();
+    return file.text().then(
+      (html) => {
+        const json = JSON.stringify(data).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+        const body = html.replace("__CONSENT_DATA__", () => json).replace(/<title>[^<]*<\/title>/, () => `<title>${esc(title)} — MCP X</title>`);
+        return new Response(body, {
+          status,
+          // The consent page must never be framed: a hidden iframe could trick a click on "Allow".
+          headers: { "Content-Type": "text/html; charset=utf-8", "X-Frame-Options": "DENY", ...NO_STORE },
+        });
+      },
+    );
+  };
+
   return {
+    /** OAuth consent page for one authorisation request. */
+    renderConsentPage: (data: Extract<ConsentPageData, { kind: "consent" }>, status = 200) => dataPage(data, `Allow access: ${data.client.name}`, status),
+
+    /** A plain message page, such as "Invalid request" or "Sign-in required". */
+    renderMessagePage: (title: string, message: string, status = 400) => dataPage({ kind: "message", title, message }, title, status),
+
     renderAdminPage(request: Request): Response {
       if (!validateAdminRequest(request)) {
         return new Response(null, { status: 302, headers: { Location: "/admin/login", ...NO_STORE } });
@@ -72,4 +100,4 @@ export function createWebServer(dist = DEFAULT_DIST) {
   };
 }
 
-export const { renderAdminPage, renderLoginPage, serveAsset } = createWebServer();
+export const { renderAdminPage, renderLoginPage, renderConsentPage, renderMessagePage, serveAsset } = createWebServer();

@@ -17,6 +17,7 @@ export default defineConfig({
       input: {
         index: resolve(import.meta.dirname, "index.html"),
         login: resolve(import.meta.dirname, "login.html"),
+        consent: resolve(import.meta.dirname, "consent.html"),
       },
     },
   },

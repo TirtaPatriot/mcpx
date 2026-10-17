@@ -24,7 +24,6 @@ import {
   elapsed,
   asRecord,
   str,
-  esc,
   newSecret,
   publicOrigin,
   safeDecode,
@@ -38,10 +37,9 @@ import {
   consentPage,
   redirectTo,
   handleTokenExchange,
-  page,
 } from "./oauth";
 import { adminApi } from "./admin-api";
-import { renderAdminPage, renderLoginPage, serveAsset } from "./web";
+import { renderAdminPage, renderLoginPage, renderMessagePage, serveAsset } from "./web";
 import { getSessionUser } from "./auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,7 +198,7 @@ const app = new Elysia()
     if (typeof params === "string") {
       log(id, `✗ authorize rejected: ${params}`);
       addActivityLog(id, "GET", "/oauth/authorize", 400, performance.now() - startedAt, undefined, params);
-      return page("Invalid request", `<h1>Invalid request</h1><p>${esc(params)}</p>`, 400);
+      return renderMessagePage("Invalid request", params, 400);
     }
     const sessionUser = getSessionUser(request);
     if (!sessionUser) {
@@ -227,14 +225,14 @@ const app = new Elysia()
     if (typeof params === "string") {
       log(id, `✗ authorize POST rejected: ${params}`);
       addActivityLog(id, "POST", "/oauth/authorize", 400, performance.now() - startedAt, undefined, params);
-      return page("Invalid request", `<h1>Invalid request</h1><p>${esc(params)}</p>`, 400);
+      return renderMessagePage("Invalid request", params, 400);
     }
 
     const sessionUser = getSessionUser(request);
     if (!sessionUser) {
       log(id, `✗ authorize POST rejected: no login session (client_id=${params.clientId})`);
       addActivityLog(id, "POST", "/oauth/authorize", 401, performance.now() - startedAt, undefined, "Login required");
-      return page("Sign-in required", `<h1>Sign-in required</h1><p>No sign-in session was found, or it has expired. Start the connection again from your AI app.</p>`, 401);
+      return renderMessagePage("Sign-in required", "No sign-in session was found, or it has expired. Start the connection again from your AI app.", 401);
     }
 
     const redirect = new URL(params.redirectUri);
