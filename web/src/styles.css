@@ -27,6 +27,24 @@
   button:not(:disabled) {
     cursor: pointer;
   }
+  /* Keyboard focus must always be visible; mouse clicks do not draw the ring. */
+  :focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline-offset: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 /* ── Responsive tables: on narrow screens each row becomes a card; captions come from the data-label attribute ── */
@@ -117,9 +135,7 @@
     content: attr(data-label);
     flex-shrink: 0;
     color: #64748b;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 11px;
     font-family: var(--font-sans);
     text-align: left;
   }
@@ -144,8 +160,8 @@
   .rtable td.actions::before {
     display: none;
   }
-  .rtable td.actions > button,
-  .rtable td.actions > a {
+  .rtable td.actions button,
+  .rtable td.actions a {
     padding: 0.45rem 0.75rem;
     border-radius: 0.6rem;
     background: rgba(31, 41, 55, 0.8);

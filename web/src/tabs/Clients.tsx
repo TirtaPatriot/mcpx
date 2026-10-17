@@ -1,6 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
+import { useConfirm } from "../components/Confirm";
 import { PlatformGuide } from "../components/PlatformGuide";
+import { RowActions } from "../components/RowActions";
 import { useApp } from "../context";
 import { CLIENT_ICON_PRESETS, clientIcon } from "../icons";
 import { copyText, showToast } from "../toast";
@@ -13,9 +15,12 @@ import {
   IconBox,
   Modal,
   ModalFooter,
+  SearchInput,
   SectionHeader,
+  SkeletonRows,
   Td,
   btnPrimary,
+  filterBy,
   btnPurple,
   inputCls,
   monoInputCls,
@@ -35,7 +40,10 @@ export function Clients() {
   const [editing, setEditing] = useState<OAuthClient | "new" | null>(null);
   const [guide, setGuide] = useState<OAuthClient | null>(null);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+  const confirm = useConfirm();
 
+  const shown = filterBy(clients ?? [], query, (c) => [c.id, c.name]);
   const load = () => api<{ clients: OAuthClient[] }>("/clients").then((d) => setClients(d.clients || []), () => {});
   useEffect(() => void load(), []);
 
@@ -44,21 +52,39 @@ export function Clients() {
     showToast("Client status changed");
     load();
   };
-  const revokeSessions = async (id: string) => {
-    if (!confirm(`Revoke every active token and session for client "${id}"? Connected AI sessions will be cut off.`)) return;
-    await api(`/clients/${id}/tokens`, { method: "DELETE" });
-    showToast(`All sessions of client "${id}" were revoked!`);
+  const revokeSessions = async (c: OAuthClient) => {
+    const ok = await confirm({
+      title: `Revoke all sessions of ${c.name}?`,
+      message: <>Every access and refresh token issued to <code class="font-mono text-slate-200">{c.id}</code> stops working now. Connected AI sessions are cut off until they sign in again.</>,
+      confirmLabel: "Revoke sessions",
+      danger: true,
+    });
+    if (!ok) return;
+    await api(`/clients/${c.id}/tokens`, { method: "DELETE" });
+    showToast(`Sessions of "${c.id}" revoked`);
     load();
   };
-  const regenerate = async (id: string) => {
-    if (!confirm("Regenerate this client secret? Connected AI clients must be updated with the new secret.")) return;
-    await api(`/clients/${id}/regenerate-secret`, { method: "POST" });
-    showToast("New secret generated!");
+  const regenerate = async (c: OAuthClient) => {
+    const ok = await confirm({
+      title: `Generate a new secret for ${c.name}?`,
+      message: "The old secret stops working immediately. Update every AI client that uses it with the new secret.",
+      confirmLabel: "Generate new secret",
+      danger: true,
+    });
+    if (!ok) return;
+    await api(`/clients/${c.id}/regenerate-secret`, { method: "POST" });
+    showToast("New secret generated");
     load();
   };
-  const remove = async (id: string) => {
-    if (!confirm(`Delete client "${id}" and all of its access tokens?`)) return;
-    await api(`/clients/${id}`, { method: "DELETE" });
+  const remove = async (c: OAuthClient) => {
+    const ok = await confirm({
+      title: `Delete ${c.name}?`,
+      message: <>The client <code class="font-mono text-slate-200">{c.id}</code> and all of its access tokens are removed. This cannot be undone.</>,
+      confirmLabel: "Delete client",
+      danger: true,
+    });
+    if (!ok) return;
+    await api(`/clients/${c.id}`, { method: "DELETE" });
     showToast("Client deleted");
     load();
   };
@@ -83,13 +109,22 @@ export function Clients() {
         </button>
       </SectionHeader>
 
-      <DataTable head={["Status", "Client ID", "Application name", "Client secret", "Active sessions", "Actions"]}>
+      <SearchInput value={query} onInput={setQuery} label="Search OAuth clients" placeholder="Search clients..." />
+
+      <DataTable label="OAuth clients" head={["Status", "Client ID", "Application name", "Client secret", "Active sessions", "Actions"]}>
         {clients === null ? (
-          <EmptyRow cols={6}>Loading clients...</EmptyRow>
+          <SkeletonRows cols={6} />
         ) : clients.length === 0 ? (
-          <EmptyRow cols={6}>No OAuth clients yet. Add a client for your AI (Claude, Cursor, Gemini, ChatGPT, etc.).</EmptyRow>
+          <EmptyRow
+            cols={6}
+            title="No OAuth clients yet"
+            hint="Each AI app gets its own client, so you can revoke one without touching the others."
+            action={{ label: "Add OAuth client", onClick: () => setEditing("new") }}
+          />
+        ) : shown.length === 0 ? (
+          <EmptyRow cols={6} title={`No client matches "${query}"`} hint="Check the spelling or clear the search." />
         ) : (
-          clients.map((c) => {
+          shown.map((c) => {
             const sessions = (c.active_tokens?.access || 0) + (c.active_tokens?.refresh || 0);
             return (
               <tr key={c.id} class="hover:bg-dark-900/30 transition">
@@ -108,8 +143,8 @@ export function Clients() {
                 <Td label="Secret" class="font-mono">
                   <div class="flex items-center gap-1.5">
                     <span class="text-slate-400 truncate max-w-[130px]">{revealed.has(c.id) ? c.secret : MASK}</span>
-                    <button type="button" onClick={() => toggleSecret(c.id)} class="text-slate-400 hover:text-white text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
-                      Show
+                    <button type="button" aria-pressed={revealed.has(c.id)} onClick={() => toggleSecret(c.id)} class="text-slate-400 hover:text-white text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
+                      {revealed.has(c.id) ? "Hide" : "Show"}
                     </button>
                     <button type="button" onClick={() => copyText(c.secret)} class="text-slate-400 hover:text-white text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
                       Copy
@@ -117,29 +152,24 @@ export function Clients() {
                   </div>
                 </Td>
                 <Td label="Sessions" class="font-mono">
-                  <span class={`px-2 py-0.5 rounded-full text-[11px] ${sessions > 0 ? "bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20" : "text-slate-500"}`}>
-                    {sessions} active sessions
+                  <span class={`px-2 py-0.5 rounded-full text-[11px] whitespace-nowrap ${sessions > 0 ? "bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20" : "text-slate-500"}`}>
+                    {sessions} active {sessions === 1 ? "session" : "sessions"}
                   </span>
                 </Td>
                 <Td label="Actions" actions>
-                  <button type="button" onClick={() => openGenToken(c.id)} class="text-purple-400 hover:underline font-medium" title="Create access token / API key">
-                    + Token
-                  </button>
-                  <button type="button" onClick={() => setGuide(c)} class="text-emerald-400 hover:underline">
-                    AI guide
-                  </button>
-                  <button type="button" onClick={() => revokeSessions(c.id)} class="text-amber-400 hover:underline" title="Revoke every active token of this client">
-                    Revoke sessions
-                  </button>
-                  <button type="button" onClick={() => setEditing(c)} class="text-blue-400 hover:underline">
-                    Edit
-                  </button>
-                  <button type="button" onClick={() => regenerate(c.id)} class="text-slate-400 hover:text-white hover:underline">
-                    Regenerate secret
-                  </button>
-                  <button type="button" onClick={() => remove(c.id)} class="text-red-400 hover:underline">
-                    Delete
-                  </button>
+                  <RowActions
+                    subject={c.name}
+                    primary={[
+                      { label: "+ Token", onClick: () => openGenToken(c.id) },
+                      { label: "AI guide", onClick: () => setGuide(c) },
+                      { label: "Edit", onClick: () => setEditing(c) },
+                    ]}
+                    menu={[
+                      { label: "Revoke sessions", onClick: () => revokeSessions(c) },
+                      { label: "Generate new secret", onClick: () => regenerate(c) },
+                      { label: "Delete client", onClick: () => remove(c), danger: true },
+                    ]}
+                  />
                 </Td>
               </tr>
             );
@@ -171,6 +201,8 @@ function ClientModal(props: { client: OAuthClient | null; onClose: () => void; o
   const [secret, setSecret] = useState(c?.secret ?? randomHex(32));
   const [redirects, setRedirects] = useState(c?.redirect_uris ?? "");
   const [enabled, setEnabled] = useState(c?.enabled ?? true);
+  // A new client shows its generated secret so it can be copied; an existing one stays hidden until asked for.
+  const [showSecret, setShowSecret] = useState(!c);
 
   const save = async (e: Event) => {
     e.preventDefault();
@@ -214,7 +246,12 @@ function ClientModal(props: { client: OAuthClient | null; onClose: () => void; o
               Generate new secret
             </button>
           </div>
-          <input type="text" required value={secret} onInput={(e) => setSecret(e.currentTarget.value)} class={monoInputCls} />
+          <div class="flex items-center gap-2">
+            <input type={(showSecret ? "text" : "password") as "text"} required value={secret} onInput={(e) => setSecret(e.currentTarget.value)} aria-label="Client secret" class={monoInputCls} />
+            <button type="button" aria-pressed={showSecret} onClick={() => setShowSecret((v) => !v)} class="shrink-0 text-slate-300 hover:text-white text-[11px] px-2 py-2 rounded-lg bg-dark-700">
+              {showSecret ? "Hide" : "Show"}
+            </button>
+          </div>
         </div>
         <Field label="Allowed redirect URIs (comma-separated, optional, or '*' for any)">
           <input type="text" value={redirects} onInput={(e) => setRedirects(e.currentTarget.value)} placeholder="https://google.com, https://chatgpt.com, http://localhost" class={monoInputCls} />
@@ -235,7 +272,7 @@ function AiGuideModal(props: { client: OAuthClient; onClose: () => void }) {
   const credBox = (label: string, value: string) => (
     <div class="flex items-center justify-between bg-dark-800/80 p-2 rounded-lg border border-dark-700/60 gap-2">
       <div class="min-w-0">
-        <span class="text-[10px] text-slate-500 block font-sans uppercase font-bold">{label}</span>
+        <span class="text-[11px] text-slate-500 block font-sans">{label}</span>
         <span class="text-blue-300 break-all">{value}</span>
       </div>
       <button type="button" onClick={() => copyText(value)} class="text-blue-400 hover:underline text-xs shrink-0">
@@ -245,7 +282,7 @@ function AiGuideModal(props: { client: OAuthClient; onClose: () => void }) {
   );
 
   return (
-    <Modal title={<><span>🤖</span> AI integration guide</>} onClose={props.onClose} size="xl">
+    <Modal title={<><span>🤖</span> AI integration guide</>} onClose={props.onClose} size="xl" closeOnOverlay>
       <div class="bg-dark-900/90 p-3 rounded-xl border border-dark-700 text-xs font-mono grid grid-cols-1 sm:grid-cols-2 gap-2">
         {credBox("Client ID", client.id)}
         {credBox("Client secret", client.secret)}

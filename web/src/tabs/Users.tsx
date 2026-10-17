@@ -1,27 +1,47 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
+import { useConfirm } from "../components/Confirm";
+import { RowActions } from "../components/RowActions";
 import { showToast } from "../toast";
 import type { User } from "../types";
-import { DataTable, EmptyRow, Field, Modal, ModalFooter, SectionHeader, Td, btnPrimary, inputCls, monoInputCls } from "../ui";
+import { DataTable, EmptyRow, Field, Modal, ModalFooter, SearchInput, SectionHeader, SkeletonRows, Td, btnPrimary, filterBy, inputCls, monoInputCls } from "../ui";
 
 export function Users() {
   const [users, setUsers] = useState<User[] | null>(null);
   const [editing, setEditing] = useState<User | "new" | null>(null);
+  const [query, setQuery] = useState("");
+  const confirm = useConfirm();
 
   const load = () => api<{ users: User[] }>("/users").then((d) => setUsers(d.users || []), () => {});
   useEffect(() => void load(), []);
 
-  const toggle = async (id: string) => {
-    const res = await api<{ enabled: boolean }>(`/users/${id}/toggle`, { method: "POST" });
+  const toggle = async (u: User) => {
+    if (u.enabled) {
+      const ok = await confirm({
+        title: `Disable ${u.name}?`,
+        message: <>@{u.username} can no longer sign in or use the gateway. Their data stays, and you can enable the account again.</>,
+        confirmLabel: "Disable user",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    const res = await api<{ enabled: boolean }>(`/users/${u.id}/toggle`, { method: "POST" });
     showToast(res.enabled ? "User enabled" : "User disabled");
     load();
   };
   const remove = async (u: User) => {
-    if (!confirm(`Delete user "${u.username}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete ${u.name}?`,
+      message: <>The account @{u.username} is removed. This cannot be undone.</>,
+      confirmLabel: "Delete user",
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/users/${u.id}`, { method: "DELETE" });
     showToast("User deleted");
     load();
   };
+  const shown = filterBy(users ?? [], query, (u) => [u.username, u.name, u.role]);
 
   return (
     <section class="space-y-6">
@@ -34,13 +54,17 @@ export function Users() {
         </button>
       </SectionHeader>
 
-      <DataTable head={["User", "Username", "Role", "Status", "Created", "Actions"]}>
+      <SearchInput value={query} onInput={setQuery} label="Search users" placeholder="Search users..." />
+
+      <DataTable label="Users" head={["User", "Username", "Role", "Status", "Created", "Actions"]}>
         {users === null ? (
-          <EmptyRow cols={6}>Loading users...</EmptyRow>
+          <SkeletonRows cols={6} />
         ) : users.length === 0 ? (
-          <EmptyRow cols={6}>No users yet.</EmptyRow>
+          <EmptyRow cols={6} title="No users yet" hint="Add teammates so tokens and sessions are tied to the person who owns them." action={{ label: "Add user", onClick: () => setEditing("new") }} />
+        ) : shown.length === 0 ? (
+          <EmptyRow cols={6} title={`No user matches "${query}"`} hint="Check the spelling or clear the search." />
         ) : (
-          users.map((u) => (
+          shown.map((u) => (
             <tr key={u.id} class="hover:bg-dark-900/30 transition">
               <Td label="User">
                 <div class="font-medium text-white">
@@ -54,9 +78,9 @@ export function Users() {
               </Td>
               <Td label="Role">
                 {u.role === "admin" ? (
-                  <span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono font-semibold uppercase">ADMIN</span>
+                  <span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[11px] font-medium">Admin</span>
                 ) : (
-                  <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-mono font-medium uppercase">USER</span>
+                  <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-medium">User</span>
                 )}
               </Td>
               <Td label="Status">
@@ -74,19 +98,14 @@ export function Users() {
                 {new Date(u.created_at).toLocaleDateString()}
               </Td>
               <Td label="Actions" actions>
-                <button type="button" onClick={() => setEditing(u)} class="text-blue-400 hover:underline">
-                  Edit
-                </button>
-                {!u.isSelf && (
-                  <>
-                    <button type="button" onClick={() => toggle(u.id)} class={`${u.enabled ? "text-amber-400" : "text-emerald-400"} hover:underline`}>
-                      {u.enabled ? "Disable" : "Enable"}
-                    </button>
-                    <button type="button" onClick={() => remove(u)} class="text-red-400 hover:underline">
-                      Delete
-                    </button>
-                  </>
-                )}
+                <RowActions
+                  subject={u.name}
+                  primary={[{ label: "Edit", onClick: () => setEditing(u) }]}
+                  menu={[
+                    { label: u.enabled ? "Disable user" : "Enable user", onClick: () => toggle(u), hidden: !!u.isSelf },
+                    { label: "Delete user", onClick: () => remove(u), danger: true, hidden: !!u.isSelf },
+                  ]}
+                />
               </Td>
             </tr>
           ))

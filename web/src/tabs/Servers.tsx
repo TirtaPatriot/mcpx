@@ -1,7 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
+import { useConfirm } from "../components/Confirm";
+import { PlatformGuide } from "../components/PlatformGuide";
+import { RowActions } from "../components/RowActions";
+import { useApp } from "../context";
 import { SERVER_ICON_PRESETS, serverIcon } from "../icons";
-import { showToast } from "../toast";
+import { copyText, showToast } from "../toast";
 import type { McpServer, TestResult } from "../types";
 import {
   DataTable,
@@ -11,10 +15,14 @@ import {
   IconBox,
   Modal,
   ModalFooter,
+  SearchInput,
   SectionHeader,
+  SkeletonRows,
   Td,
   btnPrimary,
+  filterBy,
   inputCls,
+  jsonObjectError,
   monoInputCls,
 } from "../ui";
 
@@ -33,8 +41,12 @@ type PingState = { loading: true } | { loading: false; result?: TestResult; fail
 export function Servers() {
   const [servers, setServers] = useState<McpServer[] | null>(null);
   const [editing, setEditing] = useState<McpServer | "new" | null>(null);
+  const [connecting, setConnecting] = useState<McpServer | null>(null);
   const [pings, setPings] = useState<Record<string, PingState>>({});
+  const [query, setQuery] = useState("");
+  const confirm = useConfirm();
 
+  const shown = filterBy(servers ?? [], query, (s) => [s.id, s.name, s.description, s.url, s.command, s.args]);
   const load = () => api<{ servers: McpServer[] }>("/servers").then((d) => setServers(d.servers), () => {});
   useEffect(() => void load(), []);
 
@@ -44,9 +56,19 @@ export function Servers() {
     load();
   };
 
-  const remove = async (id: string) => {
-    if (!confirm(`Delete MCP server "${id}"?`)) return;
-    await api(`/servers/${id}`, { method: "DELETE" });
+  const remove = async (s: McpServer) => {
+    const ok = await confirm({
+      title: `Delete ${s.name}?`,
+      message: (
+        <>
+          AI clients will no longer reach <code class="font-mono text-slate-200">/mcp/{s.id}</code>. Their access tokens stay valid for your other servers. This cannot be undone.
+        </>
+      ),
+      confirmLabel: "Delete server",
+      danger: true,
+    });
+    if (!ok) return;
+    await api(`/servers/${s.id}`, { method: "DELETE" });
     showToast("Server deleted");
     load();
   };
@@ -76,18 +98,37 @@ export function Servers() {
         </button>
       </SectionHeader>
 
-      <DataTable head={["Status", "Type", "ID & Name", "Target / Command", "Connection", "Actions"]}>
+      <SearchInput value={query} onInput={setQuery} label="Search MCP servers" placeholder="Search servers..." />
+
+      <DataTable label="MCP servers" head={["Status", "Type", "ID & name", "Target / command", "Connection", "Actions"]}>
         {servers === null ? (
-          <EmptyRow cols={6}>Loading MCP servers...</EmptyRow>
+          <SkeletonRows cols={6} />
         ) : servers.length === 0 ? (
-          <EmptyRow cols={6}>No MCP servers yet. Click "Add MCP server" to add one.</EmptyRow>
+          <EmptyRow
+            cols={6}
+            title="No MCP servers yet"
+            hint="Add the MCP server your AI clients should reach, either an HTTP URL or a command to run."
+            action={{ label: "Add MCP server", onClick: () => setEditing("new") }}
+          />
+        ) : shown.length === 0 ? (
+          <EmptyRow cols={6} title={`No server matches "${query}"`} hint="Check the spelling or clear the search." />
         ) : (
-          servers.map((s) => (
-            <ServerRow key={s.id} s={s} ping={pings[s.id]} onToggle={() => toggle(s.id)} onPing={() => ping(s.id)} onEdit={() => setEditing(s)} onDelete={() => remove(s.id)} />
+          shown.map((s) => (
+            <ServerRow
+              key={s.id}
+              s={s}
+              ping={pings[s.id]}
+              onToggle={() => toggle(s.id)}
+              onPing={() => ping(s.id)}
+              onEdit={() => setEditing(s)}
+              onConnect={() => setConnecting(s)}
+              onDelete={() => remove(s)}
+            />
           ))
         )}
       </DataTable>
 
+      {connecting && <ConnectServerModal server={connecting} onClose={() => setConnecting(null)} />}
       {editing && (
         <ServerModal
           server={editing === "new" ? null : editing}
@@ -109,6 +150,7 @@ function ServerRow(props: {
   onToggle: () => void;
   onPing: () => void;
   onEdit: () => void;
+  onConnect: () => void;
   onDelete: () => void;
 }) {
   const { s, ping } = props;
@@ -165,12 +207,14 @@ function ServerRow(props: {
         )}
       </Td>
       <Td label="Actions" actions>
-        <button type="button" onClick={props.onEdit} class="text-blue-400 hover:underline">
-          Edit
-        </button>
-        <button type="button" onClick={props.onDelete} class="text-red-400 hover:underline">
-          Delete
-        </button>
+        <RowActions
+          subject={s.name}
+          primary={[
+            { label: "Connect", onClick: props.onConnect },
+            { label: "Edit", onClick: props.onEdit },
+          ]}
+          menu={[{ label: "Delete server", onClick: props.onDelete, danger: true }]}
+        />
       </Td>
     </tr>
   );
@@ -190,6 +234,9 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
   const [description, setDescription] = useState(s?.description ?? "");
   const [enabled, setEnabled] = useState(s?.enabled ?? true);
   const [testing, setTesting] = useState(false);
+  // Only the fields of the chosen type are validated, since the other ones are hidden.
+  const headersError = type === "http" ? jsonObjectError(headers) : "";
+  const envError = type === "command" ? jsonObjectError(envVars) : "";
 
   const applyCommandPreset = (cmd: string) => {
     setCommand(cmd);
@@ -278,7 +325,8 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
               <input type="url" value={url} onInput={(e) => setUrl(e.currentTarget.value)} placeholder="http://host.docker.internal:3001" class={monoInputCls} />
             </Field>
             <Field label="Injected headers (JSON, optional)">
-              <textarea rows={2} value={headers} onInput={(e) => setHeaders(e.currentTarget.value)} placeholder='{"Authorization": "Bearer token-mcp-upstream"}' class={monoInputCls} />
+              <textarea rows={2} value={headers} onInput={(e) => setHeaders(e.currentTarget.value)} aria-invalid={!!headersError} aria-describedby="headers-error" placeholder='{"Authorization": "Bearer token-mcp-upstream"}' class={`${monoInputCls} ${headersError ? "!border-red-500" : ""}`} />
+              <FieldError id="headers-error" message={headersError} />
             </Field>
           </div>
         ) : (
@@ -300,7 +348,8 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
               <input type="text" value={args} onInput={(e) => setArgs(e.currentTarget.value)} placeholder="-y @dokploy/mcp" class={monoInputCls} />
             </Field>
             <Field label="Environment variables (JSON, e.g. Dokploy URL and token)">
-              <textarea rows={3} value={envVars} onInput={(e) => setEnvVars(e.currentTarget.value)} placeholder='{"DOKPLOY_URL": "https://dokploy.example.com", "DOKPLOY_API_KEY": "xxx"}' class={monoInputCls} />
+              <textarea rows={3} value={envVars} onInput={(e) => setEnvVars(e.currentTarget.value)} aria-invalid={!!envError} aria-describedby="env-error" placeholder='{"DOKPLOY_URL": "https://dokploy.example.com", "DOKPLOY_API_KEY": "xxx"}' class={`${monoInputCls} ${envError ? "!border-red-500" : ""}`} />
+              <FieldError id="env-error" message={envError} />
             </Field>
             <div class="flex items-center justify-between bg-dark-900/60 p-2.5 rounded-xl border border-dark-700">
               <span class="text-[11px] text-slate-400">Test the handshake before saving:</span>
@@ -319,8 +368,47 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
           Enable this server
         </label>
 
-        <ModalFooter onCancel={props.onClose} submitLabel="Save server" />
+        <ModalFooter onCancel={props.onClose} submitLabel="Save server" disabled={!!(headersError || envError)} />
       </form>
+    </Modal>
+  );
+}
+
+function FieldError(props: { id: string; message: string }) {
+  return (
+    <p id={props.id} role="alert" class={`text-[11px] text-red-400 mt-1 ${props.message ? "" : "hidden"}`}>
+      {props.message}
+    </p>
+  );
+}
+
+/** Connection details for one server: the exact URL and a ready-to-paste config per AI client. */
+function ConnectServerModal(props: { server: McpServer; onClose: () => void }) {
+  const { me, openGenToken } = useApp();
+  const { server } = props;
+  return (
+    <Modal title={`Connect to ${server.name}`} onClose={props.onClose} size="xl" closeOnOverlay>
+      <div class="bg-dark-900/90 p-3 rounded-xl border border-dark-700 text-xs font-mono flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <span class="text-[11px] text-slate-500 block font-sans">MCP endpoint</span>
+          <span class="text-blue-300 break-all">
+            {me.origin}/mcp/{server.id}
+          </span>
+        </div>
+        <button type="button" onClick={() => copyText(`${me.origin}/mcp/${server.id}`)} class="text-blue-400 hover:underline text-xs shrink-0">
+          Copy
+        </button>
+      </div>
+      <div class="text-xs">
+        <PlatformGuide
+          origin={me.origin}
+          serverId={server.id}
+          onCreateToken={() => {
+            props.onClose();
+            openGenToken();
+          }}
+        />
+      </div>
     </Modal>
   );
 }

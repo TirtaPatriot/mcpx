@@ -14,9 +14,10 @@ export const PLATFORMS: { id: Platform; label: string; icon: string }[] = [
 const PLACEHOLDER = "<ACCESS_TOKEN>";
 
 /** Platform picker plus its connection guide; used on the Overview tab and in the AI guide dialog. */
-export function PlatformGuide(props: { origin: string; onCreateToken: () => void }) {
+export function PlatformGuide(props: { origin: string; serverId?: string; onCreateToken: () => void }) {
   const [platform, setPlatform] = useState<Platform>("gemini");
   const { origin } = props;
+  const serverId = props.serverId ?? "<server-name>";
   const authUrl = `${origin}/oauth/authorize`;
   const tokenUrl = `${origin}/oauth/token`;
   const note = "text-[11px] text-slate-400";
@@ -41,7 +42,7 @@ export function PlatformGuide(props: { origin: string; onCreateToken: () => void
       {platform === "gemini" && (
         <div class="space-y-3">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
-            <UrlRow label="Authorize URL" value={authUrl} />
+            <UrlRow label="Authorization URL" value={authUrl} />
             <UrlRow label="Token URL" value={tokenUrl} />
           </div>
           <p class={note}>
@@ -52,7 +53,7 @@ export function PlatformGuide(props: { origin: string; onCreateToken: () => void
 
       {platform === "claude" && (
         <div class="space-y-2">
-          <CodeBlock title="claude_desktop_config.json:" code={mcpConfigJson(origin, PLACEHOLDER)} />
+          <CodeBlock title="claude_desktop_config.json:" code={mcpConfigJson(origin, PLACEHOLDER, serverId)} />
           <div class={`flex items-center justify-between ${note}`}>
             <span>💡 Use a Bearer token for a direct connection, without the browser OAuth flow.</span>
             <button type="button" onClick={props.onCreateToken} class="text-purple-400 hover:underline font-medium">
@@ -76,7 +77,7 @@ export function PlatformGuide(props: { origin: string; onCreateToken: () => void
 
       {platform === "cursor" && (
         <div class="space-y-2">
-          <CodeBlock title="Cursor config (.cursor/mcp.json or Settings > Features > MCP):" code={mcpConfigJson(origin, PLACEHOLDER)} />
+          <CodeBlock title="Cursor config (.cursor/mcp.json or Settings > Features > MCP):" code={mcpConfigJson(origin, PLACEHOLDER, serverId)} />
           <div class={`flex items-center justify-between ${note}`}>
             <span>💡 Cursor supports remote SSE MCP servers with an Authorization Bearer header.</span>
             <button type="button" onClick={props.onCreateToken} class="text-purple-400 hover:underline font-medium">
@@ -91,7 +92,7 @@ export function PlatformGuide(props: { origin: string; onCreateToken: () => void
           <CodeBlock
             title="cURL / SSE client example:"
             copyLabel="Copy"
-            code={`curl -N -H "Authorization: Bearer ${PLACEHOLDER}" \\\n  -H "Accept: text/event-stream" \\\n  ${origin}/mcp/<SERVER_NAME>`}
+            code={`curl -N -H "Authorization: Bearer ${PLACEHOLDER}" \\\n  -H "Accept: text/event-stream" \\\n  ${origin}/mcp/${serverId}`}
           />
           <p class={note}>
             💡 <em>Works as-is with LibreChat, Open WebUI, Dify, LangChain, or any custom agent framework.</em>

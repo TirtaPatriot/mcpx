@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api, LOGIN_URL } from "./api";
+import { ConfirmProvider } from "./components/Confirm";
 import { GenerateTokenModal } from "./components/GenerateTokenModal";
 import { AppContext, type TabId } from "./context";
 import { Clients } from "./tabs/Clients";
@@ -33,7 +34,11 @@ function Toast() {
     ? "bg-red-900/95 text-red-200 border-red-700 shadow-red-950/60"
     : "bg-emerald-900/95 text-emerald-200 border-emerald-700 shadow-emerald-950/60";
   return (
-    <div class={`toast fixed bottom-5 right-5 z-[9999] transform transition-all duration-300 pointer-events-none ${t.visible ? "" : "translate-y-20 opacity-0"}`}>
+    <div
+      role={t.isError ? "alert" : "status"}
+      aria-live={t.isError ? "assertive" : "polite"}
+      class={`toast fixed bottom-5 right-5 z-[9999] transform transition-all duration-300 motion-reduce:transition-none pointer-events-none ${t.visible ? "" : "translate-y-20 opacity-0"}`}
+    >
       <div class={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl text-xs font-medium ${color}`}>
         <span>{t.isError ? "✗" : "✓"}</span>
         <span>{t.message}</span>
@@ -83,7 +88,11 @@ export function App() {
     <AppContext.Provider
       value={{ me, goTab, openGenToken: (clientId = "") => setGen({ clientId }), clearTempPasswordWarning: () => setTempPassword(false) }}
     >
+      <ConfirmProvider>
       <Toast />
+      <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-blue-600 focus:text-white focus:px-3 focus:py-2 focus:rounded-lg">
+        Skip to content
+      </a>
       <header class="border-b border-dark-700 bg-dark-800/80 backdrop-blur sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
           <div class="flex items-center gap-3 min-w-0">
@@ -105,7 +114,7 @@ export function App() {
             <div class="hidden sm:flex items-center gap-2 bg-dark-700/80 border border-dark-600 px-3 py-1.5 rounded-xl text-xs">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span class="font-medium text-slate-200">{me.user.name}</span>
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">{me.user.role}</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{me.user.role}</span>
             </div>
             <a
               href="/.well-known/oauth-authorization-server"
@@ -140,7 +149,7 @@ export function App() {
 
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 w-full flex flex-col md:flex-row gap-4 md:gap-6">
         <aside class="nav-aside w-full md:w-56 shrink-0">
-          <nav class="nav-tabs flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0">
+          <nav aria-label="Sections" class="nav-tabs flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0">
             {TABS.map((t) => {
               const active = t.id === tab;
               return (
@@ -148,6 +157,7 @@ export function App() {
                   key={t.id}
                   ref={active ? activeBtn : undefined}
                   type="button"
+                  aria-current={active ? "page" : undefined}
                   onClick={() => goTab(t.id)}
                   class={`nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-left ${
                     active ? "bg-dark-800 text-white border border-dark-700" : "text-slate-400 hover:text-white"
@@ -159,7 +169,7 @@ export function App() {
             })}
           </nav>
         </aside>
-        <main class="flex-1 min-w-0">
+        <main id="main" tabIndex={-1} class="flex-1 min-w-0 outline-none">
           <Active key={`${tab}-${refresh}`} />
         </main>
       </div>
@@ -171,6 +181,7 @@ export function App() {
           onCreated={() => setRefresh((n) => n + 1)}
         />
       )}
+      </ConfirmProvider>
     </AppContext.Provider>
   );
 }

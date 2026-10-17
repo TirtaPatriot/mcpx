@@ -20,11 +20,12 @@ export function safeNext(): string {
   }
 }
 
-function Login() {
+export function Login() {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [show, setShow] = useState(false);
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -57,7 +58,7 @@ function Login() {
         </div>
       </div>
 
-      {error && <div class="bg-red-500/10 border border-red-500/20 text-red-300 text-xs p-3 rounded-xl">{error}</div>}
+      {error && <div role="alert" class="bg-red-500/10 border border-red-500/20 text-red-300 text-xs p-3 rounded-xl">{error}</div>}
 
       <form onSubmit={submit} class="space-y-4 text-xs">
         <div>
@@ -74,14 +75,26 @@ function Login() {
         </div>
         <div>
           <label class="block text-slate-300 font-medium mb-1.5">Password</label>
-          <input
-            type="password"
-            required
-            value={password}
-            onInput={(e) => setPassword(e.currentTarget.value)}
-            placeholder="Enter your password..."
-            class={`${inputCls} px-4 py-3 text-sm placeholder-slate-500 transition`}
-          />
+          <div class="relative">
+            <input
+              type={(show ? "text" : "password") as "text"}
+              required
+              value={password}
+              onInput={(e) => setPassword(e.currentTarget.value)}
+              placeholder="Enter your password..."
+              aria-label="Password"
+              autocomplete="current-password"
+              class={`${inputCls} px-4 py-3 pr-16 text-sm placeholder-slate-500 transition`}
+            />
+            <button
+              type="button"
+              aria-pressed={show}
+              onClick={() => setShow((v) => !v)}
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 hover:text-white px-2 py-1 rounded-md"
+            >
+              {show ? "Hide" : "Show"}
+            </button>
+          </div>
           <p class="text-[11px] text-slate-500 mt-1.5">
             New install: username <code>admin</code>, password in the startup log or the <code>ADMIN_PASSWORD</code> variable.
           </p>

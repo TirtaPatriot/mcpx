@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { Dialog } from "./components/Dialog";
 import { copyText } from "./toast";
 
 export const inputCls =
@@ -17,22 +18,11 @@ export function Modal(props: {
   title: ComponentChildren;
   onClose: () => void;
   size?: "md" | "lg" | "xl";
+  /** Backdrop click closes the dialog. Leave off for forms. */
+  closeOnOverlay?: boolean;
   children: ComponentChildren;
 }) {
-  const width = props.size === "xl" ? "max-w-2xl" : props.size === "md" ? "max-w-md" : "max-w-lg";
-  return (
-    <div class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class={`modal-panel bg-dark-800 border border-dark-700 rounded-2xl ${width} w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto`}>
-        <div class="flex items-center justify-between">
-          <h3 class="text-base font-semibold text-white flex items-center gap-2">{props.title}</h3>
-          <button type="button" onClick={props.onClose} class="modal-close text-slate-400 hover:text-white text-lg" aria-label="Close">
-            &times;
-          </button>
-        </div>
-        {props.children}
-      </div>
-    </div>
-  );
+  return <Dialog {...props} />;
 }
 
 export function Field(props: { label: ComponentChildren; children: ComponentChildren }) {
@@ -70,16 +60,17 @@ export function SectionHeader(props: { title: ComponentChildren; subtitle?: Comp
 }
 
 /** Table that turns into cards on narrow screens; each <td> uses data-label for its caption. */
-export function DataTable(props: { head: string[]; children: ComponentChildren; mono?: boolean; compact?: boolean }) {
+export function DataTable(props: { head: string[]; label: string; children: ComponentChildren; mono?: boolean }) {
   const last = props.head.length - 1;
   return (
     <div class={`${cardCls} overflow-hidden shadow-sm`}>
       <div class="overflow-x-auto">
         <table class={`rtable w-full text-left text-xs ${props.mono ? "font-mono" : ""}`}>
-          <thead class={`bg-dark-900/70 border-b border-dark-700 text-slate-400 uppercase tracking-wider text-[10px] ${props.mono ? "font-sans" : ""}`}>
+          <caption class="sr-only">{props.label}</caption>
+          <thead class={`bg-dark-900/70 border-b border-dark-700 text-slate-400 text-xs font-medium ${props.mono ? "font-sans" : ""}`}>
             <tr>
               {props.head.map((h, i) => (
-                <th key={h} class={`py-3 px-4 ${i === last && h === "Actions" ? "text-right" : ""}`}>
+                <th key={h} scope="col" class={`py-3 px-4 font-medium ${i === last && h === "Actions" ? "text-right" : ""}`}>
                   {h}
                 </th>
               ))}
@@ -92,14 +83,73 @@ export function DataTable(props: { head: string[]; children: ComponentChildren; 
   );
 }
 
-export function EmptyRow(props: { cols: number; children: ComponentChildren }) {
+/** Placeholder rows shown while a list loads; the table keeps its shape instead of jumping. */
+export function SkeletonRows(props: { cols: number; rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: props.rows ?? 3 }, (_, r) => (
+        <tr key={r} aria-hidden="true">
+          <td colspan={props.cols} class="py-4 px-4">
+            <div class="h-4 rounded bg-dark-700/70 animate-pulse motion-reduce:animate-none" style={{ width: `${88 - r * 14}%` }} />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/** An empty list is a prompt to act: say what is missing and offer the next step. */
+export function EmptyRow(props: { cols: number; title: string; hint?: ComponentChildren; action?: { label: string; onClick: () => void } }) {
   return (
     <tr>
-      <td colspan={props.cols} class="p-6 text-center text-slate-400 font-sans">
-        {props.children}
+      <td colspan={props.cols} class="p-8 text-center font-sans">
+        <p class="text-sm font-medium text-slate-200">{props.title}</p>
+        {props.hint && <p class="text-xs text-slate-400 mt-1">{props.hint}</p>}
+        {props.action && (
+          <button type="button" onClick={props.action.onClick} class={`${btnPrimary} text-xs mt-4`}>
+            {props.action.label}
+          </button>
+        )}
       </td>
     </tr>
   );
+}
+
+/** Search box for the lists; filtering happens in the browser. */
+export function SearchInput(props: { value: string; onInput: (v: string) => void; label: string; placeholder?: string }) {
+  return (
+    <div class="relative">
+      <svg class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+      </svg>
+      <input
+        type="search"
+        aria-label={props.label}
+        value={props.value}
+        onInput={(e) => props.onInput(e.currentTarget.value)}
+        placeholder={props.placeholder ?? "Search..."}
+        class="w-56 max-w-full bg-dark-800 border border-dark-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+      />
+    </div>
+  );
+}
+
+/** Case-insensitive match of the query against the chosen fields of each item. */
+export function filterBy<T>(items: T[], query: string, fields: (item: T) => (string | undefined | null)[]): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((item) => fields(item).some((f) => f?.toLowerCase().includes(q)));
+}
+
+/** Returns a message when `text` is not a JSON object, or "" when it is empty or valid. */
+export function jsonObjectError(text: string): string {
+  if (!text.trim()) return "";
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === "object" && !Array.isArray(value) ? "" : "Must be a JSON object, like {\"KEY\": \"value\"}";
+  } catch (err) {
+    return `Not valid JSON: ${(err as Error).message}`;
+  }
 }
 
 export function Td(props: { label?: string; class?: string; actions?: boolean; children?: ComponentChildren }) {
@@ -115,7 +165,7 @@ export function EnabledPill(props: { enabled: boolean; offLabel: string; onClick
     <button
       type="button"
       onClick={props.onClick}
-      class={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+      class={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition whitespace-nowrap ${
         props.enabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-slate-700 text-slate-400"
       }`}
     >
@@ -144,7 +194,7 @@ export function UrlRow(props: { label: string; value: string }) {
   return (
     <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
       <div class="min-w-0">
-        <div class="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider">{props.label}</div>
+        <div class="text-[11px] text-slate-400 font-sans font-medium">{props.label}</div>
         <div class="truncate text-slate-200 mt-0.5">{props.value}</div>
       </div>
       <button
