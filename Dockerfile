@@ -1,3 +1,12 @@
+# ── Tahap 1: build dashboard (Vite + Preact) ──
+FROM oven/bun:alpine AS web
+WORKDIR /build
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+COPY web ./web
+RUN bun run build
+
+# ── Tahap 2: gateway ──
 FROM oven/bun:alpine
 
 WORKDIR /app
@@ -23,6 +32,7 @@ RUN bun install --frozen-lockfile --production
 
 COPY src ./src
 COPY public ./public
+COPY --from=web /build/web/dist ./web/dist
 
 ENV NODE_ENV=production \
     PORT=3000 \

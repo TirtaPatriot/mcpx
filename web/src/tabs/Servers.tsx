@@ -1,0 +1,326 @@
+import { useEffect, useState } from "preact/hooks";
+import { api } from "../api";
+import { SERVER_ICON_PRESETS, serverIcon } from "../icons";
+import { showToast } from "../toast";
+import type { McpServer, TestResult } from "../types";
+import {
+  DataTable,
+  EmptyRow,
+  EnabledPill,
+  Field,
+  IconBox,
+  Modal,
+  ModalFooter,
+  SectionHeader,
+  Td,
+  btnPrimary,
+  inputCls,
+  monoInputCls,
+} from "../ui";
+
+const DEFAULT_ARGS = ["", "-y @dokploy/mcp", "mcp-server-git", "server.py", "main.go"];
+const COMMAND_PRESETS: Record<string, string> = {
+  bunx: "-y @dokploy/mcp",
+  npx: "-y @dokploy/mcp",
+  uvx: "mcp-server-git",
+  "uv run": "server.py",
+  "go run": "main.go",
+  python: "server.py",
+};
+
+type PingState = { loading: true } | { loading: false; result?: TestResult; failed?: boolean };
+
+export function Servers() {
+  const [servers, setServers] = useState<McpServer[] | null>(null);
+  const [editing, setEditing] = useState<McpServer | "new" | null>(null);
+  const [pings, setPings] = useState<Record<string, PingState>>({});
+
+  const load = () => api<{ servers: McpServer[] }>("/servers").then((d) => setServers(d.servers), () => {});
+  useEffect(() => void load(), []);
+
+  const toggle = async (id: string) => {
+    await api(`/servers/${id}/toggle`, { method: "POST" });
+    showToast("Status server diubah");
+    load();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm(`Hapus server MCP "${id}"?`)) return;
+    await api(`/servers/${id}`, { method: "DELETE" });
+    showToast("Server dihapus");
+    load();
+  };
+
+  const ping = async (id: string) => {
+    setPings((p) => ({ ...p, [id]: { loading: true } }));
+    try {
+      const res = await api<{ result: TestResult }>(`/servers/${id}/test`, { method: "POST" });
+      setPings((p) => ({ ...p, [id]: { loading: false, result: res.result } }));
+    } catch {
+      setPings((p) => ({ ...p, [id]: { loading: false, failed: true } }));
+    }
+  };
+
+  return (
+    <section class="space-y-4">
+      <SectionHeader
+        title="Daftar Server MCP"
+        subtitle={
+          <>
+            Mendukung server URL (HTTP/SSE) maupun CLI/stdio via <code>bunx</code>, <code>uv / uvx</code>, <code>go run</code>, <code>python</code>, <code>npx</code>
+          </>
+        }
+      >
+        <button type="button" onClick={() => setEditing("new")} class={`${btnPrimary} text-xs px-4 flex items-center gap-1.5`}>
+          <span>+</span> Tambah Server MCP
+        </button>
+      </SectionHeader>
+
+      <DataTable head={["Status", "Tipe", "ID & Nama", "Target / Perintah", "Koneksi", "Aksi"]}>
+        {servers === null ? (
+          <EmptyRow cols={6}>Memuat server MCP...</EmptyRow>
+        ) : servers.length === 0 ? (
+          <EmptyRow cols={6}>Belum ada server MCP. Klik "Tambah Server MCP" untuk menambahkan.</EmptyRow>
+        ) : (
+          servers.map((s) => (
+            <ServerRow key={s.id} s={s} ping={pings[s.id]} onToggle={() => toggle(s.id)} onPing={() => ping(s.id)} onEdit={() => setEditing(s)} onDelete={() => remove(s.id)} />
+          ))
+        )}
+      </DataTable>
+
+      {editing && (
+        <ServerModal
+          server={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            showToast("Server MCP disimpan");
+            load();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function ServerRow(props: {
+  s: McpServer;
+  ping?: PingState;
+  onToggle: () => void;
+  onPing: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { s, ping } = props;
+  const isCmd = s.server_type === "command";
+  return (
+    <tr class="hover:bg-dark-900/30 transition">
+      <Td label="Status">
+        <EnabledPill enabled={s.enabled} offLabel="Mati" onClick={props.onToggle} />
+      </Td>
+      <Td label="Tipe">
+        {isCmd ? (
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">CLI/STDIO</span>
+        ) : (
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">HTTP</span>
+        )}
+      </Td>
+      <Td label="Server">
+        <div class="flex items-center gap-3">
+          <IconBox src={serverIcon(s)} fallback="/icons/mcp.svg" />
+          <div>
+            <div class="font-medium text-white">{s.name}</div>
+            <div class="text-[11px] font-mono text-blue-400">/mcp/{s.id}/*</div>
+            {s.description && <div class="text-[11px] text-slate-400 mt-0.5">{s.description}</div>}
+          </div>
+        </div>
+      </Td>
+      <Td label="Target">
+        {isCmd ? (
+          <span class="text-purple-300 font-mono">
+            {s.command || "bunx"} {s.args || ""}
+          </span>
+        ) : (
+          <span class="text-slate-300 font-mono truncate block max-w-xs">{s.url}</span>
+        )}
+      </Td>
+      <Td label="Koneksi">
+        {!ping ? (
+          <button type="button" onClick={props.onPing} class="text-[11px] bg-dark-700 hover:bg-dark-600 border border-dark-600 px-2.5 py-1 rounded-lg text-slate-200 transition">
+            Test Ping
+          </button>
+        ) : ping.loading ? (
+          <span class="text-[11px] text-slate-400 animate-pulse">Menguji...</span>
+        ) : ping.failed ? (
+          <span class="text-[11px] text-red-400">✗ Error</span>
+        ) : ping.result?.ok ? (
+          <span class="text-[11px] text-emerald-400 font-mono">
+            ✓ {ping.result.status || "OK"}
+            {ping.result.serverInfo?.name ? ` (${ping.result.serverInfo.name})` : ""} ({ping.result.latencyMs}ms)
+          </span>
+        ) : (
+          <span class="text-[11px] text-red-400 font-mono" title={ping.result?.error || ""}>
+            ✗ Gagal ({ping.result?.latencyMs}ms)
+          </span>
+        )}
+      </Td>
+      <Td label="Aksi" actions>
+        <button type="button" onClick={props.onEdit} class="text-blue-400 hover:underline">
+          Edit
+        </button>
+        <button type="button" onClick={props.onDelete} class="text-red-400 hover:underline">
+          Hapus
+        </button>
+      </Td>
+    </tr>
+  );
+}
+
+function ServerModal(props: { server: McpServer | null; onClose: () => void; onSaved: () => void }) {
+  const s = props.server;
+  const [id, setId] = useState(s?.id ?? "");
+  const [name, setName] = useState(s?.name ?? "");
+  const [icon, setIcon] = useState(s?.icon ?? "");
+  const [type, setType] = useState<"http" | "command">(s?.server_type ?? "http");
+  const [url, setUrl] = useState(s?.url ?? "");
+  const [headers, setHeaders] = useState(s?.headers ?? "");
+  const [command, setCommand] = useState(s ? s.command || "bunx" : "bunx");
+  const [args, setArgs] = useState(s?.args ?? "");
+  const [envVars, setEnvVars] = useState(s?.env_vars ?? "");
+  const [description, setDescription] = useState(s?.description ?? "");
+  const [enabled, setEnabled] = useState(s?.enabled ?? true);
+  const [testing, setTesting] = useState(false);
+
+  const applyCommandPreset = (cmd: string) => {
+    setCommand(cmd);
+    if (DEFAULT_ARGS.includes(args.trim()) && COMMAND_PRESETS[cmd]) setArgs(COMMAND_PRESETS[cmd]);
+    const curIcon = icon.trim();
+    if (!curIcon || curIcon === "/icons/mcp.svg" || curIcon === "/icons/terminal.svg") {
+      if (cmd.includes("python") || cmd.includes("uv")) setIcon("/icons/python.svg");
+      else if (cmd.includes("go")) setIcon("/icons/golang.svg");
+    }
+  };
+
+  const testCommand = async () => {
+    setTesting(true);
+    try {
+      const res = await api<{ result: TestResult }>("/test-connection", {
+        method: "POST",
+        body: { command, args, env_vars: envVars },
+        silent: true,
+      });
+      if (res.result.ok) showToast(`Handshake sukses! Latensi: ${res.result.latencyMs}ms`);
+      else showToast(`Gagal: ${res.result.error}`, true);
+    } catch (err) {
+      showToast((err as Error).message, true);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const save = async (e: Event) => {
+    e.preventDefault();
+    const payload = { id, name, server_type: type, url, headers, command, args, env_vars: envVars, icon: icon.trim(), description, enabled };
+    if (s) await api(`/servers/${id}`, { method: "PUT", body: payload });
+    else await api("/servers", { method: "POST", body: payload });
+    props.onSaved();
+  };
+
+  const typeBtn = (active: boolean, color: string) =>
+    `py-2 px-3 rounded-xl border font-medium flex items-center justify-center gap-1.5 ${
+      active ? `${color} text-white` : "border-dark-700 bg-dark-900 text-slate-400 hover:text-white"
+    }`;
+  const chip = "text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300";
+
+  return (
+    <Modal title={s ? "Edit Server MCP" : "Tambah Server MCP"} onClose={props.onClose}>
+      <form onSubmit={save} class="space-y-3 text-xs">
+        <Field label={<>ID Slug (huruf, angka, dash - misal: <code>dokploy</code> atau <code>filesystem</code>)</>}>
+          <input type="text" required disabled={!!s} value={id} onInput={(e) => setId(e.currentTarget.value)} placeholder="dokploy" class={monoInputCls} />
+        </Field>
+        <Field label="Nama Tampilan">
+          <input type="text" required value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="Dokploy MCP Server" class={inputCls} />
+        </Field>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-slate-400">Logo / Icon (Preset atau URL gambar)</label>
+            <div class="flex flex-wrap items-center gap-1">
+              {SERVER_ICON_PRESETS.map(([label, path]) => (
+                <button key={path} type="button" onClick={() => setIcon(path)} class={chip}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" value={icon} onInput={(e) => setIcon(e.currentTarget.value)} placeholder="/icons/dokploy.svg atau https://..." class={`flex-1 ${monoInputCls}`} />
+            <div class="w-8 h-8 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-center shrink-0 p-1">
+              <img src={icon.trim() || "/icons/mcp.svg"} class="w-full h-full object-contain" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/icons/mcp.svg")} />
+            </div>
+          </div>
+        </div>
+
+        <Field label="Tipe Eksekusi">
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setType("http")} class={typeBtn(type === "http", "border-blue-500 bg-blue-600/20")}>
+              <span>🌐</span> URL Upstream (HTTP)
+            </button>
+            <button type="button" onClick={() => setType("command")} class={typeBtn(type === "command", "border-purple-500 bg-purple-600/20")}>
+              <span>⚡</span> CLI / Stdio (bunx, uv, go run, npx)
+            </button>
+          </div>
+        </Field>
+
+        {type === "http" ? (
+          <div class="space-y-3">
+            <Field label={<>Upstream URL (contoh: <code>http://host.docker.internal:3001</code>)</>}>
+              <input type="url" value={url} onInput={(e) => setUrl(e.currentTarget.value)} placeholder="http://host.docker.internal:3001" class={monoInputCls} />
+            </Field>
+            <Field label="Headers Injeksi (JSON, opsional)">
+              <textarea rows={2} value={headers} onInput={(e) => setHeaders(e.currentTarget.value)} placeholder='{"Authorization": "Bearer token-mcp-upstream"}' class={monoInputCls} />
+            </Field>
+          </div>
+        ) : (
+          <div class="space-y-3">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-slate-400">Perintah (Command)</label>
+                <div class="flex flex-wrap gap-1">
+                  {Object.keys(COMMAND_PRESETS).map((cmd) => (
+                    <button key={cmd} type="button" onClick={() => applyCommandPreset(cmd)} class={`${chip} px-2 hover:text-white`}>
+                      {cmd}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input type="text" value={command} onInput={(e) => setCommand(e.currentTarget.value)} placeholder="bunx / uvx / go run / python" class={monoInputCls} />
+            </div>
+            <Field label={<>Argumen / File / Nama Paket (contoh: <code>-y @dokploy/mcp</code>, <code>mcp-server-git</code>, atau <code>main.go</code>)</>}>
+              <input type="text" value={args} onInput={(e) => setArgs(e.currentTarget.value)} placeholder="-y @dokploy/mcp" class={monoInputCls} />
+            </Field>
+            <Field label="Environment Variables (JSON, contoh: URL & Token Dokploy)">
+              <textarea rows={3} value={envVars} onInput={(e) => setEnvVars(e.currentTarget.value)} placeholder='{"DOKPLOY_URL": "https://dokploy.example.com", "DOKPLOY_API_KEY": "xxx"}' class={monoInputCls} />
+            </Field>
+            <div class="flex items-center justify-between bg-dark-900/60 p-2.5 rounded-xl border border-dark-700">
+              <span class="text-[11px] text-slate-400">Uji handshake sebelum menyimpan:</span>
+              <button type="button" disabled={testing} onClick={testCommand} class="text-xs bg-dark-700 hover:bg-dark-600 px-3 py-1 rounded-lg text-slate-200">
+                {testing ? "Menguji Handshake..." : "Test Perintah Sekarang"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <Field label="Deskripsi">
+          <input type="text" value={description} onInput={(e) => setDescription(e.currentTarget.value)} placeholder="Server MCP Dokploy untuk deployment" class={inputCls} />
+        </Field>
+        <label class="flex items-center gap-2 pt-1 text-slate-300">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} class="w-4 h-4 rounded bg-dark-900 border-dark-700 text-blue-600 focus:ring-0" />
+          Aktifkan server ini
+        </label>
+
+        <ModalFooter onCancel={props.onClose} submitLabel="Simpan Server" />
+      </form>
+    </Modal>
+  );
+}

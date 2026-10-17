@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-dark-900: #0b0f17;
+  --color-dark-800: #111827;
+  --color-dark-700: #1f2937;
+  --color-dark-600: #374151;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-family: var(--font-sans);
+  }
+  code,
+  pre {
+    font-family: var(--font-mono);
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* ── Tabel responsif: di layar sempit tiap baris menjadi kartu; label diambil dari atribut data-label ── */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important; /* cegah zoom otomatis di iOS */
+  }
+  button,
+  select {
+    min-height: 40px;
+  }
+
+  .toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  /* navigasi tab: strip yang menempel di bawah header, bisa digeser */
+  .nav-aside {
+    position: sticky;
+    top: 4rem;
+    z-index: 30;
+    margin: 0 -1rem;
+    width: calc(100% + 2rem);
+    padding: 0.5rem 1rem;
+    background: rgba(11, 15, 23, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #1f2937;
+  }
+  .nav-tabs {
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    padding-bottom: 0;
+  }
+  .nav-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-tabs .nav-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    padding: 0.5rem 0.8rem;
+  }
+
+  /* grup tombol di header section jadi selebar layar */
+  .section-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .section-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .rtable thead {
+    display: none;
+  }
+  .rtable,
+  .rtable tbody,
+  .rtable tr {
+    display: block;
+    width: 100%;
+  }
+  .rtable tr {
+    padding: 0.5rem 1rem;
+  }
+  .rtable td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0 !important;
+    text-align: right;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .rtable td[colspan] {
+    display: block;
+    text-align: center;
+  }
+  .rtable td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: #64748b;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--font-sans);
+    text-align: left;
+  }
+  .rtable td > * {
+    min-width: 0;
+  }
+  .rtable td .truncate,
+  .rtable td.truncate {
+    max-width: none !important;
+    white-space: normal;
+    overflow: visible;
+    word-break: break-all;
+  }
+  .rtable td.actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding-top: 0.6rem !important;
+    margin-top: 0.25rem;
+    border-top: 1px solid rgba(55, 65, 81, 0.5);
+  }
+  .rtable td.actions::before {
+    display: none;
+  }
+  .rtable td.actions > button,
+  .rtable td.actions > a {
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.6rem;
+    background: rgba(31, 41, 55, 0.8);
+  }
+
+  /* modal → bottom sheet */
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-panel {
+    max-width: 100%;
+    max-height: 92vh;
+    padding: 1.1rem;
+    padding-bottom: calc(1.1rem + env(safe-area-inset-bottom));
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-width: 0;
+  }
+  .modal-close {
+    font-size: 1.75rem;
+    line-height: 1;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -0.5rem -0.5rem -0.5rem 0;
+  }
+}

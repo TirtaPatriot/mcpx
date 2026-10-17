@@ -145,8 +145,9 @@ Login dengan username **`admin`**. Jika `ADMIN_PASSWORD` tidak diisi, password a
 
 ```bash
 bun install
-bun run src/index.ts
-# atau mode development:
+bun run build        # build dashboard (web/dist)
+bun run start
+# atau mode development (gateway + Vite dengan hot reload):
 bun run dev
 ```
 

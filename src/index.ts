@@ -41,7 +41,7 @@ import {
   page,
 } from "./oauth";
 import { adminApi } from "./admin-api";
-import { renderAdminPage, renderLoginPage } from "./admin-ui";
+import { renderAdminPage, renderLoginPage, serveAsset } from "./web";
 import { getSessionUser } from "./auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +175,7 @@ const app = new Elysia()
   .get("/", () => Response.redirect("/admin", 302))
   .get("/admin", ({ request }) => renderAdminPage(request))
   .get("/admin/login", ({ request }) => renderLoginPage(request))
+  .get("/_app/*", ({ params }) => serveAsset(params["*"]))
 
   // ── Admin Management REST API ────────────────────────────────────────────
   .use(adminApi)

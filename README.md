@@ -39,7 +39,8 @@ Requires [Bun](https://bun.sh) 1.1+.
 
 ```bash
 bun install
-bun run dev                 # or: bun run start
+bun run build               # builds the dashboard (web/dist)
+bun run start
 ```
 
 Open <http://localhost:3000/admin> and sign in as `admin`. Unless you set `ADMIN_PASSWORD`, a random password is generated on first start and printed **once** in the log. Change it under **Settings**.
@@ -116,9 +117,11 @@ Set these in `.env` (see [`.env.example`](.env.example)).
 ## Development
 
 ```bash
-bun run dev       # watch mode
-bun run check     # typecheck + tests
+bun run dev       # gateway (watch) + Vite dev server with hot reload
+bun run check     # typecheck, server and dashboard tests, build
 ```
+
+The dashboard lives in [`web/`](web) (Vite, Preact, TypeScript, Tailwind).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the code layout and PR guidelines.
 

@@ -49,3 +49,6 @@ data/
 *.db-wal
 *.db-shm
 
+
+# web build output
+web/dist
