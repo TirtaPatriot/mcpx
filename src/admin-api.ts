@@ -43,7 +43,7 @@ import {
 } from "./auth";
 import { reloadMcpCache, testMcpServerConnection } from "./proxy";
 import { testStdioCommand } from "./stdio-manager";
-import { newSecret, hashPassword, verifyPassword } from "./utils";
+import { newSecret, hashPassword, verifyPassword, publicOrigin } from "./utils";
 
 // Hanya untuk mendeteksi instalasi lama yang masih memakai password bawaan versi sebelumnya.
 const LEGACY_DEFAULT_PASSWORD = "admin123";
@@ -101,30 +101,21 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
   })
 
   // ── Protected Admin Middleware ──────────────────────────────────────────
-  .derive(({ request, set }) => {
-    const path = new URL(request.url).pathname;
-    if (path === "/api/admin/login") return { currentUser: null as UserRow | null, isAdmin: false };
-
+  .derive(({ request }) => {
     const currentUser = getSessionUser(request);
-    if (!currentUser) {
-      set.status = 401;
-      throw new Error("UNAUTHORIZED_ADMIN");
-    }
-    return {
-      currentUser,
-      isAdmin: currentUser.role === "admin",
-    };
+    return { currentUser, isAdmin: currentUser?.role === "admin" };
   })
 
-  .onError(({ error, set }) => {
-    if (error && "message" in error && error.message === "UNAUTHORIZED_ADMIN") {
+  // Semua route di bawah ini butuh sesi; tanpa sesi dijawab 401 agar UI mengarahkan ke halaman login.
+  .onBeforeHandle(({ currentUser, set }) => {
+    if (!currentUser) {
       set.status = 401;
       return json({ ok: false, error: "Sesi tidak valid atau telah kedaluwarsa" }, 401);
     }
   })
 
   // ── Profil & Keamanan ────────────────────────────────────────────────────
-  .get("/me", ({ currentUser }) => {
+  .get("/me", ({ currentUser, request }) => {
     if (!currentUser) return json({ ok: false }, 401);
     // Password sementara (hasil generate otomatis) atau sisa default lama "admin123" dari versi sebelumnya.
     const currentHash = getSetting("admin_password_hash");
@@ -140,6 +131,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
         role: currentUser.role,
       },
       isDefaultPassword: isTemporary,
+      origin: publicOrigin(request),
       dbPath: DB_PATH,
     });
   })
