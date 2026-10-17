@@ -245,7 +245,7 @@ function clientCredentials(request: Request, body: Record<string, unknown>) {
   return id && secret ? { id, secret, via: "body" as const } : null;
 }
 
-function parseRedirectUri(raw: string, clientRedirectsRaw?: string): URL | null {
+export function parseRedirectUri(raw: string, clientRedirectsRaw?: string): URL | null {
   let url: URL;
   try {
     url = new URL(raw);
@@ -289,7 +289,7 @@ function parseRedirectUri(raw: string, clientRedirectsRaw?: string): URL | null 
   return allowed ? url : null;
 }
 
-function verifyPkce(verifier: string | undefined, challenge: string): boolean {
+export function verifyPkce(verifier: string | undefined, challenge: string): boolean {
   if (!verifier) return false;
   const computed = createHash("sha256").update(verifier).digest("base64url");
   return safeEqual(computed, challenge);

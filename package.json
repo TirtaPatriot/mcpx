@@ -1,13 +1,28 @@
 {
-  "name": "oauth-gateway",
+  "name": "mcpx",
   "version": "1.0.0",
+  "description": "OAuth 2.1 gateway and web dashboard for MCP servers (HTTP and stdio), built on Bun and ElysiaJS",
   "private": true,
+  "license": "MIT",
+  "author": "Eko Eryanto <ekoeryanto@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ekoeryanto/mcpx.git"
+  },
+  "homepage": "https://github.com/ekoeryanto/mcpx#readme",
+  "bugs": "https://github.com/ekoeryanto/mcpx/issues",
+  "keywords": ["mcp", "model-context-protocol", "oauth2", "gateway", "bun", "elysia"],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "type": "module",
   "module": "src/index.ts",
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "check": "bun run typecheck && bun test"
   },
   "dependencies": {
     "elysia": "^1.4.30"
