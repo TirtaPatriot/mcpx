@@ -131,3 +131,19 @@ describe("dashboard", () => {
     expect(calls).toContain("/api/admin/tokens/generate");
   });
 });
+
+describe("login redirect target", () => {
+  test("only internal paths are accepted", async () => {
+    const { safeNext } = await import("../src/login");
+    const at = (next: string) => {
+      history.replaceState(null, "", `/?next=${encodeURIComponent(next)}`);
+      return safeNext();
+    };
+    expect(at("/oauth/authorize?client_id=x")).toBe("/oauth/authorize?client_id=x");
+    expect(at("//evil.com")).toBe("/admin");
+    expect(at("/\\evil.com")).toBe("/admin");
+    expect(at("/\t/evil.com")).toBe("/admin");
+    expect(at("https://evil.com")).toBe("/admin");
+    expect(at("")).toBe("/admin");
+  });
+});

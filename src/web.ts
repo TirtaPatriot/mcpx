@@ -13,9 +13,21 @@ const buildMissing = () =>
     headers: { "Content-Type": "text/plain; charset=utf-8", ...NO_STORE },
   });
 
-/** Hanya path internal yang diizinkan sebagai tujuan setelah login (cegah open redirect). */
-export const safeNextPath = (raw: string) =>
-  raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/admin";
+/**
+ * Hanya path internal yang diizinkan sebagai tujuan setelah login (cegah open redirect).
+ * Karakter kontrol dan backslash ditolak karena parser URL browser membuang/menormalkannya,
+ * sehingga "/\t/evil.com" atau "/\\evil.com" bisa berubah menjadi "//evil.com".
+ */
+export function safeNextPath(raw: string): string {
+  const base = "http://local.invalid";
+  if (!raw.startsWith("/") || /[\u0000-\u0020\\]/.test(raw)) return "/admin";
+  try {
+    const u = new URL(raw, base);
+    return u.origin === base ? u.pathname + u.search + u.hash : "/admin";
+  } catch {
+    return "/admin";
+  }
+}
 
 /**
  * Menyajikan dashboard (Vite + Preact) dari folder build.

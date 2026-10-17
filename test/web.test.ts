@@ -55,9 +55,15 @@ describe("pages", () => {
 describe("safeNextPath", () => {
   test("allows internal paths only", () => {
     expect(safeNextPath("/oauth/authorize?x=1")).toBe("/oauth/authorize?x=1");
+    expect(safeNextPath("/oauth/authorize?a=1#h")).toBe("/oauth/authorize?a=1#h");
     expect(safeNextPath("//evil.com")).toBe("/admin");
     expect(safeNextPath("/\\evil.com")).toBe("/admin");
     expect(safeNextPath("https://evil.com")).toBe("/admin");
     expect(safeNextPath("")).toBe("/admin");
+    // karakter yang dibuang/dinormalkan browser menjadi "//evil.com"
+    expect(safeNextPath("/\t/evil.com")).toBe("/admin");
+    expect(safeNextPath("/\n/evil.com")).toBe("/admin");
+    expect(safeNextPath("/ /evil.com")).toBe("/admin");
+    expect(safeNextPath("/%5Cevil.com")).toBe("/%5Cevil.com"); // tetap path internal; tidak dinormalkan menjadi host
   });
 });

@@ -3,10 +3,19 @@ import { useState } from "preact/hooks";
 import { inputCls } from "./ui";
 import "./styles.css";
 
-/** Hanya path internal yang diizinkan sebagai tujuan setelah login (cegah open redirect). */
-function safeNext(): string {
+/**
+ * Hanya path internal yang diizinkan sebagai tujuan setelah login (cegah open redirect).
+ * Karakter kontrol dan backslash ditolak karena browser menormalkannya menjadi "//host".
+ */
+export function safeNext(): string {
   const raw = new URLSearchParams(location.search).get("next") ?? "";
-  return raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/admin";
+  if (!raw.startsWith("/") || /[\u0000-\u0020\\]/.test(raw)) return "/admin";
+  try {
+    const u = new URL(raw, location.origin);
+    return u.origin === location.origin ? u.pathname + u.search + u.hash : "/admin";
+  } catch {
+    return "/admin";
+  }
 }
 
 function Login() {
