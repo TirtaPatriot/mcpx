@@ -143,6 +143,8 @@ describe("login redirect target", () => {
     expect(at("//evil.com")).toBe("/admin");
     expect(at("/\\evil.com")).toBe("/admin");
     expect(at("/\t/evil.com")).toBe("/admin");
+    expect(at("/.//evil.com")).toBe("/admin");
+    expect(at("/a/..//evil.com")).toBe("/admin");
     expect(at("https://evil.com")).toBe("/admin");
     expect(at("")).toBe("/admin");
   });

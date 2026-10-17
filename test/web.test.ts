@@ -64,6 +64,9 @@ describe("safeNextPath", () => {
     expect(safeNextPath("/\t/evil.com")).toBe("/admin");
     expect(safeNextPath("/\n/evil.com")).toBe("/admin");
     expect(safeNextPath("/ /evil.com")).toBe("/admin");
+    // segmen titik yang dihapus parser menjadi "//evil.com"
+    expect(safeNextPath("/.//evil.com")).toBe("/admin");
+    expect(safeNextPath("/a/..//evil.com")).toBe("/admin");
     expect(safeNextPath("/%5Cevil.com")).toBe("/%5Cevil.com"); // tetap path internal; tidak dinormalkan menjadi host
   });
 });

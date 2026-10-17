@@ -23,7 +23,9 @@ export function safeNextPath(raw: string): string {
   if (!raw.startsWith("/") || /[\u0000-\u0020\\]/.test(raw)) return "/admin";
   try {
     const u = new URL(raw, base);
-    return u.origin === base ? u.pathname + u.search + u.hash : "/admin";
+    const out = u.pathname + u.search + u.hash;
+    // Segmen titik dihapus saat parsing ("/.//evil.com" -> "//evil.com"), jadi periksa hasil akhirnya.
+    return u.origin === base && !out.startsWith("//") ? out : "/admin";
   } catch {
     return "/admin";
   }

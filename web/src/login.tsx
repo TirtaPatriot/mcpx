@@ -12,7 +12,9 @@ export function safeNext(): string {
   if (!raw.startsWith("/") || /[\u0000-\u0020\\]/.test(raw)) return "/admin";
   try {
     const u = new URL(raw, location.origin);
-    return u.origin === location.origin ? u.pathname + u.search + u.hash : "/admin";
+    const out = u.pathname + u.search + u.hash;
+    // Segmen titik dihapus saat parsing ("/.//evil.com" -> "//evil.com"), jadi periksa hasil akhirnya.
+    return u.origin === location.origin && !out.startsWith("//") ? out : "/admin";
   } catch {
     return "/admin";
   }
