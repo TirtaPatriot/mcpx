@@ -60,7 +60,7 @@ export function oauthProtectedResource({ request }: { request: Request }): Respo
   const pathname = new URL(request.url).pathname;
   let serverName: string | undefined;
 
-  // Mendukung query RFC 9728:
+  // Supports the RFC 9728 lookups:
   // 1. /.well-known/oauth-protected-resource
   // 2. /.well-known/oauth-protected-resource/mcp/:serverName
   // 3. /mcp/:serverName/.well-known/oauth-protected-resource
@@ -222,7 +222,7 @@ export async function handleDynamicClientRegistration({
       metadataHeaders,
     );
   } catch (err) {
-    log(id, `✗ Dynamic client registration gagal: ${(err as Error).message}`);
+    log(id, `✗ Dynamic client registration failed: ${(err as Error).message}`);
     return oauthError("invalid_request", (err as Error).message, 400, metadataHeaders);
   }
 }
@@ -252,7 +252,7 @@ export function parseRedirectUri(raw: string, clientRedirectsRaw?: string): URL 
   } catch {
     return null;
   }
-  // Per RFC 8252 (OAuth 2.0 Native Apps), loopback redirect (localhost / 127.0.0.1) boleh menggunakan http:
+  // Per RFC 8252 (OAuth 2.0 Native Apps), loopback redirects (localhost / 127.0.0.1) may use http:
   const isLoopback =
     (url.protocol === "http:" || url.protocol === "https:") &&
     (url.hostname === "localhost" || url.hostname === "127.0.0.1");
@@ -260,12 +260,12 @@ export function parseRedirectUri(raw: string, clientRedirectsRaw?: string): URL 
   if ((url.protocol !== "https:" && !isLoopback) || url.username || url.password) return null;
   const host = url.hostname.toLowerCase();
 
-  // Jika client mengizinkan wildcard '*'
+  // If the client allows the wildcard '*'
   if (clientRedirectsRaw?.trim() === "*") {
     return url;
   }
 
-  // Daftar host yang diizinkan (gabungan host sistem + host spesifik client jika ada)
+  // Allowed hosts (system hosts plus the client-specific ones, if any)
   const allowedList = [...ALLOWED_REDIRECT_HOSTS];
   if (clientRedirectsRaw) {
     const customEntries = clientRedirectsRaw
@@ -308,23 +308,23 @@ export interface AuthorizeParams {
 }
 
 export function parseAuthorizeParams(get: (key: string) => string | undefined): AuthorizeParams | string {
-  if (get("response_type") !== "code") return "response_type harus 'code'";
+  if (get("response_type") !== "code") return "response_type must be 'code'";
   const clientId = get("client_id");
-  if (!clientId) return "client_id tidak diberikan";
+  if (!clientId) return "client_id is missing";
 
   const client = getOAuthClient(clientId);
-  if (!client) return `client_id "${clientId}" tidak terdaftar di database`;
-  if (client.enabled !== 1) return `client_id "${clientId}" sedang dinonaktifkan oleh administrator`;
+  if (!client) return `client_id "${clientId}" is not registered`;
+  if (client.enabled !== 1) return `client_id "${clientId}" has been disabled by an administrator`;
 
   const rawRedirect = get("redirect_uri");
   const redirectUri = parseRedirectUri(rawRedirect ?? DEFAULT_REDIRECT_URI, client.redirect_uris);
   if (!redirectUri) {
-    return `redirect_uri tidak diizinkan (harus https atau loopback localhost/127.0.0.1, dan terdaftar di whitelist)`;
+    return `redirect_uri is not allowed (it must be https or loopback localhost/127.0.0.1, and on the allow-list)`;
   }
 
   const codeChallenge = get("code_challenge");
   const codeChallengeMethod = get("code_challenge_method");
-  if (codeChallenge && codeChallengeMethod !== "S256") return "code_challenge_method harus 'S256'";
+  if (codeChallenge && codeChallengeMethod !== "S256") return "code_challenge_method must be 'S256'";
 
   return {
     clientId,
@@ -446,7 +446,7 @@ const PAGE_STYLE = `
 export const page = (title: string, body: string, status = 200) =>
   new Response(
     `<!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -483,7 +483,7 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
   const redirectHost = p.redirectUri?.hostname || (p.redirectUriRaw ? (p.redirectUriRaw.startsWith("http") ? new URL(p.redirectUriRaw).hostname : p.redirectUriRaw) : "");
   const clientBranding = detectClientBranding(p.clientId, redirectHost, p.clientName, client?.icon);
 
-  // Periksa apakah ada target server spesifik yang diminta (misal via resource parameter RFC 8707)
+  // Check whether a specific target server was requested (e.g. via the RFC 8707 resource parameter)
   let targetServerHtml = "";
   if (p.resource) {
     const srvMatch = p.resource.match(/\/mcp\/([^/?#]+)/);
@@ -492,7 +492,7 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
     const srvBranding = detectServerBranding(srvId, srv?.name, srv?.icon);
     targetServerHtml = `
       <div class="info-row">
-        <span class="info-label">Server Target:</span>
+        <span class="info-label">Target server:</span>
         <span class="info-value">
           <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.3);">
             <img src="${srvBranding.iconUrl}" alt="" onerror="this.style.display='none'">
@@ -512,14 +512,14 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
         .join(" ");
       targetServerHtml = `
         <div class="info-row">
-          <span class="info-label">Server Akses:</span>
-          <span class="info-value">${serverBadges}${servers.length > 3 ? ` <span class="badge" style="background:#334155; color:#cbd5e1;">+${servers.length - 3} lainnya</span>` : ""}</span>
+          <span class="info-label">Servers:</span>
+          <span class="info-value">${serverBadges}${servers.length > 3 ? ` <span class="badge" style="background:#334155; color:#cbd5e1;">+${servers.length - 3} more</span>` : ""}</span>
         </div>`;
     }
   }
 
   return page(
-    `Izinkan Akses — ${clientBranding.name}`,
+    `Allow access — ${clientBranding.name}`,
     `
       <div class="connection-bridge">
         <div class="avatar-box" title="${esc(clientBranding.name)}">
@@ -530,17 +530,17 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
           <div class="connector-badge">⚡</div>
           <div class="connector-line"></div>
         </div>
-        <div class="avatar-box" title="Perumda Tirta Patriot MCP Gateway">
+        <div class="avatar-box" title="MCP Gateway">
           <img src="/logo.png" alt="MCP Gateway" onerror="this.src='/icons/mcp.svg'">
         </div>
       </div>
 
-      <h1>Hubungkan ke Server MCP?</h1>
-      <p class="subtitle"><strong>${esc(clientBranding.name)}</strong> meminta izin untuk mengakses server Model Context Protocol (MCP) Tirta Patriot Anda.</p>
+      <h1>Connect to your MCP servers?</h1>
+      <p class="subtitle"><strong>${esc(clientBranding.name)}</strong> is asking for permission to access your Model Context Protocol (MCP) servers.</p>
 
       <div class="info-box">
         <div class="info-row">
-          <span class="info-label">Aplikasi AI:</span>
+          <span class="info-label">AI app:</span>
           <span class="info-value">
             <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3);">
               <img src="${clientBranding.iconUrl}" alt="" onerror="this.style.display='none'">
@@ -553,9 +553,9 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
           <span class="info-label">Client ID:</span>
           <span class="info-value font-mono">${esc(p.clientId)}</span>
         </div>
-        ${sessionUser ? `<div class="info-row"><span class="info-label">Akun Otorisasi:</span><span class="info-value"><strong>${esc(sessionUser.name)}</strong> (@${esc(sessionUser.username)})</span></div>` : ""}
+        ${sessionUser ? `<div class="info-row"><span class="info-label">Authorising account:</span><span class="info-value"><strong>${esc(sessionUser.name)}</strong> (@${esc(sessionUser.username)})</span></div>` : ""}
         <div class="info-row">
-          <span class="info-label">Redirect ke:</span>
+          <span class="info-label">Redirects to:</span>
           <span class="info-value font-mono">${esc(p.redirectUri.origin)}</span>
         </div>
         ${p.scope ? `<div class="info-row"><span class="info-label">Scope:</span><span class="info-value">${esc(p.scope)}</span></div>` : ""}
@@ -564,18 +564,18 @@ export function consentPage(p: AuthorizeParams, sessionUser?: { id: string; name
       <div class="perm-box">
         <div class="perm-item">
           <span style="color:#10b981;">✓</span>
-          <span>Membaca deskripsi tools, resources, dan skema MCP</span>
+          <span>Read MCP tool, resource and schema descriptions</span>
         </div>
         <div class="perm-item">
           <span style="color:#10b981;">✓</span>
-          <span>Mengeksekusi tools MCP atas nama akun Anda</span>
+          <span>Run MCP tools on behalf of your account</span>
         </div>
       </div>
 
       <form method="post" action="/oauth/authorize">${inputs}
         <div class="row">
-          <button type="submit" name="decision" value="deny">Tolak</button>
-          <button type="submit" name="decision" value="allow" class="primary">Izinkan Akses</button>
+          <button type="submit" name="decision" value="deny">Deny</button>
+          <button type="submit" name="decision" value="allow" class="primary">Allow access</button>
         </div>
       </form>
     `,
@@ -593,8 +593,8 @@ export async function handleTokenExchange({ request, body }: { request: Request;
 
   log(
     id,
-    `• token: grant_type=${grantType ?? "-"} client_auth=${creds?.via ?? "tidak ada"} client_id=${creds?.id ?? "-"} ` +
-      `redirect_uri=${str(form.redirect_uri) ?? "-"} code_verifier=${form.code_verifier ? "ada" : "tidak ada"}`,
+    `• token: grant_type=${grantType ?? "-"} client_auth=${creds?.via ?? "none"} client_id=${creds?.id ?? "-"} ` +
+      `redirect_uri=${str(form.redirect_uri) ?? "-"} code_verifier=${form.code_verifier ? "present" : "absent"}`,
   );
 
   let clientId = creds?.id;
@@ -604,26 +604,26 @@ export async function handleTokenExchange({ request, body }: { request: Request;
   }
 
   if (!clientId) {
-    log(id, `✗ token: client_id tidak ditemukan`);
-    return oauthError("invalid_client", "client_id tidak diberikan", 401);
+    log(id, `✗ token: client_id not found`);
+    return oauthError("invalid_client", "client_id is missing", 401);
   }
 
   const client = getOAuthClient(clientId);
   if (!client) {
-    log(id, `✗ token: client "${clientId}" tidak ditemukan di database`);
-    return oauthError("invalid_client", "client_id tidak terdaftar", 401);
+    log(id, `✗ token: client "${clientId}" not found`);
+    return oauthError("invalid_client", "client_id is not registered", 401);
   }
   if (client.enabled !== 1) {
-    log(id, `✗ token: client "${clientId}" sedang dinonaktifkan`);
-    return oauthError("invalid_client", "client_id dinonaktifkan oleh administrator", 401);
+    log(id, `✗ token: client "${clientId}" is disabled`);
+    return oauthError("invalid_client", "client_id has been disabled by an administrator", 401);
   }
 
   const secretProvided = !!creds?.secret;
   const secretOk = secretProvided && safeEqual(creds.secret!, client.secret);
 
   if ((grantType === "authorization_code" && !secretOk) || (secretProvided && !secretOk)) {
-    log(id, `✗ token: client secret tidak valid untuk ${clientId}`);
-    return oauthError("invalid_client", "client_secret salah", 401, {
+    log(id, `✗ token: invalid client secret for ${clientId}`);
+    return oauthError("invalid_client", "client_secret is wrong", 401, {
       "WWW-Authenticate": 'Basic realm="oauth"',
     });
   }
@@ -641,19 +641,19 @@ export async function handleTokenExchange({ request, body }: { request: Request;
       return oauthError("invalid_grant", why);
     };
 
-    if (!record) return fail("code tidak ditemukan atau sudah dipakai");
-    if (record.expires_at <= Date.now()) return fail("code kedaluwarsa");
-    if (record.client_id !== clientId) return fail("code milik client lain");
+    if (!record) return fail("code not found or already used");
+    if (record.expires_at <= Date.now()) return fail("code has expired");
+    if (record.client_id !== clientId) return fail("code belongs to another client");
 
-    if (!record.user_id) return fail("code tidak terikat ke user (login diperlukan)");
+    if (!record.user_id) return fail("code is not bound to a user (sign-in required)");
     userId = record.user_id;
 
     const redirectUri = str(form.redirect_uri);
     if (record.redirect_uri !== null && redirectUri !== record.redirect_uri) {
-      return fail(`redirect_uri tidak cocok (authorize=${record.redirect_uri} token=${redirectUri ?? "tidak dikirim"})`);
+      return fail(`redirect_uri does not match (authorize=${record.redirect_uri} token=${redirectUri ?? "not sent"})`);
     }
     if (record.code_challenge && !verifyPkce(str(form.code_verifier), record.code_challenge)) {
-      return fail("code_verifier (PKCE) tidak valid");
+      return fail("code_verifier (PKCE) is invalid");
     }
   } else if (grantType === "refresh_token") {
     const refresh = str(form.refresh_token);
@@ -663,26 +663,26 @@ export async function handleTokenExchange({ request, body }: { request: Request;
       return oauthError("invalid_grant", why);
     };
 
-    if (!refresh) return fail("refresh_token tidak dikirim");
+    if (!refresh) return fail("refresh_token was not sent");
     const record = stmtGetRefreshToken.get(refresh);
-    if (!record) return fail("refresh_token tidak ditemukan atau kedaluwarsa");
-    if (record.expires_at <= Date.now()) return fail("refresh_token kedaluwarsa");
-    if (record.client_id !== clientId) return fail("refresh_token milik client lain");
+    if (!record) return fail("refresh_token not found or expired");
+    if (record.expires_at <= Date.now()) return fail("refresh_token has expired");
+    if (record.client_id !== clientId) return fail("refresh_token belongs to another client");
 
-    if (!record.user_id) return fail("refresh_token tidak terikat ke user (login ulang diperlukan)");
+    if (!record.user_id) return fail("refresh_token is not bound to a user (sign in again)");
     userId = record.user_id;
 
     if (record.revoked_at !== null) {
       if (Date.now() - record.revoked_at > REFRESH_GRACE_PERIOD_MS) {
-        return fail("refresh_token sudah dipakai dan melewati batas grace period");
+        return fail("refresh_token was already used and the grace period has passed");
       }
-      log(id, "⚠ token: refresh_token digunakan kembali dalam grace period (race condition / network retry)");
+      log(id, "⚠ token: refresh_token reused within the grace period (race condition / network retry)");
     } else {
       stmtRevokeRefreshToken.run(Date.now(), refresh);
     }
   } else {
-    log(id, `✗ token: grant_type tidak didukung (${grantType ?? "kosong"})`);
-    return oauthError("unsupported_grant_type", "gunakan authorization_code atau refresh_token");
+    log(id, `✗ token: unsupported grant_type (${grantType ?? "empty"})`);
+    return oauthError("unsupported_grant_type", "use authorization_code or refresh_token");
   }
 
   const now = Date.now();
@@ -691,7 +691,7 @@ export async function handleTokenExchange({ request, body }: { request: Request;
   stmtInsertAccessToken.run(accessToken, clientId, userId, now + ACCESS_TOKEN_TTL_MS, now);
   stmtInsertRefreshToken.run(refreshToken, clientId, userId, now + REFRESH_TOKEN_TTL_MS, now);
 
-  log(id, `✓ token: ${grantType} → access_token diterbitkan untuk client ${clientId}${userId ? ` (user: ${userId})` : ""}`);
+  log(id, `✓ token: ${grantType} → access_token issued for client ${clientId}${userId ? ` (user: ${userId})` : ""}`);
   addActivityLog(id, "POST", "/oauth/token", 200, performance.now() - startedAt, undefined, `Token issued for ${clientId}`);
 
   return json({

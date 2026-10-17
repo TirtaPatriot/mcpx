@@ -35,7 +35,7 @@ export function authenticateUser(username: string = "admin", password: string): 
     return null;
   }
 
-  // Fallback cek backward-compatibility untuk admin utama
+  // Backward-compatibility fallback for the main admin
   if (cleanUsername === "admin") {
     if (checkAdminPassword(password)) {
       const fallbackUser: UserRow = {
@@ -77,13 +77,13 @@ export function parseCookie(header: string | null): Record<string, string> {
 export function getSessionUser(request: Request): UserRow | null {
   let sessionToken: string | undefined;
 
-  // 1. Cek Authorization Bearer
+  // 1. Check the Authorization Bearer header
   const auth = request.headers.get("authorization");
   if (auth?.startsWith("Bearer ")) {
     sessionToken = auth.slice(7).trim();
   }
 
-  // 2. Cek Cookie
+  // 2. Check the cookie
   if (!sessionToken) {
     const cookies = parseCookie(request.headers.get("cookie"));
     sessionToken = cookies["admin_session"];
@@ -102,7 +102,7 @@ export function getSessionUser(request: Request): UserRow | null {
     return null;
   }
 
-  // Sesi warisan (tanpa user_id): default ke admin
+  // Legacy session (no user_id): default to admin
   const defaultAdmin = getUserByUsername("admin");
   if (defaultAdmin && defaultAdmin.enabled === 1) {
     return defaultAdmin;

@@ -127,7 +127,7 @@ export function reloadMcpCache(): void {
         icon: row.icon || "",
       });
     } catch (err) {
-      console.error(`[cache] Gagal memuat server MCP "${row.id}":`, (err as Error).message);
+      console.error(`[cache] Failed to load MCP server "${row.id}":`, (err as Error).message);
     }
   }
 }
@@ -178,13 +178,13 @@ export function isValidBearer(header: string | null): boolean {
   if (scheme?.toLowerCase() !== "bearer" || !token) return false;
   const record = stmtGetAccessToken.get(token);
   if (!record) return false;
-  // Token anonim (tanpa user) tidak lagi diterima; harus login ulang
+  // Anonymous tokens (no user) are no longer accepted; the client must sign in again
   if (!record.user_id) return false;
   if (record.expires_at <= Date.now()) {
     stmtDeleteAccessToken.run(token);
     return false;
   }
-  // Pastikan klien pemilik token masih aktif (enabled)
+  // Make sure the client that owns the token is still enabled
   const client = getOAuthClient(record.client_id);
   if (!client || client.enabled !== 1) {
     return false;
@@ -220,7 +220,7 @@ function tapSse(
   const finish = (reason: string) => {
     if (ended) return;
     ended = true;
-    log(id, `⏹ SSE selesai (${reason}) chunks=${chunks} bytes=${bytes} durasi=${elapsed(startedAt)}`);
+    log(id, `⏹ SSE finished (${reason}) chunks=${chunks} bytes=${bytes} duration=${elapsed(startedAt)}`);
   };
 
   return new ReadableStream<Uint8Array>({
@@ -228,7 +228,7 @@ function tapSse(
       try {
         const { done, value } = await reader.read();
         if (done) {
-          finish("upstream menutup stream");
+          finish("upstream closed the stream");
           controller.close();
           return;
         }
@@ -256,12 +256,12 @@ function tapSse(
           controller.enqueue(value);
         }
       } catch (err) {
-        finish(`error upstream: ${(err as Error).message}`);
+        finish(`upstream error: ${(err as Error).message}`);
         controller.error(err);
       }
     },
     cancel(reason) {
-      finish("klien memutus koneksi");
+      finish("client disconnected");
       return reader.cancel(reason);
     },
   });
@@ -275,13 +275,13 @@ export async function proxyMcpRequest(ctx: {
   const { id, startedAt } = metaOf(request);
   const url = new URL(request.url);
 
-  // Verifikasi Bearer Token
+  // Verify the Bearer token
   if (!isValidBearer(request.headers.get("authorization"))) {
     const hasToken = request.headers.has("authorization");
-    log(id, `✗ 401 ${hasToken ? "access_token tidak valid/kedaluwarsa/klien dinonaktifkan" : "tidak ada Authorization header"}`);
+    log(id, `✗ 401 ${hasToken ? "access_token invalid/expired/client disabled" : "no Authorization header"}`);
     const metadataUrl = `${publicOrigin(request)}/.well-known/oauth-protected-resource${url.pathname}`;
     const res = Response.json(
-      { error: "invalid_token", error_description: "Bearer token diperlukan atau klien telah dinonaktifkan" },
+      { error: "invalid_token", error_description: "A Bearer token is required, or the client has been disabled" },
       {
         status: 401,
         headers: {
@@ -301,9 +301,9 @@ export async function proxyMcpRequest(ctx: {
   const mcp = getCachedServer(serverName);
 
   if (!mcp) {
-    log(id, `✗ 404 server MCP "${serverName}" tidak ditemukan di database`);
+    log(id, `✗ 404 MCP server "${serverName}" not found`);
     const res = Response.json(
-      { error: "unknown_server", error_description: `Server MCP "${serverName}" tidak terdaftar` },
+      { error: "unknown_server", error_description: `MCP server "${serverName}" is not registered` },
       { status: 404, headers: { "Cache-Control": "no-store" } },
     );
     addActivityLog(id, request.method, url.pathname, 404, performance.now() - startedAt, server?.requestIP(request)?.address, `Unknown MCP server "${serverName}"`);
@@ -311,20 +311,20 @@ export async function proxyMcpRequest(ctx: {
   }
 
   if (!mcp.enabled) {
-    log(id, `✗ 503 server MCP "${serverName}" sedang dinonaktifkan`);
+    log(id, `✗ 503 MCP server "${serverName}" is disabled`);
     const res = Response.json(
-      { error: "server_disabled", error_description: `Server MCP "${serverName}" dinonaktifkan oleh administrator` },
+      { error: "server_disabled", error_description: `MCP server "${serverName}" has been disabled by an administrator` },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
     addActivityLog(id, request.method, url.pathname, 503, performance.now() - startedAt, server?.requestIP(request)?.address, `Server "${serverName}" is disabled`);
     return res;
   }
 
-  // Tanpa timeout Bun agar SSE & streaming berjalan mulus
+  // No Bun timeout, so SSE and streaming run smoothly
   server?.timeout(request, 0);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Branch A: Server MCP Bertipe "command" (bunx, uv, go, npx, python, dll.)
+  // Branch A: MCP servers of type "command" (bunx, uv, go, npx, python, etc.)
   // ───────────────────────────────────────────────────────────────────────────
   if (mcp.server_type === "command") {
     const subPath = restSegments.join("/");
@@ -333,7 +333,7 @@ export async function proxyMcpRequest(ctx: {
     const clientKey = `${serverName}:${token}`;
     const reqSessionId = request.headers.get("mcp-session-id") || url.searchParams.get("sessionId") || undefined;
 
-    // A1. DELETE /mcp/:serverName -> Tutup sesi (Streamable HTTP Session Termination)
+    // A1. DELETE /mcp/:serverName -> Close the session (Streamable HTTP session termination)
     if (request.method === "DELETE") {
       if (reqSessionId) closeStdioSession(reqSessionId);
       return new Response(null, {
@@ -342,24 +342,24 @@ export async function proxyMcpRequest(ctx: {
       });
     }
 
-    // A2. POST /mcp/:serverName/message?sessionId=... -> Teruskan ke stdin (Legacy SSE Transport)
+    // A2. POST /mcp/:serverName/message?sessionId=... -> Forward to stdin (legacy SSE transport)
     const isLegacyPostMessage = request.method === "POST" && (subPath === "message" || subPath === "messages");
     if (isLegacyPostMessage) {
       const sessionId = reqSessionId;
       if (!sessionId) {
-        return Response.json({ error: "missing_session_id", error_description: "sessionId query parameter diperlukan" }, { status: 400 });
+        return Response.json({ error: "missing_session_id", error_description: "The sessionId query parameter is required" }, { status: 400 });
       }
 
       const session = getActiveStdioSession(sessionId);
       if (!session) {
-        return Response.json({ error: "session_not_found", error_description: `Sesi MCP "${sessionId}" tidak ditemukan atau telah berakhir` }, { status: 404 });
+        return Response.json({ error: "session_not_found", error_description: `MCP session "${sessionId}" not found or has ended` }, { status: 404 });
       }
 
       try {
         const textBody = await request.text();
         const sent = sendJsonRpcToSession(session, textBody);
         if (!sent) {
-          return Response.json({ error: "write_failed", error_description: "Gagal menulis pesan ke proses MCP" }, { status: 500 });
+          return Response.json({ error: "write_failed", error_description: "Failed to write the message to the MCP process" }, { status: 500 });
         }
         addActivityLog(id, "POST", url.pathname, 202, performance.now() - startedAt, server?.requestIP(request)?.address, `Legacy SSE message to ${serverName} stdio (${sessionId})`);
         return new Response(JSON.stringify({ status: "accepted" }), {
@@ -376,24 +376,24 @@ export async function proxyMcpRequest(ctx: {
       }
     }
 
-    // A3. GET /mcp/:serverName/sse atau GET /mcp/:serverName -> Buka stream SSE (Legacy SSE Handshake)
+    // A3. GET /mcp/:serverName/sse or GET /mcp/:serverName -> Open the SSE stream (legacy SSE handshake)
     const acceptHeader = request.headers.get("accept") ?? "";
     const isLegacySseHandshake = request.method === "GET" && (acceptHeader.includes("text/event-stream") || subPath === "sse" || subPath === "");
 
     if (isLegacySseHandshake) {
-      log(id, `▶ Membuka sesi SSE (Legacy) untuk command MCP [${serverName}]`);
+      log(id, `▶ Opening legacy SSE session for MCP command [${serverName}]`);
       const session = getOrCreateStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars, reqSessionId, clientKey);
       const encoder = new TextEncoder();
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          // Event 1: endpoint untuk mengirim pesan balik (Legacy SSE Specification)
+          // Event 1: the endpoint for posting messages back (legacy SSE specification)
           const endpointUrl = `${publicOrigin(request)}/mcp/${serverName}/message?sessionId=${session.sessionId}`;
           const initPayload = `event: endpoint\ndata: ${endpointUrl}\n\n`;
           controller.enqueue(encoder.encode(initPayload));
 
-          // Hubungkan stdout listener
+          // Attach the stdout listener
           session.onMessage = (jsonLine: string) => {
             try {
               if (LOG_SSE_CHUNKS) {
@@ -403,17 +403,17 @@ export async function proxyMcpRequest(ctx: {
               const sseMessage = `event: message\ndata: ${enriched}\n\n`;
               controller.enqueue(encoder.encode(sseMessage));
             } catch (err) {
-              log(id, `Gagal enqueue SSE: ${(err as Error).message}`);
+              log(id, `Failed to enqueue SSE: ${(err as Error).message}`);
             }
           };
 
           session.onClose = (reason: string) => {
-            log(id, `⏹ Sesi command [${serverName}] ditutup: ${reason}`);
+            log(id, `⏹ Command session [${serverName}] closed: ${reason}`);
             if (heartbeatTimer) clearInterval(heartbeatTimer);
             try { controller.close(); } catch {}
           };
 
-          // Heartbeat ping setiap 15 detik agar koneksi tetap hidup
+          // Heartbeat ping every 15 seconds to keep the connection alive
           heartbeatTimer = setInterval(() => {
             try {
               controller.enqueue(encoder.encode(`: ping\n\n`));
@@ -423,7 +423,7 @@ export async function proxyMcpRequest(ctx: {
           }, 15_000);
         },
         cancel() {
-          log(id, `Klien memutus stream SSE [${serverName}:${session.sessionId}]`);
+          log(id, `Client dropped the SSE stream [${serverName}:${session.sessionId}]`);
           if (heartbeatTimer) clearInterval(heartbeatTimer);
           scheduleSessionGraceClose(session.sessionId, 60_000);
         },
@@ -466,7 +466,7 @@ export async function proxyMcpRequest(ctx: {
 
         const rpcResult = await executeJsonRpcOnSession(session, rpcData, 45_000);
 
-        // Jika rpcResult === null (artinya notification, misal: notifications/initialized)
+        // If rpcResult === null (it was a notification, e.g. notifications/initialized)
         if (rpcResult === null) {
           addActivityLog(id, "POST", url.pathname, 202, performance.now() - startedAt, server?.requestIP(request)?.address, `Notification accepted for ${serverName}`);
           return new Response(JSON.stringify({ status: "accepted" }), {
@@ -481,11 +481,11 @@ export async function proxyMcpRequest(ctx: {
           });
         }
 
-        // Perkayaan ikon jika ini handshake initialize
+        // Enrich with the icon if this is the initialize handshake
         const enriched = enrichServerInfoWithIcons(rpcResult, serverName, publicOrigin(request));
         addActivityLog(id, "POST", url.pathname, 200, performance.now() - startedAt, server?.requestIP(request)?.address, `Streamable HTTP ${method} ok for ${serverName}`);
 
-        // Jika client hanya menerima text/event-stream (request-scoped SSE per spec)
+        // If the client only accepts text/event-stream (request-scoped SSE per the spec)
         const wantsSseOnly = acceptHeader.includes("text/event-stream") && !acceptHeader.includes("application/json") && !acceptHeader.includes("*/*");
         if (wantsSseOnly) {
           return new Response(`event: message\ndata: ${JSON.stringify(enriched)}\n\n`, {
@@ -531,10 +531,10 @@ export async function proxyMcpRequest(ctx: {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Branch B: Server MCP Bertipe "http" (Upstream HTTP / SSE Proxy)
+  // Branch B: MCP servers of type "http" (upstream HTTP / SSE proxy)
   // ───────────────────────────────────────────────────────────────────────────
   if (!mcp.url) {
-    return Response.json({ error: "no_upstream_url", error_description: "Server HTTP tidak memiliki URL valid" }, { status: 500 });
+    return Response.json({ error: "no_upstream_url", error_description: "The HTTP server has no valid URL" }, { status: 500 });
   }
 
   const base = mcp.url;
@@ -578,12 +578,12 @@ export async function proxyMcpRequest(ctx: {
   } catch (err) {
     const reason = (err as Error).message;
     if (request.signal.aborted) {
-      log(id, `✗ klien membatalkan request sebelum upstream menjawab (${elapsed(startedAt)})`);
+      log(id, `✗ client cancelled the request before the upstream answered (${elapsed(startedAt)})`);
       return new Response(null, { status: 499 });
     }
-    log(id, `✗ 502 gagal menghubungi upstream ${target.origin}: ${reason} (${elapsed(startedAt)})`);
+    log(id, `✗ 502 could not reach upstream ${target.origin}: ${reason} (${elapsed(startedAt)})`);
     const res = Response.json(
-      { error: "bad_gateway", error_description: `Server MCP "${serverName}" tidak dapat dihubungi (${reason})` },
+      { error: "bad_gateway", error_description: `MCP server "${serverName}" could not be reached (${reason})` },
       { status: 502, headers: { "Cache-Control": "no-store" } },
     );
     addActivityLog(id, request.method, url.pathname, 502, performance.now() - startedAt, clientIp, `Upstream error: ${reason}`);
@@ -603,7 +603,7 @@ export async function proxyMcpRequest(ctx: {
   const isSse = contentType.includes("text/event-stream");
   log(
     id,
-    `← ${upstream.status} dari upstream content-type=${contentType || "-"} (${elapsed(startedAt)})`,
+    `← ${upstream.status} from upstream content-type=${contentType || "-"} (${elapsed(startedAt)})`,
   );
 
   addActivityLog(id, request.method, url.pathname, upstream.status, performance.now() - startedAt, clientIp, `Forwarded to ${serverName}`);
@@ -613,7 +613,7 @@ export async function proxyMcpRequest(ctx: {
   if (isSse && upstream.body) {
     resHeaders.set("cache-control", "no-cache, no-transform");
     resHeaders.set("x-accel-buffering", "no");
-    log(id, "▶ SSE stream dibuka");
+    log(id, "▶ SSE stream opened");
     return new Response(tapSse(upstream.body, id, startedAt, serverName, origin), {
       status: upstream.status,
       statusText: upstream.statusText,

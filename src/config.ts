@@ -8,7 +8,7 @@ export const ACCESS_TOKEN_TTL_MS = Number(process.env.ACCESS_TOKEN_TTL ?? 30 * 2
 export const REFRESH_TOKEN_TTL_MS = Number(process.env.REFRESH_TOKEN_TTL ?? 365 * 24 * 3600) * 1000;
 export const REFRESH_GRACE_PERIOD_MS = Number(process.env.REFRESH_GRACE_PERIOD ?? 60) * 1000;
 export const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
-export const ADMIN_SESSION_TTL_MS = 7 * 24 * 3600 * 1000; // 7 hari
+export const ADMIN_SESSION_TTL_MS = 7 * 24 * 3600 * 1000; // 7 days
 
 export const LOG_SSE_CHUNKS = (process.env.LOG_SSE_CHUNKS ?? "true") !== "false";
 
@@ -27,10 +27,10 @@ export const PUBLIC_URL = (() => {
   if (!raw) return undefined;
   try {
     const url = new URL(raw);
-    if (url.pathname !== "/" || url.search || url.hash) throw new Error("hanya origin, tanpa path");
+    if (url.pathname !== "/" || url.search || url.hash) throw new Error("origin only, no path");
     return url.origin;
   } catch (err) {
-    return fatal(`PUBLIC_URL tidak valid (contoh: https://gateway.example.com): ${(err as Error).message}`);
+    return fatal(`Invalid PUBLIC_URL (example: https://gateway.example.com): ${(err as Error).message}`);
   }
 })();
 

@@ -142,7 +142,7 @@ export function spawnStdioSession(
   const customEnv = parseEnv(envStr);
   const mergedEnv = getDefaultExecutionEnv(customEnv);
 
-  log("stdio", `🚀 Menjalankan proses MCP [${serverName}] (session: ${sessionId}): ${finalCmd.join(" ")}`);
+  log("stdio", `🚀 Starting MCP process [${serverName}] (session: ${sessionId}): ${finalCmd.join(" ")}`);
 
   const proc = Bun.spawn(finalCmd, {
     stdin: "pipe",
@@ -167,14 +167,14 @@ export function spawnStdioSession(
   const cleanup = (reason: string) => {
     for (const [reqId, pending] of session.pendingRequests.entries()) {
       clearTimeout(pending.timer);
-      pending.reject(new Error(`Proses MCP [${serverName}] keluar (${reason}) sebelum menjawab request id=${reqId}`));
+      pending.reject(new Error(`MCP process [${serverName}] exited (${reason}) before answering request id=${reqId}`));
     }
     session.pendingRequests.clear();
     activeSessions.delete(sessionId);
     if (session.clientKey) clientKeyToSessionId.delete(session.clientKey);
   };
 
-  // Background reader untuk stdout
+  // Background reader for stdout
   (async () => {
     try {
       const reader = proc.stdout.getReader();
@@ -192,7 +192,7 @@ export function spawnStdioSession(
           const trimmed = line.trim();
           if (!trimmed) continue;
 
-          // 1. Cek apakah ini response JSON-RPC untuk request yang sedang menunggu
+          // 1. Check whether this is the JSON-RPC response to a pending request
           try {
             const json = JSON.parse(trimmed);
             if (json && json.id !== undefined && session.pendingRequests.has(json.id)) {
@@ -203,7 +203,7 @@ export function spawnStdioSession(
             }
           } catch {}
 
-          // 2. Hubungkan ke listener onMessage (untuk SSE stream / logging)
+          // 2. Forward to the onMessage listener (for the SSE stream / logging)
           if (session.onMessage) {
             session.onMessage(trimmed);
           }
@@ -226,14 +226,14 @@ export function spawnStdioSession(
         }
       }
     } catch (err) {
-      log("stdio", `[${serverName}:${sessionId}] Error membaca stdout: ${(err as Error).message}`);
+      log("stdio", `[${serverName}:${sessionId}] Error reading stdout: ${(err as Error).message}`);
     } finally {
       cleanup("stdout stream ended");
       if (session.onClose) session.onClose("stdout stream ended");
     }
   })();
 
-  // Background reader untuk stderr
+  // Background reader for stderr
   (async () => {
     try {
       const reader = proc.stderr.getReader();
@@ -247,9 +247,9 @@ export function spawnStdioSession(
     } catch {}
   })();
 
-  // Handle proses exit
+  // Handle process exit
   proc.exited.then((code) => {
-    log("stdio", `⏹ Proses MCP [${serverName}:${sessionId}] keluar dengan kode ${code}`);
+    log("stdio", `⏹ MCP process [${serverName}:${sessionId}] exited with code ${code}`);
     cleanup(`exit code ${code}`);
     if (session.onClose) session.onClose(`exit code ${code}`);
   });
@@ -273,7 +273,7 @@ export function sendJsonRpcToSession(session: StdioSession, data: string | objec
     const payload = typeof data === "string" ? data.trim() : JSON.stringify(data);
     return writeToStdin(session.process, payload + "\n");
   } catch (err) {
-    log("stdio", `Gagal mengirim ke stdin [${session.serverName}:${session.sessionId}]: ${(err as Error).message}`);
+    log("stdio", `Failed to write to stdin [${session.serverName}:${session.sessionId}]: ${(err as Error).message}`);
     return false;
   }
 }
@@ -289,14 +289,14 @@ export async function executeJsonRpcOnSession(
     session.graceTimer = undefined;
   }
 
-  // Jika array batch JSON-RPC
+  // If it is a JSON-RPC batch array
   if (Array.isArray(rpcData)) {
     const promises = rpcData.map((item) => executeJsonRpcOnSession(session, item, timeoutMs));
     const results = await Promise.all(promises);
     return results.filter((r) => r !== null);
   }
 
-  // Jika notification (tanpa id)
+  // If it is a notification (no id)
   if (!rpcData || rpcData.id === undefined) {
     sendJsonRpcToSession(session, rpcData);
     return null;
@@ -306,7 +306,7 @@ export async function executeJsonRpcOnSession(
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       session.pendingRequests.delete(reqId);
-      reject(new Error(`Timeout (${timeoutMs}ms) menunggu respon dari proses MCP [${session.serverName}] untuk method="${rpcData.method ?? 'unknown'}" id=${reqId}`));
+      reject(new Error(`Timeout (${timeoutMs}ms) waiting for a response from MCP process [${session.serverName}] for method="${rpcData.method ?? 'unknown'}" id=${reqId}`));
     }, timeoutMs);
 
     session.pendingRequests.set(reqId, { resolve, reject, timer });
@@ -315,7 +315,7 @@ export async function executeJsonRpcOnSession(
     if (!sent) {
       clearTimeout(timer);
       session.pendingRequests.delete(reqId);
-      reject(new Error(`Gagal mengirim data ke stdin proses MCP [${session.serverName}]`));
+      reject(new Error(`Failed to write to the stdin of MCP process [${session.serverName}]`));
     }
   });
 }
@@ -331,20 +331,20 @@ export function closeStdioSession(sessionId: string): void {
   if (session.clientKey) clientKeyToSessionId.delete(session.clientKey);
 }
 
-// Jadwalkan penutupan session jika klien disconnect (default idle 15 menit)
+// Schedule the session to close if the client disconnects (default idle: 15 minutes)
 export function scheduleSessionGraceClose(sessionId: string, graceMs = 900_000): void {
   const session = activeSessions.get(sessionId);
   if (!session) return;
   if (session.graceTimer) clearTimeout(session.graceTimer);
 
   session.graceTimer = setTimeout(() => {
-    log("stdio", `⏱ Sesi MCP [${session.serverName}:${sessionId}] ditutup setelah idle ${graceMs / 1000}s`);
+    log("stdio", `⏱ MCP session [${session.serverName}:${sessionId}] closed after idle ${graceMs / 1000}s`);
     closeStdioSession(sessionId);
   }, graceMs);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Penguji Perintah Stdio / CLI (bunx, uv, go run, npx, python, dll.)
+// Stdio / CLI command tester (bunx, uv, go run, npx, python, etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function testStdioCommand(
@@ -379,11 +379,11 @@ export async function testStdioCommand(
         resolve({
           ok: false,
           latencyMs,
-          error: `Timeout (15s) menunggu handshake JSON-RPC initialize. Output stderr: ${stderrBuffer.trim() || "(kosong)"}`,
+          error: `Timeout (15s) waiting for the JSON-RPC initialize handshake. Stderr output: ${stderrBuffer.trim() || "(empty)"}`,
         });
       }, 15000);
 
-      // Tangani jika proses keluar terlalu awal (misal command gagal / error runtime)
+      // Handle the process exiting too early (e.g. the command failed / runtime error)
       proc.exited.then((code) => {
         if (resolved) return;
         setTimeout(() => {
@@ -395,12 +395,12 @@ export async function testStdioCommand(
           resolve({
             ok: false,
             latencyMs,
-            error: `Proses keluar dengan kode ${code}.${errDetail || " (periksa perintah atau argumen)"}`,
+            error: `Process exited with code ${code}.${errDetail || " (check the command or arguments)"}`,
           });
         }, 50);
       });
 
-      // Reader stdout
+      // stdout reader
       (async () => {
         try {
           const reader = proc.stdout.getReader();
@@ -425,7 +425,7 @@ export async function testStdioCommand(
                   const latencyMs = Math.round(performance.now() - start);
 
                   if (json.error) {
-                    resolve({ ok: false, latencyMs, error: json.error.message || "Error saat initialize" });
+                    resolve({ ok: false, latencyMs, error: json.error.message || "Error during initialize" });
                   } else {
                     resolve({
                       ok: true,
@@ -441,7 +441,7 @@ export async function testStdioCommand(
         } catch {}
       })();
 
-      // Reader stderr
+      // stderr reader
       (async () => {
         try {
           const reader = proc.stderr.getReader();
@@ -454,7 +454,7 @@ export async function testStdioCommand(
         } catch {}
       })();
 
-      // Kirim initialize JSON-RPC ke stdin
+      // Send the JSON-RPC initialize request to stdin
       setTimeout(() => {
         try {
           const initPayload = JSON.stringify({
@@ -468,7 +468,7 @@ export async function testStdioCommand(
             },
           });
           const written = writeToStdin(proc, initPayload + "\n");
-          if (!written) throw new Error("FileSink stdin tidak dapat ditulisi");
+          if (!written) throw new Error("FileSink stdin is not writable");
         } catch (err) {
           if (resolved) return;
           resolved = true;
@@ -477,7 +477,7 @@ export async function testStdioCommand(
           resolve({
             ok: false,
             latencyMs: Math.round(performance.now() - start),
-            error: `Gagal menulis ke stdin: ${(err as Error).message}`,
+            error: `Failed to write to stdin: ${(err as Error).message}`,
           });
         }
       }, 300);

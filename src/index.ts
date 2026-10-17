@@ -45,14 +45,14 @@ import { renderAdminPage, renderLoginPage, serveAsset } from "./web";
 import { getSessionUser } from "./auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inisialisasi Database & Cache
+// Database & cache initialisation
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { defaultAdminCreated, initialPassword } = seedInitialData();
 reloadMcpCache();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Elysia Gateway Server
+// Elysia gateway server
 // ─────────────────────────────────────────────────────────────────────────────
 
 const app = new Elysia()
@@ -73,7 +73,7 @@ const app = new Elysia()
       addActivityLog(id, request.method, url.pathname, 404, performance.now() - startedAt, undefined, "Not found");
       return Response.json({ error: "not_found" }, { status: 404 });
     }
-    log(id, `✗ error tak tertangani (${code}): ${(error as Error).message}`);
+    log(id, `✗ unhandled error (${code}): ${(error as Error).message}`);
     set.status = code === "VALIDATION" || code === "PARSE" ? 400 : 500;
     addActivityLog(id, request.method, url.pathname, set.status as number, performance.now() - startedAt, undefined, (error as Error).message);
     return Response.json({ error: code === "PARSE" ? "invalid_request" : "server_error" }, { status: set.status as number });
@@ -171,7 +171,7 @@ const app = new Elysia()
     return Response.redirect(iconUrl, 302);
   })
 
-  // ── Halaman Root & Admin UI ──────────────────────────────────────────────
+  // ── Root & dashboard pages ──────────────────────────────────────────────
   .get("/", () => Response.redirect("/admin", 302))
   .get("/admin", ({ request }) => renderAdminPage(request))
   .get("/admin/login", ({ request }) => renderLoginPage(request))
@@ -187,20 +187,20 @@ const app = new Elysia()
   .get("/.well-known/oauth-authorization-server", oauthServerMetadata)
   .get("/.well-known/openid-configuration", oauthServerMetadata)
 
-  // ── OAuth: Halaman Persetujuan (Authorize) ────────────────────────────────
+  // ── OAuth: consent page (authorize) ────────────────────────────────
   .get("/oauth/authorize", ({ request }) => {
     const { id, startedAt } = metaOf(request);
     const q = new URL(request.url).searchParams;
     const params = parseAuthorizeParams((k) => str(q.get(k) ?? undefined));
     if (typeof params === "string") {
-      log(id, `✗ authorize ditolak: ${params}`);
+      log(id, `✗ authorize rejected: ${params}`);
       addActivityLog(id, "GET", "/oauth/authorize", 400, performance.now() - startedAt, undefined, params);
-      return page("Permintaan tidak valid", `<h1>Permintaan tidak valid</h1><p>${esc(params)}</p>`, 400);
+      return page("Invalid request", `<h1>Invalid request</h1><p>${esc(params)}</p>`, 400);
     }
     const sessionUser = getSessionUser(request);
     if (!sessionUser) {
       const u = new URL(request.url);
-      log(id, `• authorize: belum login, redirect ke /admin/login (client_id=${params.clientId})`);
+      log(id, `• authorize: not signed in, redirecting to /admin/login (client_id=${params.clientId})`);
       addActivityLog(id, "GET", "/oauth/authorize", 302, performance.now() - startedAt, undefined, `Login required for ${params.clientId}`);
       return new Response(null, {
         status: 302,
@@ -210,7 +210,7 @@ const app = new Elysia()
         },
       });
     }
-    log(id, `• authorize: persetujuan client_id=${params.clientId} user=${sessionUser.username} redirect=${params.redirectUri.origin}`);
+    log(id, `• authorize: consent client_id=${params.clientId} user=${sessionUser.username} redirect=${params.redirectUri.origin}`);
     addActivityLog(id, "GET", "/oauth/authorize", 200, performance.now() - startedAt, undefined, `Consent shown for ${params.clientId}`);
     return consentPage(params, sessionUser);
   })
@@ -220,21 +220,21 @@ const app = new Elysia()
     const form = asRecord(body);
     const params = parseAuthorizeParams((k) => str(form[k]));
     if (typeof params === "string") {
-      log(id, `✗ authorize POST ditolak: ${params}`);
+      log(id, `✗ authorize POST rejected: ${params}`);
       addActivityLog(id, "POST", "/oauth/authorize", 400, performance.now() - startedAt, undefined, params);
-      return page("Permintaan tidak valid", `<h1>Permintaan tidak valid</h1><p>${esc(params)}</p>`, 400);
+      return page("Invalid request", `<h1>Invalid request</h1><p>${esc(params)}</p>`, 400);
     }
 
     const sessionUser = getSessionUser(request);
     if (!sessionUser) {
-      log(id, `✗ authorize POST ditolak: tidak ada sesi login (client_id=${params.clientId})`);
+      log(id, `✗ authorize POST rejected: no login session (client_id=${params.clientId})`);
       addActivityLog(id, "POST", "/oauth/authorize", 401, performance.now() - startedAt, undefined, "Login required");
-      return page("Login diperlukan", `<h1>Login diperlukan</h1><p>Sesi login tidak ditemukan atau sudah berakhir. Ulangi proses penambahan koneksi dari aplikasi AI Anda.</p>`, 401);
+      return page("Sign-in required", `<h1>Sign-in required</h1><p>No sign-in session was found, or it has expired. Start the connection again from your AI app.</p>`, 401);
     }
 
     const redirect = new URL(params.redirectUri);
     if (form.decision !== "allow") {
-      log(id, "• authorize: pengguna MENOLAK");
+      log(id, "• authorize: user DENIED");
       redirect.searchParams.set("error", "access_denied");
       if (params.state) redirect.searchParams.set("state", params.state);
       addActivityLog(id, "POST", "/oauth/authorize", 303, performance.now() - startedAt, undefined, `Denied by user (${params.clientId})`);
@@ -255,7 +255,7 @@ const app = new Elysia()
     );
     redirect.searchParams.set("code", code);
     if (params.state) redirect.searchParams.set("state", params.state);
-    log(id, `✓ authorize: code diterbitkan (user=${sessionUser.username}), redirect ke ${redirect.origin}${redirect.pathname} (pkce=${!!params.codeChallenge})`);
+    log(id, `✓ authorize: code issued (user=${sessionUser.username}), redirecting to ${redirect.origin}${redirect.pathname} (pkce=${!!params.codeChallenge})`);
     addActivityLog(id, "POST", "/oauth/authorize", 303, performance.now() - startedAt, undefined, `Allowed for ${params.clientId}`);
     return redirectTo(redirect);
   })
@@ -263,10 +263,10 @@ const app = new Elysia()
   // ── OAuth: Dynamic Client Registration (RFC 7591) ─────────────────────────
   .post("/oauth/register", handleDynamicClientRegistration)
 
-  // ── OAuth: Tukar Code / Refresh Token ────────────────────────────────────
+  // ── OAuth: exchange code / refresh token ────────────────────────────────────
   .post("/oauth/token", handleTokenExchange)
 
-  // ── Reverse Proxy ke Server MCP ───────────────────────────────────────────
+  // ── Reverse proxy to MCP servers ───────────────────────────────────────────
   .all("/mcp/:serverName", (ctx) => proxyMcpRequest(ctx as unknown as { request: Request; server: Bun.Server<unknown> | null }), { parse: "none" })
   .all("/mcp/:serverName/*", (ctx) => proxyMcpRequest(ctx as unknown as { request: Request; server: Bun.Server<unknown> | null }), { parse: "none" })
 
@@ -275,20 +275,20 @@ const app = new Elysia()
 // Graceful termination
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, () => {
-    console.log(`${signal} diterima, gateway berhenti`);
+    console.log(`${signal} received, gateway stopping`);
     process.exit(0);
   });
 }
 
 console.log(`\n=============================================================`);
-console.log(`⚡ OAuth 2.1 MCP Gateway + UI Management aktif!`);
+console.log(`⚡ OAuth 2.1 MCP Gateway + dashboard is running!`);
 console.log(`   Host: http://${app.server?.hostname}:${app.server?.port}`);
 console.log(`   Dashboard UI: http://localhost:${PORT}/admin`);
 if (defaultAdminCreated) {
-  console.log(`   🔑 Login admin pertama: username "admin", password "${initialPassword}" (dibuat acak, hanya tampil sekali; ganti di menu Pengaturan)`);
+  console.log(`   🔑 First admin sign-in: username "admin", password "${initialPassword}" (random, shown only once; change it under Settings)`);
 }
 console.log(`   Database: ${DB_PATH} (SQLite WAL mode)`);
-console.log(`   Access Token TTL: ${(ACCESS_TOKEN_TTL_MS / 86400000).toFixed(0)} hari | Refresh Grace: ${REFRESH_GRACE_PERIOD_MS / 1000}s`);
+console.log(`   Access Token TTL: ${(ACCESS_TOKEN_TTL_MS / 86400000).toFixed(0)} days | Refresh grace: ${REFRESH_GRACE_PERIOD_MS / 1000}s`);
 console.log(`   Public URL: ${PUBLIC_URL ?? "Auto-detect (Host header)"}`);
-console.log(`   Whitelist Redirect: ${ALLOWED_REDIRECT_HOSTS.join(", ")}`);
+console.log(`   Redirect allow-list: ${ALLOWED_REDIRECT_HOSTS.join(", ")}`);
 console.log(`=============================================================\n`);

@@ -1,4 +1,4 @@
-# ── Tahap 1: build dashboard (Vite + Preact) ──
+# ── Stage 1: build the dashboard (Vite + Preact) ──
 FROM oven/bun:alpine AS web
 WORKDIR /build
 COPY package.json bun.lock ./
@@ -6,27 +6,27 @@ RUN bun install --frozen-lockfile
 COPY web ./web
 RUN bun run build
 
-# ── Tahap 2: gateway ──
+# ── Stage 2: the gateway ──
 FROM oven/bun:alpine
 
 WORKDIR /app
 
-# Copy tool uv & uvx resmi dari Astral (binary statically linked musl)
+# Copy the official uv & uvx tools from Astral (statically linked musl binaries)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# Install python3, pip, go, git untuk mengeksekusi server MCP berbasis Python & Go
+# Install python3, pip, go and git so Python- and Go-based MCP servers can run
 RUN apk add --no-cache python3 py3-pip go git
 
-# Buat symlink agar npx & node diarahkan ke bunx/bun bawaan, dan python diarahkan ke python3
+# Symlink npx & node to the bundled bunx/bun, and python to python3
 RUN ln -sf /usr/local/bin/bunx /usr/local/bin/npx && \
     ln -sf /usr/local/bin/bun /usr/local/bin/node && \
     ln -sf /usr/bin/python3 /usr/local/bin/python
 
-# Buat direktori data untuk SQLite dan cache build untuk user bun (Go, UV, Bun, NPM)
+# Create the data directory for SQLite and the build caches for the bun user (Go, UV, Bun, NPM)
 RUN mkdir -p /app/data/cache /home/bun/.cache /home/bun/go && \
     chown -R bun:bun /app/data /home/bun
 
-# Layer dependensi dipisah agar cache tetap terpakai saat hanya src yang berubah
+# Dependencies get their own layer so the cache survives when only src changes
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 

@@ -1,4 +1,4 @@
-// Dijalankan sebelum semua test: pakai database sementara agar data lokal tidak tersentuh.
+// Runs before every test: use a temporary database so local data is left untouched.
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

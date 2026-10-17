@@ -2,21 +2,21 @@ import { existsSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import { validateAdminRequest } from "./auth";
 
-/** Folder hasil `bun run build` (web/dist). */
+/** Output folder of `bun run build` (web/dist). */
 export const DEFAULT_DIST = resolve(import.meta.dir, "../web/dist");
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
 const buildMissing = () =>
-  new Response("Dashboard belum di-build. Jalankan `bun run build` (atau `bun run dev` saat development).", {
+  new Response("The dashboard has not been built yet. Run `bun run build` (or `bun run dev` while developing).", {
     status: 503,
     headers: { "Content-Type": "text/plain; charset=utf-8", ...NO_STORE },
   });
 
 /**
- * Hanya path internal yang diizinkan sebagai tujuan setelah login (cegah open redirect).
- * Karakter kontrol dan backslash ditolak karena parser URL browser membuang/menormalkannya,
- * sehingga "/\t/evil.com" atau "/\\evil.com" bisa berubah menjadi "//evil.com".
+ * Only internal paths are allowed as the post-login destination (prevents open redirects).
+ * Control characters and backslashes are rejected because browser URL parsers strip or normalise them,
+ * so "/\t/evil.com" or "/\\evil.com" could turn into "//evil.com".
  */
 export function safeNextPath(raw: string): string {
   const base = "http://local.invalid";
@@ -24,7 +24,7 @@ export function safeNextPath(raw: string): string {
   try {
     const u = new URL(raw, base);
     const out = u.pathname + u.search + u.hash;
-    // Segmen titik dihapus saat parsing ("/.//evil.com" -> "//evil.com"), jadi periksa hasil akhirnya.
+    // Parsing removes dot segments ("/.//evil.com" -> "//evil.com"), so check the final result.
     return u.origin === base && !out.startsWith("//") ? out : "/admin";
   } catch {
     return "/admin";
@@ -32,8 +32,8 @@ export function safeNextPath(raw: string): string {
 }
 
 /**
- * Menyajikan dashboard (Vite + Preact) dari folder build.
- * HTML-nya dijaga sesi admin; aset di /_app/* publik karena isinya hanya kode UI tanpa data.
+ * Serves the dashboard (Vite + Preact) from the build folder.
+ * The HTML is guarded by the admin session; assets under /_app/* are public because they only hold UI code, no data.
  */
 export function createWebServer(dist = DEFAULT_DIST) {
   const html = (name: string) => {
@@ -59,14 +59,14 @@ export function createWebServer(dist = DEFAULT_DIST) {
       return html("login.html");
     },
 
-    /** `relPath` adalah bagian setelah /_app/, misalnya "assets/index-abc.js". */
+    /** `relPath` is the part after /_app/, for example "assets/index-abc.js". */
     serveAsset(relPath: string): Response {
       if (!existsSync(dist)) return buildMissing();
       const full = resolve(dist, relPath);
       if (!full.startsWith(dist + sep)) return new Response("Not found", { status: 404 });
       const file = Bun.file(full);
       if (file.size === 0) return new Response("Not found", { status: 404 });
-      // Nama file berisi hash isinya, jadi aman di-cache selamanya.
+      // File names contain a hash of their content, so they are safe to cache forever.
       return new Response(file, { headers: { "Cache-Control": "public, max-age=31536000, immutable" } });
     },
   };

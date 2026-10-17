@@ -10,24 +10,24 @@ services:
     environment:
       PORT: "3000"
       DB_PATH: ${DB_PATH:-/app/data/tokens.db}
-      # Kosong = password acak dibuat saat start pertama dan dicetak di log (docker compose logs)
+      # Empty = a random password is generated on first start and printed in the log (docker compose logs)
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # Opsional: Jika diisi, otomatis di-seed ke database SQLite pada awal start
+      # Optional: if set, seeded into the SQLite database on start
       CLIENT_ID: ${CLIENT_ID:-}
       CLIENT_SECRET: ${CLIENT_SECRET:-}
       MCP_SERVERS: ${MCP_SERVERS:-}
-      # URL publik gateway (https, origin saja) untuk OAuth discovery; kosong = ikut header Host/X-Forwarded-*
+      # Public gateway URL (https, origin only) for OAuth discovery; empty = follow the Host/X-Forwarded-* headers
       PUBLIC_URL: ${PUBLIC_URL:-}
-      # Host tujuan redirect (subdomain ikut diizinkan), dipisah koma (mendukung Google, OpenAI, Claude, Cursor, localhost)
+      # Allowed redirect hosts (subdomains included), comma-separated (Google, OpenAI, Claude, Cursor, localhost)
       ALLOWED_REDIRECT_HOSTS: ${ALLOWED_REDIRECT_HOSTS:-google.com,oauth-redirect.googleusercontent.com,chatgpt.com,openai.com,claude.ai,anthropic.com,cursor.com,localhost,127.0.0.1}
-      # Default 30 hari (2592000s) untuk access token
+      # Access token lifetime; default 30 days (2592000s)
       ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-2592000}
-      # Default 1 tahun (31536000s) untuk refresh token
+      # Refresh token lifetime; default 1 year (31536000s)
       REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-31536000}
-      # Grace period 60 detik untuk rotasi refresh token
+      # 60-second grace period for refresh-token rotation
       REFRESH_GRACE_PERIOD: ${REFRESH_GRACE_PERIOD:-60}
-      # true = log isi tiap chunk SSE (dipotong 200 karakter); false untuk mematikan
+      # true = log each SSE chunk (truncated to 200 characters); false to turn it off
       LOG_SSE_CHUNKS: ${LOG_SSE_CHUNKS:-true}
     extra_hosts:
-      # Agar container bisa memanggil server MCP yang jalan di host (Linux)
+      # Lets the container reach MCP servers running on the host (Linux)
       - "host.docker.internal:host-gateway"

@@ -22,7 +22,7 @@ export const db = new Database(DB_PATH);
 db.run("PRAGMA journal_mode = WAL;");
 db.run("PRAGMA foreign_keys = ON;");
 
-// Inisialisasi tabel
+// Create tables
 db.run(`
   CREATE TABLE IF NOT EXISTS mcp_servers (
     id TEXT PRIMARY KEY,
@@ -132,7 +132,7 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_exp ON refresh_tokens (exp
 db.run(`CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);`);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Migrasi Kolom Otomatis (Idempotent)
+// Automatic column migrations (idempotent)
 // ─────────────────────────────────────────────────────────────────────────────
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN server_type TEXT NOT NULL DEFAULT 'http';"); } catch {}
 try { db.run("ALTER TABLE mcp_servers ADD COLUMN command TEXT DEFAULT '';"); } catch {}
@@ -399,10 +399,10 @@ export function saveUser(user: {
 
 export function deleteUser(id: string): { success: boolean; error?: string } {
   const target = getUserById(id);
-  if (!target) return { success: false, error: "Pengguna tidak ditemukan" };
+  if (!target) return { success: false, error: "User not found" };
   if (target.role === "admin" && target.enabled === 1) {
     if (countActiveAdmins() <= 1) {
-      return { success: false, error: "Tidak dapat menghapus admin aktif terakhir" };
+      return { success: false, error: "Cannot delete the last active admin" };
     }
   }
   stmtDeleteUser.run(id);
@@ -411,10 +411,10 @@ export function deleteUser(id: string): { success: boolean; error?: string } {
 
 export function toggleUser(id: string): { success: boolean; enabled?: boolean; error?: string } {
   const target = getUserById(id);
-  if (!target) return { success: false, error: "Pengguna tidak ditemukan" };
+  if (!target) return { success: false, error: "User not found" };
   if (target.role === "admin" && target.enabled === 1) {
     if (countActiveAdmins() <= 1) {
-      return { success: false, error: "Tidak dapat menonaktifkan admin aktif terakhir" };
+      return { success: false, error: "Cannot disable the last active admin" };
     }
   }
   const newStatus = target.enabled === 1 ? 0 : 1;
@@ -723,7 +723,7 @@ export function addActivityLog(
       info ?? null,
     );
   } catch (err) {
-    console.error("[db] error saat mencatat log:", (err as Error).message);
+    console.error("[db] error while writing the activity log:", (err as Error).message);
   }
 }
 
@@ -800,12 +800,12 @@ setInterval(() => {
       );
     `);
   } catch (err) {
-    console.error("[db] error saat cleanup token kedaluwarsa:", (err as Error).message);
+    console.error("[db] error while cleaning up expired tokens:", (err as Error).message);
   }
 }, 60_000).unref();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Seeding & Inisialisasi Otomatis
+// Seeding & automatic initialisation
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const generateAdminPassword = () => randomBytes(12).toString("base64url");
@@ -815,7 +815,7 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
   let initialPassword: string | undefined = undefined;
 
   // 1. Admin Password & Default Admin User
-  // Tanpa ADMIN_PASSWORD pada instalasi baru, buat password acak (dicetak sekali di log startup).
+  // Without ADMIN_PASSWORD on a fresh install, generate a random password (printed once in the startup log).
   const existingPassHash = getSetting("admin_password_hash");
   let pass = ADMIN_PASSWORD;
   if (!pass && !existingPassHash) {
@@ -844,7 +844,7 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
     if (existingPassHash && !ADMIN_PASSWORD) {
       db.run("UPDATE users SET password_hash = ? WHERE id = 'usr-admin'", [existingPassHash]);
     }
-    console.log(`[db] Pengguna admin default berhasil diinisialisasi (username: admin)`);
+    console.log(`[db] Default admin user created (username: admin)`);
   } else if (ADMIN_PASSWORD && passHash) {
     const adminUser = getUserByUsername("admin");
     if (adminUser) {
@@ -863,7 +863,7 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
         redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com,https://chatgpt.com,http://localhost",
         enabled: 1,
       });
-      console.log(`[db] Memasukkan OAuth client dari env: ${ENV_CLIENT_ID}`);
+      console.log(`[db] Seeding OAuth client from env: ${ENV_CLIENT_ID}`);
     } else {
       const generatedSecret = newSecret();
       saveOAuthClient({
@@ -873,7 +873,7 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
         redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com,https://chatgpt.com,http://localhost",
         enabled: 1,
       });
-      console.log(`[db] Membuat default client: universal-ai (secret: ${generatedSecret})`);
+      console.log(`[db] Creating default client: universal-ai (secret: ${generatedSecret})`);
     }
   } else if (ENV_CLIENT_ID && ENV_CLIENT_SECRET) {
     const existing = getOAuthClient(ENV_CLIENT_ID);
@@ -885,7 +885,7 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
         redirect_uris: "https://google.com,https://oauth-redirect.googleusercontent.com,https://chatgpt.com,http://localhost",
         enabled: 1,
       });
-      console.log(`[db] Memasukkan OAuth client tambahan dari env: ${ENV_CLIENT_ID}`);
+      console.log(`[db] Seeding additional OAuth client from env: ${ENV_CLIENT_ID}`);
     }
   }
 
@@ -907,13 +907,13 @@ export function seedInitialData(): { defaultAdminCreated: boolean; initialPasswo
             url: urlStr,
             headers: headersStr,
             enabled: 1,
-            description: "Diimpor dari MCP_SERVERS",
+            description: "Imported from MCP_SERVERS",
           });
         }
-        console.log(`[db] Diimpor ${Object.keys(parsed).length} MCP server dari env`);
+        console.log(`[db] Imported ${Object.keys(parsed).length} MCP server(s) from env`);
       }
     } catch (err) {
-      console.error("[db] Gagal memparsing MCP_SERVERS dari env:", (err as Error).message);
+      console.error("[db] Failed to parse MCP_SERVERS from env:", (err as Error).message);
     }
   }
 

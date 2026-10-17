@@ -45,7 +45,7 @@ import { reloadMcpCache, testMcpServerConnection } from "./proxy";
 import { testStdioCommand } from "./stdio-manager";
 import { newSecret, hashPassword, verifyPassword, publicOrigin } from "./utils";
 
-// Hanya untuk mendeteksi instalasi lama yang masih memakai password bawaan versi sebelumnya.
+// Only used to detect older installs that still use the default password of a previous version.
 const LEGACY_DEFAULT_PASSWORD = "admin123";
 import { ADMIN_SESSION_TTL_MS, DB_PATH } from "./config";
 
@@ -56,7 +56,7 @@ const json = (data: unknown, status = 200, headers: Record<string, string> = {})
   });
 
 export const adminApi = new Elysia({ prefix: "/api/admin" })
-  // ── Auth Endpoints (Publik untuk Admin) ──────────────────────────────────
+  // ── Auth endpoints (public) ──────────────────────────────────
   .post("/login", async ({ body }) => {
     const data = body as { username?: string; password?: string };
     const username = data?.username?.trim() || "admin";
@@ -66,9 +66,9 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     if (!user) {
       const existingUser = getUserByUsername(username);
       if (existingUser && existingUser.enabled !== 1) {
-        return json({ ok: false, error: "Akun ini telah dinonaktifkan oleh administrator" }, 403);
+        return json({ ok: false, error: "This account has been disabled by an administrator" }, 403);
       }
-      return json({ ok: false, error: "Username atau password salah" }, 401);
+      return json({ ok: false, error: "Wrong username or password" }, 401);
     }
 
     const { sessionId } = createAdminLoginSession(user.id);
@@ -77,7 +77,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     return json(
       {
         ok: true,
-        message: "Login berhasil",
+        message: "Signed in",
         token: sessionId,
         user: {
           id: user.id,
@@ -106,18 +106,18 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     return { currentUser, isAdmin: currentUser?.role === "admin" };
   })
 
-  // Semua route di bawah ini butuh sesi; tanpa sesi dijawab 401 agar UI mengarahkan ke halaman login.
+  // Every route below needs a session; without one it answers 401 so the UI redirects to the login page.
   .onBeforeHandle(({ currentUser, set }) => {
     if (!currentUser) {
       set.status = 401;
-      return json({ ok: false, error: "Sesi tidak valid atau telah kedaluwarsa" }, 401);
+      return json({ ok: false, error: "Session is invalid or has expired" }, 401);
     }
   })
 
-  // ── Profil & Keamanan ────────────────────────────────────────────────────
+  // ── Profile & security ────────────────────────────────────────────────────
   .get("/me", ({ currentUser, request }) => {
     if (!currentUser) return json({ ok: false }, 401);
-    // Password sementara (hasil generate otomatis) atau sisa default lama "admin123" dari versi sebelumnya.
+    // A temporary (auto-generated) password, or the old default "admin123" left over from a previous version.
     const currentHash = getSetting("admin_password_hash");
     const isTemporary =
       getSetting("admin_password_temporary") === "1" || currentHash === hashPassword(LEGACY_DEFAULT_PASSWORD);
@@ -140,7 +140,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     if (!currentUser) return json({ ok: false }, 401);
     const data = body as { oldPassword?: string; newPassword?: string };
     if (!data?.oldPassword || !data?.newPassword) {
-      return json({ ok: false, error: "Password lama dan baru wajib diisi" }, 400);
+      return json({ ok: false, error: "Current and new password are required" }, 400);
     }
 
     const userFromDb = getUserById(currentUser.id);
@@ -149,10 +149,10 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       : checkAdminPassword(data.oldPassword);
 
     if (!validOld) {
-      return json({ ok: false, error: "Password lama salah" }, 400);
+      return json({ ok: false, error: "Current password is wrong" }, 400);
     }
     if (data.newPassword.length < 4) {
-      return json({ ok: false, error: "Password baru minimal 4 karakter" }, 400);
+      return json({ ok: false, error: "New password must be at least 4 characters" }, 400);
     }
 
     if (userFromDb) {
@@ -165,7 +165,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       updateAdminPassword(data.newPassword);
       setSetting("admin_password_temporary", "0");
     }
-    return json({ ok: true, message: "Password berhasil diperbarui" });
+    return json({ ok: true, message: "Password updated" });
   })
 
   // ── Dashboard Metrics ───────────────────────────────────────────────────
@@ -220,27 +220,27 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     };
 
     if (!data.id || !data.name) {
-      return json({ ok: false, error: "ID dan Nama server wajib diisi" }, 400);
+      return json({ ok: false, error: "Server ID and name are required" }, 400);
     }
 
     const cleanId = data.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
-    if (!cleanId) return json({ ok: false, error: "ID server tidak valid" }, 400);
+    if (!cleanId) return json({ ok: false, error: "Invalid server ID" }, 400);
 
     const serverType = data.server_type ?? (data.command ? "command" : "http");
 
     if (serverType === "http") {
-      if (!data.url) return json({ ok: false, error: "URL wajib diisi untuk server HTTP" }, 400);
+      if (!data.url) return json({ ok: false, error: "URL is required for HTTP servers" }, 400);
       try {
         const parsedUrl = new URL(data.url);
         if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-          return json({ ok: false, error: "URL harus berprotokol http:// atau https://" }, 400);
+          return json({ ok: false, error: "URL must use http:// or https://" }, 400);
         }
       } catch {
-        return json({ ok: false, error: "URL tidak valid" }, 400);
+        return json({ ok: false, error: "Invalid URL" }, 400);
       }
     } else {
       if (!data.command || !data.command.trim()) {
-        return json({ ok: false, error: "Perintah (command) wajib diisi untuk server CLI / stdio (bunx, uv, go, npx, dll.)" }, 400);
+        return json({ ok: false, error: "Command is required for CLI / stdio servers (bunx, uv, go, npx, etc.)" }, 400);
       }
     }
 
@@ -248,7 +248,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       try {
         JSON.parse(data.headers);
       } catch {
-        return json({ ok: false, error: "Headers harus berupa JSON valid" }, 400);
+        return json({ ok: false, error: "Headers must be valid JSON" }, 400);
       }
     }
 
@@ -256,7 +256,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       try {
         JSON.parse(data.env_vars);
       } catch {
-        return json({ ok: false, error: "Environment variables harus berupa JSON valid" }, 400);
+        return json({ ok: false, error: "Environment variables must be valid JSON" }, 400);
       }
     }
 
@@ -275,13 +275,13 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     });
 
     reloadMcpCache();
-    return json({ ok: true, message: `Server MCP "${cleanId}" berhasil disimpan` });
+    return json({ ok: true, message: `MCP server "${cleanId}" saved` });
   })
 
   .put("/servers/:id", ({ params, body }) => {
     const { id } = params;
     const existing = getMcpServer(id);
-    if (!existing) return json({ ok: false, error: "Server tidak ditemukan" }, 404);
+    if (!existing) return json({ ok: false, error: "Server not found" }, 404);
 
     const data = body as {
       name?: string;
@@ -302,10 +302,10 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       try {
         const parsedUrl = new URL(data.url);
         if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-          return json({ ok: false, error: "URL harus http/https" }, 400);
+          return json({ ok: false, error: "URL must be http/https" }, 400);
         }
       } catch {
-        return json({ ok: false, error: "URL tidak valid" }, 400);
+        return json({ ok: false, error: "Invalid URL" }, 400);
       }
     }
 
@@ -324,13 +324,13 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     });
 
     reloadMcpCache();
-    return json({ ok: true, message: `Server "${id}" diperbarui` });
+    return json({ ok: true, message: `Server "${id}" updated` });
   })
 
   .delete("/servers/:id", ({ params }) => {
     deleteMcpServer(params.id);
     reloadMcpCache();
-    return json({ ok: true, message: `Server "${params.id}" berhasil dihapus` });
+    return json({ ok: true, message: `Server "${params.id}" deleted` });
   })
 
   .post("/servers/:id/toggle", ({ params }) => {
@@ -341,7 +341,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
   .post("/servers/:id/test", async ({ params }) => {
     const server = getMcpServer(params.id);
-    if (!server) return json({ ok: false, error: "Server tidak ditemukan" }, 404);
+    if (!server) return json({ ok: false, error: "Server not found" }, 404);
 
     if (server.server_type === "command") {
       const result = await testStdioCommand(server.command || "bunx", server.args || "", server.env_vars || "{}");
@@ -368,7 +368,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       return json({ ok: true, result });
     }
 
-    if (!data?.url) return json({ ok: false, error: "URL wajib diisi" }, 400);
+    if (!data?.url) return json({ ok: false, error: "URL is required" }, 400);
     const result = await testMcpServerConnection(data.url, data.headers ?? "{}");
     return json({ ok: true, result });
   })
@@ -397,7 +397,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       icon?: string;
     };
 
-    if (!data.name) return json({ ok: false, error: "Nama klien wajib diisi" }, 400);
+    if (!data.name) return json({ ok: false, error: "Client name is required" }, 400);
 
     const id = data.id?.trim() || `client-${newSecret().slice(0, 8)}`;
     const secret = data.secret?.trim() || newSecret();
@@ -413,14 +413,14 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
     return json({
       ok: true,
-      message: `Klien OAuth "${id}" berhasil dibuat`,
+      message: `OAuth client "${id}" created`,
       client: { id, secret },
     });
   })
 
   .put("/clients/:id", ({ params, body }) => {
     const existing = getOAuthClient(params.id);
-    if (!existing) return json({ ok: false, error: "Klien tidak ditemukan" }, 404);
+    if (!existing) return json({ ok: false, error: "Client not found" }, 404);
 
     const data = body as {
       name?: string;
@@ -439,7 +439,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       icon: data.icon !== undefined ? data.icon.trim() : existing.icon,
     });
 
-    return json({ ok: true, message: `Klien "${params.id}" diperbarui` });
+    return json({ ok: true, message: `Client "${params.id}" updated` });
   })
 
   .post("/clients/:id/toggle", ({ params }) => {
@@ -450,17 +450,17 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
   .delete("/clients/:id", ({ params }) => {
     deleteOAuthClient(params.id);
     revokeAllTokensForClient(params.id);
-    return json({ ok: true, message: `Klien "${params.id}" dan seluruh tokennya dihapus` });
+    return json({ ok: true, message: `Client "${params.id}" and all of its tokens were deleted` });
   })
 
   .delete("/clients/:id/tokens", ({ params }) => {
     revokeAllTokensForClient(params.id);
-    return json({ ok: true, message: `Seluruh token sesi untuk klien "${params.id}" berhasil dicabut` });
+    return json({ ok: true, message: `All session tokens of client "${params.id}" were revoked` });
   })
 
   .post("/clients/:id/regenerate-secret", ({ params }) => {
     const existing = getOAuthClient(params.id);
-    if (!existing) return json({ ok: false, error: "Klien tidak ditemukan" }, 404);
+    if (!existing) return json({ ok: false, error: "Client not found" }, 404);
 
     const newSec = newSecret();
     saveOAuthClient({
@@ -488,7 +488,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
   .post("/users", ({ currentUser, body }) => {
     if (currentUser?.role !== "admin") {
-      return json({ ok: false, error: "Hanya administrator yang dapat menambah pengguna" }, 403);
+      return json({ ok: false, error: "Only administrators can add users" }, 403);
     }
 
     const data = body as {
@@ -500,7 +500,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     };
 
     if (!data.username || !data.name || !data.password) {
-      return json({ ok: false, error: "Username, nama lengkap, dan password wajib diisi" }, 400);
+      return json({ ok: false, error: "Username, full name and password are required" }, 400);
     }
 
     const cleanUsername = data.username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "");
@@ -514,7 +514,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
     const existing = getUserByUsername(cleanUsername);
     if (existing) {
-      return json({ ok: false, error: `Username "${cleanUsername}" sudah digunakan` }, 400);
+      return json({ ok: false, error: `Username "${cleanUsername}" is already taken` }, 400);
     }
 
     const role = data.role === "admin" ? "admin" : "user";
@@ -528,18 +528,18 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
     return json({
       ok: true,
-      message: `Pengguna "${cleanUsername}" berhasil dibuat`,
+      message: `User "${cleanUsername}" created`,
       userId: res.id,
     });
   })
 
   .put("/users/:id", ({ currentUser, params, body }) => {
     if (currentUser?.role !== "admin" && currentUser?.id !== params.id) {
-      return json({ ok: false, error: "Tidak memiliki hak akses untuk mengubah pengguna ini" }, 403);
+      return json({ ok: false, error: "You are not allowed to modify this user" }, 403);
     }
 
     const targetUser = getUserById(params.id);
-    if (!targetUser) return json({ ok: false, error: "Pengguna tidak ditemukan" }, 404);
+    if (!targetUser) return json({ ok: false, error: "User not found" }, 404);
 
     const data = body as {
       name?: string;
@@ -554,20 +554,20 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
     if (currentUser?.role === "admin") {
       if (data.role !== undefined) {
         if (targetUser.role === "admin" && data.role !== "admin" && countActiveAdmins() <= 1 && targetUser.enabled === 1) {
-          return json({ ok: false, error: "Tidak dapat mengubah peran admin aktif terakhir" }, 400);
+          return json({ ok: false, error: "Cannot change the role of the last active admin" }, 400);
         }
         role = data.role === "admin" ? "admin" : "user";
       }
       if (data.enabled !== undefined) {
         if (targetUser.role === "admin" && !data.enabled && countActiveAdmins() <= 1 && targetUser.enabled === 1) {
-          return json({ ok: false, error: "Tidak dapat menonaktifkan admin aktif terakhir" }, 400);
+          return json({ ok: false, error: "Cannot disable the last active admin" }, 400);
         }
         enabled = !!data.enabled;
       }
     }
 
     if (data.password && data.password.length < 4) {
-      return json({ ok: false, error: "Password baru minimal 4 karakter" }, 400);
+      return json({ ok: false, error: "New password must be at least 4 characters" }, 400);
     }
 
     saveUser({
@@ -579,15 +579,15 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
       enabled,
     });
 
-    return json({ ok: true, message: `Data pengguna "${targetUser.username}" berhasil diperbarui` });
+    return json({ ok: true, message: `User "${targetUser.username}" updated` });
   })
 
   .post("/users/:id/toggle", ({ currentUser, params }) => {
     if (currentUser?.role !== "admin") {
-      return json({ ok: false, error: "Hanya administrator yang dapat mengubah status pengguna" }, 403);
+      return json({ ok: false, error: "Only administrators can change a user status" }, 403);
     }
     if (currentUser.id === params.id) {
-      return json({ ok: false, error: "Tidak dapat menonaktifkan akun sendiri" }, 400);
+      return json({ ok: false, error: "You cannot disable your own account" }, 400);
     }
 
     const result = toggleUser(params.id);
@@ -599,17 +599,17 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
   .delete("/users/:id", ({ currentUser, params }) => {
     if (currentUser?.role !== "admin") {
-      return json({ ok: false, error: "Hanya administrator yang dapat menghapus pengguna" }, 403);
+      return json({ ok: false, error: "Only administrators can delete users" }, 403);
     }
     if (currentUser.id === params.id) {
-      return json({ ok: false, error: "Tidak dapat menghapus akun sendiri yang sedang aktif" }, 400);
+      return json({ ok: false, error: "You cannot delete the account you are signed in with" }, 400);
     }
 
     const result = deleteUser(params.id);
     if (!result.success) {
       return json({ ok: false, error: result.error }, 400);
     }
-    return json({ ok: true, message: "Pengguna berhasil dihapus" });
+    return json({ ok: true, message: "User deleted" });
   })
 
   // ── Token Management ────────────────────────────────────────────────────
@@ -627,11 +627,11 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
   .post("/tokens/generate", ({ currentUser, body }) => {
     const data = body as { clientId?: string; ttlDays?: number; userId?: string };
     const clientId = data.clientId?.trim();
-    if (!clientId) return json({ ok: false, error: "Client ID wajib dipilih" }, 400);
+    if (!clientId) return json({ ok: false, error: "Client ID is required" }, 400);
 
     const client = getOAuthClient(clientId);
-    if (!client) return json({ ok: false, error: "Client tidak ditemukan" }, 404);
-    if (client.enabled !== 1) return json({ ok: false, error: "Client sedang dinonaktifkan" }, 400);
+    if (!client) return json({ ok: false, error: "Client not found" }, 404);
+    if (client.enabled !== 1) return json({ ok: false, error: "Client is disabled" }, 400);
 
     const targetUserId = currentUser?.role === "admin" && data.userId ? data.userId.trim() : (currentUser?.id ?? null);
 
@@ -641,7 +641,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
     return json({
       ok: true,
-      message: `Token akses berhasil dibuat untuk klien "${client.name}"`,
+      message: `Access token created for client "${client.name}"`,
       token,
       expiresAt,
       clientId,
@@ -656,7 +656,7 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
   .delete("/tokens/client/:clientId", ({ params }) => {
     revokeAllTokensForClient(params.clientId);
-    return json({ ok: true, message: `Semua token untuk klien "${params.clientId}" dicabut` });
+    return json({ ok: true, message: `All tokens of client "${params.clientId}" were revoked` });
   })
 
   // ── Activity Logs ───────────────────────────────────────────────────────
@@ -671,5 +671,5 @@ export const adminApi = new Elysia({ prefix: "/api/admin" })
 
   .delete("/logs", () => {
     clearActivityLogs();
-    return json({ ok: true, message: "Log aktivitas berhasil dibersihkan" });
+    return json({ ok: true, message: "Activity log cleared" });
   });

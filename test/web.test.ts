@@ -60,13 +60,13 @@ describe("safeNextPath", () => {
     expect(safeNextPath("/\\evil.com")).toBe("/admin");
     expect(safeNextPath("https://evil.com")).toBe("/admin");
     expect(safeNextPath("")).toBe("/admin");
-    // karakter yang dibuang/dinormalkan browser menjadi "//evil.com"
+    // characters that browsers strip or normalise into "//evil.com"
     expect(safeNextPath("/\t/evil.com")).toBe("/admin");
     expect(safeNextPath("/\n/evil.com")).toBe("/admin");
     expect(safeNextPath("/ /evil.com")).toBe("/admin");
-    // segmen titik yang dihapus parser menjadi "//evil.com"
+    // dot segments that the parser removes, leaving "//evil.com"
     expect(safeNextPath("/.//evil.com")).toBe("/admin");
     expect(safeNextPath("/a/..//evil.com")).toBe("/admin");
-    expect(safeNextPath("/%5Cevil.com")).toBe("/%5Cevil.com"); // tetap path internal; tidak dinormalkan menjadi host
+    expect(safeNextPath("/%5Cevil.com")).toBe("/%5Cevil.com"); // stays an internal path; not normalised into a host
   });
 });
