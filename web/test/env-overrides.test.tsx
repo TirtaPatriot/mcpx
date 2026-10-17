@@ -120,3 +120,115 @@ describe("server dialog: overridable variables", () => {
     routes["/api/admin/servers"] = original;
   });
 });
+
+const CMD_WITH_VARS = { ...SERVER, id: "dokploy", name: "Dokploy MCP", overridable_env: JSON.stringify({ ...DOKPLOY_SPEC, REGION_HINT: { description: "Preferred region, free text" } }) };
+const HTTP_WITH_VARS = { ...SERVER, id: "web", name: "Web server", server_type: "http", command: "", overridable_env: JSON.stringify(DOKPLOY_SPEC) };
+const CMD_WITHOUT_VARS = { ...SERVER, id: "plain", name: "Plain server", overridable_env: "{}" };
+const CLIENT = { id: "gemini", name: "Gemini", secret: "s", redirect_uris: "", icon: "", enabled: true, env_overrides: JSON.stringify({ dokploy: { DOKPLOY_TOOL_PRESET: "minimal" } }), active_tokens: { access: 0, refresh: 0 } };
+
+const clientSave = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.includes("Save client"))!;
+const sentClient = () => requests.find((r) => (r.method === "PUT" || r.method === "POST") && r.path.startsWith("/api/admin/clients"))?.body;
+
+async function openClientDialog(servers: unknown[], client: unknown = CLIENT) {
+  const before = { servers: routes["/api/admin/servers"], clients: routes["/api/admin/clients"] };
+  routes["/api/admin/servers"] = { ok: true, servers };
+  routes["/api/admin/clients"] = { ok: true, clients: [client] };
+  await mount();
+  await click("OAuth Clients");
+  await waitFor(() => text().includes(String((client as any).id)), "client row");
+  await clickEl(document.querySelector('button[aria-label^="Edit ("]'));
+  await waitFor(() => !!byRole("dialog", "Edit OAuth client"), "dialog");
+  return () => Object.assign(routes, { "/api/admin/servers": before.servers, "/api/admin/clients": before.clients });
+}
+
+describe("client dialog: environment overrides", () => {
+  test("only command servers that list variables are offered, under the server's name", async () => {
+    const restore = await openClientDialog([CMD_WITH_VARS, HTTP_WITH_VARS, CMD_WITHOUT_VARS]);
+    await waitFor(() => text().includes("Environment overrides"), "section");
+    const section = document.querySelector('section[aria-labelledby="env-overrides-heading"]')!;
+    expect(section.textContent).toContain("Dokploy MCP");
+    expect(section.textContent).not.toContain("Web server");
+    expect(section.textContent).not.toContain("Plain server");
+    restore();
+  });
+
+  test("a variable with listed values is a select that starts at Default", async () => {
+    const restore = await openClientDialog([CMD_WITH_VARS], { ...CLIENT, env_overrides: "{}" });
+    await waitFor(() => fieldsLabelled("DOKPLOY_TOOL_PRESET").length > 0, "preset field");
+    const select = fieldsLabelled("DOKPLOY_TOOL_PRESET")[0] as unknown as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    expect([...select.options].map((o) => o.textContent)).toEqual(["Default (no override)", "minimal", "standard", "full"]);
+    expect(select.value).toBe("");
+    restore();
+  });
+
+  test("a free-text variable is an input, and its description is the hint", async () => {
+    const restore = await openClientDialog([CMD_WITH_VARS], { ...CLIENT, env_overrides: "{}" });
+    await waitFor(() => fieldsLabelled("REGION_HINT").length > 0, "region field");
+    expect(fieldsLabelled("REGION_HINT")[0]!.tagName).toBe("INPUT");
+    expect(text()).toContain("Preferred region, free text");
+    restore();
+  });
+
+  test("choosing a value is saved", async () => {
+    const restore = await openClientDialog([CMD_WITH_VARS], { ...CLIENT, env_overrides: "{}" });
+    await waitFor(() => fieldsLabelled("DOKPLOY_TOOL_PRESET").length > 0, "preset field");
+    const select = fieldsLabelled("DOKPLOY_TOOL_PRESET")[0] as unknown as HTMLSelectElement;
+    select.value = "minimal";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await clickEl(clientSave());
+    await waitFor(() => !!sentClient(), "save");
+    expect(sentClient().env_overrides).toEqual({ dokploy: { DOKPLOY_TOOL_PRESET: "minimal" } });
+    restore();
+  });
+
+  test("choosing Default removes an existing override, and the empty server entry with it", async () => {
+    const restore = await openClientDialog([CMD_WITH_VARS]);
+    await waitFor(() => fieldsLabelled("DOKPLOY_TOOL_PRESET").length > 0, "preset field");
+    const select = fieldsLabelled("DOKPLOY_TOOL_PRESET")[0] as unknown as HTMLSelectElement;
+    expect(select.value).toBe("minimal");
+    select.value = "";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await clickEl(clientSave());
+    await waitFor(() => !!sentClient(), "save");
+    expect(sentClient().env_overrides).toEqual({});
+    restore();
+  });
+
+  test("an existing override is shown selected", async () => {
+    const restore = await openClientDialog([CMD_WITH_VARS]);
+    await waitFor(() => fieldsLabelled("DOKPLOY_TOOL_PRESET").length > 0, "preset field");
+    expect((fieldsLabelled("DOKPLOY_TOOL_PRESET")[0] as unknown as HTMLSelectElement).value).toBe("minimal");
+    restore();
+  });
+
+  test("an invalid free-text value is explained and blocks saving", async () => {
+    const restore = await openClientDialog([CMD_WITH_VARS], { ...CLIENT, env_overrides: "{}" });
+    await waitFor(() => fieldsLabelled("REGION_HINT").length > 0, "region field");
+    await typeInto(fieldsLabelled("REGION_HINT")[0], "a".repeat(300));
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain("at most 256 characters");
+    expect(clientSave().disabled).toBe(true);
+    restore();
+  });
+
+  test("with no eligible server the section explains why and points to the servers", async () => {
+    const restore = await openClientDialog([CMD_WITHOUT_VARS], { ...CLIENT, env_overrides: "{}" });
+    await waitFor(() => text().includes("No server lists overridable variables yet"), "empty explanation");
+    await click("Choose variables on a server");
+    expect(byRole("dialog", "Edit OAuth client")).toBeUndefined();
+    expect(location.hash).toBe("#servers");
+    restore();
+  });
+
+  test("a saved override the server no longer allows is dropped on save, with a notice", async () => {
+    const stale = { ...CLIENT, env_overrides: JSON.stringify({ dokploy: { DOKPLOY_TOOL_PRESET: "minimal", GONE: "x" }, vanished: { A: "1" } }) };
+    const restore = await openClientDialog([CMD_WITH_VARS], stale);
+    await waitFor(() => text().includes("no longer allowed"), "notice");
+    await clickEl(clientSave());
+    await waitFor(() => !!sentClient(), "save");
+    expect(sentClient().env_overrides).toEqual({ dokploy: { DOKPLOY_TOOL_PRESET: "minimal" } });
+    restore();
+  });
+});

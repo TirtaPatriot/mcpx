@@ -4,7 +4,7 @@ import { render } from "preact";
 import type { ConsentPageData } from "../../src/consent-data";
 import { ConsentView } from "../src/components/ConsentView";
 import { Login } from "../src/components/LoginForm";
-import { byRole, click, clickEl, mount, press, tick, useHarness, waitFor, text } from "./harness";
+import { SERVER, byRole, click, clickEl, mount, press, routes, tick, useHarness, waitFor, text } from "./harness";
 
 useHarness();
 
@@ -140,5 +140,26 @@ describe("the audit itself", () => {
     expect(ids).toContain("button-name");
     expect(ids).toContain("select-name");
     expect(ids).toContain("link-name");
+  });
+});
+
+describe("client dialog with environment overrides", () => {
+  test("passes axe with a select, a free-text field and a stale-override notice", async () => {
+    const original = { servers: routes["/api/admin/servers"], clients: routes["/api/admin/clients"] };
+    routes["/api/admin/servers"] = {
+      ok: true,
+      servers: [{ ...SERVER, id: "dokploy", name: "Dokploy MCP", overridable_env: JSON.stringify({ DOKPLOY_TOOL_PRESET: { values: ["minimal", "full"], description: "Size" }, REGION_HINT: { description: "Free text" } }) }],
+    };
+    routes["/api/admin/clients"] = {
+      ok: true,
+      clients: [{ id: "gemini", name: "Gemini", secret: "s", redirect_uris: "", icon: "", enabled: true, env_overrides: JSON.stringify({ dokploy: { DOKPLOY_TOOL_PRESET: "minimal", GONE: "x" } }), active_tokens: { access: 0, refresh: 0 } }],
+    };
+    await mount();
+    await click("OAuth Clients");
+    await waitFor(() => text().includes("gemini"), "client row");
+    await clickEl(document.querySelector('button[aria-label^="Edit ("]'));
+    await waitFor(() => text().includes("no longer allowed"), "section with notice");
+    await expectAccessible("client dialog with overrides");
+    Object.assign(routes, { "/api/admin/servers": original.servers, "/api/admin/clients": original.clients });
   });
 });

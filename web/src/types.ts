@@ -22,6 +22,8 @@ export interface OAuthClient {
   secret: string;
   redirect_uris: string;
   icon: string;
+  /** JSON text: server id → variable → value (see src/env-policy.ts). */
+  env_overrides?: string;
   enabled: boolean;
   active_tokens?: { access?: number; refresh?: number };
 }

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { useConfirm } from "../components/Confirm";
+import { EnvOverridesSection } from "../components/EnvOverridesSection";
 import { PlatformGuide } from "../components/PlatformGuide";
 import { RowActions } from "../components/RowActions";
 import { useApp } from "../context";
 import { CLIENT_ICON_PRESETS, clientIcon } from "../icons";
+import { clientEnvInvalid, eligibleServers, parseClientEnv, pruneClientEnv, type EligibleServer } from "../overridable";
 import { copyText, showToast } from "../toast";
-import type { OAuthClient } from "../types";
+import type { McpServer, OAuthClient } from "../types";
 import {
   DataTable,
   EmptyRow,
@@ -202,10 +204,27 @@ function ClientModal(props: { client: OAuthClient | null; onClose: () => void; o
   const [enabled, setEnabled] = useState(c?.enabled ?? true);
   // A new client shows its generated secret so it can be copied; an existing one stays hidden until asked for.
   const [showSecret, setShowSecret] = useState(!c);
+  const { goTab } = useApp();
+  // The servers decide which overrides exist, so they are loaded with the dialog and the client's saved
+  // overrides are checked against them once they arrive.
+  const [eligible, setEligible] = useState<EligibleServer[] | null>(null);
+  const [envOverrides, setEnvOverrides] = useState(() => parseClientEnv(c?.env_overrides));
+  const [removedOverrides, setRemovedOverrides] = useState(0);
+  useEffect(() => {
+    api<{ servers: McpServer[] }>("/servers", { silent: true }).then((d) => {
+      const list = eligibleServers(d.servers);
+      const pruned = pruneClientEnv(list, parseClientEnv(c?.env_overrides));
+      setEligible(list);
+      setEnvOverrides(pruned.value);
+      setRemovedOverrides(pruned.removed);
+    }, () => setEligible([]));
+  }, []);
+  const envInvalid = eligible !== null && clientEnvInvalid(eligible, envOverrides);
 
   const save = async (e: Event) => {
     e.preventDefault();
-    const payload = { id, name, secret, redirect_uris: redirects, icon: icon.trim(), enabled };
+    // env_overrides is only sent once the servers have loaded and the saved overrides were checked against them.
+    const payload = { id, name, secret, redirect_uris: redirects, icon: icon.trim(), enabled, ...(eligible ? { env_overrides: envOverrides } : {}) };
     if (c) await api(`/clients/${id}`, { method: "PUT", body: payload });
     else await api("/clients", { method: "POST", body: payload });
     props.onSaved();
@@ -259,7 +278,24 @@ function ClientModal(props: { client: OAuthClient | null; onClose: () => void; o
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} class="w-4 h-4 rounded bg-dark-900 border-dark-700 text-blue-600 focus:ring-0" />
           Enable this client
         </label>
-        <ModalFooter onCancel={props.onClose} submitLabel="Save client" />
+        {eligible === null ? (
+          <p class="text-[11px] text-slate-500" aria-live="polite">
+            Loading environment overrides...
+          </p>
+        ) : (
+          <EnvOverridesSection
+            servers={eligible}
+            value={envOverrides}
+            onChange={setEnvOverrides}
+            removed={removedOverrides}
+            onManageServers={() => {
+              props.onClose();
+              goTab("servers");
+            }}
+          />
+        )}
+
+        <ModalFooter onCancel={props.onClose} submitLabel="Save client" disabled={envInvalid} />
       </form>
     </Modal>
   );
