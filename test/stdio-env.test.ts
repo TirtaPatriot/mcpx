@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { hardDenyReason } from "../src/env-policy";
 import { buildProcessEnv } from "../src/stdio-manager";
@@ -25,7 +28,23 @@ describe("buildProcessEnv", () => {
 
   test("does not leak the gateway's secrets or anything else of the host", () => {
     const env = buildProcessEnv({ serverEnv: {}, host });
-    for (const name of ["ADMIN_PASSWORD", "CLIENT_SECRET", "AWS_SECRET_ACCESS_KEY", "MY_HOST_VAR", "LD_PRELOAD"]) expect(env[name]).toBeUndefined();
+    for (const name of ["AWS_SECRET_ACCESS_KEY", "MY_HOST_VAR", "LD_PRELOAD"]) expect(env[name]).toBeUndefined();
+    // The gateway's own settings are present but empty, which is what stops Bun filling them from a .env file.
+    for (const name of ["ADMIN_PASSWORD", "CLIENT_SECRET"]) expect(env[name]).toBe("");
+  });
+
+  test("an empty gateway setting keeps Bun from loading it out of a .env file in the working directory", async () => {
+    // Bun reads .env on its own at start-up, so a process run with `bun` or `bunx` in the gateway's
+    // directory would otherwise see the gateway's ADMIN_PASSWORD even though the environment was scrubbed.
+    const dir = mkdtempSync(join(tmpdir(), "mcpx-dotenv-"));
+    writeFileSync(join(dir, ".env"), "ADMIN_PASSWORD=from-dotenv\nCLIENT_SECRET=from-dotenv\nOTHER=from-dotenv\n");
+    const env = buildProcessEnv({ serverEnv: {}, host: { PATH: process.env.PATH, HOME: process.env.HOME } });
+    const child = Bun.spawn(["bun", "-e", "console.log(JSON.stringify([process.env.ADMIN_PASSWORD, process.env.CLIENT_SECRET]))"], { cwd: dir, env, stdout: "pipe" });
+    expect(JSON.parse((await new Response(child.stdout).text()).trim())).toEqual(["", ""]);
+  });
+
+  test("an admin who sets a gateway-setting name in env_vars on purpose gets exactly that", () => {
+    expect(buildProcessEnv({ serverEnv: { PUBLIC_URL: "https://mine.example" }, host }).PUBLIC_URL).toBe("https://mine.example");
   });
 
   test("always sets the cache variables the tool runners need", () => {
@@ -49,7 +68,9 @@ describe("buildProcessEnv", () => {
 
   test("a passthrough list can never carry the gateway's own settings or a loader hook", () => {
     const env = buildProcessEnv({ serverEnv: {}, host, passthrough: ["ADMIN_PASSWORD", "CLIENT_SECRET", "LD_PRELOAD"] });
-    for (const name of ["ADMIN_PASSWORD", "CLIENT_SECRET", "LD_PRELOAD"]) expect(env[name]).toBeUndefined();
+    expect(env.ADMIN_PASSWORD).toBe("");
+    expect(env.CLIENT_SECRET).toBe("");
+    expect(env.LD_PRELOAD).toBeUndefined();
   });
 
   test("an env_vars entry set by the admin is trusted, even for names that overrides could never touch", () => {

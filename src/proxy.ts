@@ -19,6 +19,7 @@ import {
   testStdioCommand,
 } from "./stdio-manager";
 import { detectServerBranding } from "./icons";
+import { overrideKey, overridesFromUrl, parseOverridableEnv, resolveOverrides, stripEnvParams, type OverridableEnv } from "./env-policy";
 
 export interface CachedMcpServer {
   id: string;
@@ -29,8 +30,16 @@ export interface CachedMcpServer {
   command: string;
   args: string;
   env_vars: string;
+  /** Which variables a connection may override (see env-policy.ts); empty for HTTP servers. */
+  overridable_env: OverridableEnv;
   enabled: boolean;
   icon: string;
+}
+
+/** The stored list, or nothing when it cannot be read (a bad list must not make the server unusable). */
+function allowedOverrides(raw: string | undefined): OverridableEnv {
+  const parsed = parseOverridableEnv(raw);
+  return parsed.ok ? parsed.value : {};
 }
 
 const serverCache = new Map<string, CachedMcpServer>();
@@ -123,6 +132,7 @@ export function reloadMcpCache(): void {
         command: row.command || "",
         args: row.args || "",
         env_vars: row.env_vars || "{}",
+        overridable_env: allowedOverrides(row.overridable_env),
         enabled: row.enabled === 1,
         icon: row.icon || "",
       });
@@ -162,6 +172,7 @@ export function getCachedServer(id: string): CachedMcpServer | null {
       command: row.command || "",
       args: row.args || "",
       env_vars: row.env_vars || "{}",
+      overridable_env: allowedOverrides(row.overridable_env),
       enabled: row.enabled === 1,
       icon: row.icon || "",
     };
@@ -330,7 +341,35 @@ export async function proxyMcpRequest(ctx: {
     const subPath = restSegments.join("/");
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.split(/\s+/)[1] ?? "anon";
-    const clientKey = `${serverName}:${token}`;
+
+    // Environment overrides: this client's settings for this server, then anything in the URL.
+    const refused = (message: string) => {
+      log(id, `✗ 400 environment override refused: ${message}`);
+      addActivityLog(id, request.method, url.pathname, 400, performance.now() - startedAt, server?.requestIP(request)?.address, `Environment override refused: ${message}`);
+      return Response.json(
+        { error: "invalid_env_override", error_description: message },
+        { status: 400, headers: { "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" } },
+      );
+    };
+    const owner = stmtGetAccessToken.get(token);
+    const clientRow = owner ? getOAuthClient(owner.client_id) : null;
+    let clientEnv: Record<string, string> | undefined;
+    try {
+      clientEnv = JSON.parse(clientRow?.env_overrides || "{}")?.[serverName];
+    } catch {}
+    const fromUrl = overridesFromUrl(url);
+    if (!fromUrl.ok) return refused(fromUrl.error);
+    const resolved = resolveOverrides({ allowed: mcp.overridable_env, client: clientEnv, url: fromUrl.value });
+    if (!resolved.ok) return refused(resolved.error);
+    if (resolved.value.skipped.length > 0) {
+      log(id, `• skipped client overrides that are no longer allowed on "${serverName}": ${resolved.value.skipped.join(", ")}`);
+    }
+    const overrides = resolved.value.env;
+    const overrideHash = overrideKey(overrides);
+    if (overrideHash) log(id, `• environment overrides for "${serverName}": ${JSON.stringify(overrides)}`);
+
+    // Connections with different overrides must not share a process.
+    const clientKey = overrideHash ? `${serverName}:${token}:${overrideHash}` : `${serverName}:${token}`;
     const reqSessionId = request.headers.get("mcp-session-id") || url.searchParams.get("sessionId") || undefined;
 
     // A1. DELETE /mcp/:serverName -> Close the session (Streamable HTTP session termination)
@@ -382,7 +421,7 @@ export async function proxyMcpRequest(ctx: {
 
     if (isLegacySseHandshake) {
       log(id, `▶ Opening legacy SSE session for MCP command [${serverName}]`);
-      const session = getOrCreateStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars, reqSessionId, clientKey);
+      const session = getOrCreateStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars, reqSessionId, clientKey, overrides);
       const encoder = new TextEncoder();
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -462,7 +501,7 @@ export async function proxyMcpRequest(ctx: {
         const method = Array.isArray(rpcData) ? "batch" : (rpcData?.method ?? "response");
         log(id, `▶ [Streamable HTTP] POST /mcp/${serverName} method=${method} id=${rpcData?.id ?? "notif"}`);
 
-        const session = getOrCreateStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars, reqSessionId, clientKey);
+        const session = getOrCreateStdioSession(serverName, mcp.command || "bunx", mcp.args, mcp.env_vars, reqSessionId, clientKey, overrides);
 
         const rpcResult = await executeJsonRpcOnSession(session, rpcData, 45_000);
 
@@ -540,7 +579,8 @@ export async function proxyMcpRequest(ctx: {
   const base = mcp.url;
   const target = new URL(base);
   target.pathname = base.pathname.replace(/\/+$/, "") + (restSegments.length ? `/${restSegments.join("/")}` : "");
-  target.search = url.search;
+  // env.* parameters are for the gateway, not for the upstream server.
+  target.search = stripEnvParams(url).search;
 
   const headers = new Headers(request.headers);
   for (const h of [...HOP_BY_HOP, "host", "authorization", "content-length"]) headers.delete(h);

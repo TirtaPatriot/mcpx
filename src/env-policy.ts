@@ -33,6 +33,9 @@ const has = (obj: object, key: string) => Object.prototype.hasOwnProperty.call(o
 
 // Names that can never be listed, grouped by why. Matching is case-insensitive.
 const GATEWAY_SETTINGS = new Set(["ADMIN_PASSWORD", "CLIENT_ID", "CLIENT_SECRET", "MCP_SERVERS", "DB_PATH", "PUBLIC_URL", "MCP_PASSTHROUGH_ENV"]);
+/** The gateway's own settings; an MCP process must never see their values. */
+export const GATEWAY_SETTING_NAMES: readonly string[] = [...GATEWAY_SETTINGS];
+
 const PROGRAM_LOOKUP = new Set(["PATH", "HOME", "SHELL", "IFS"]);
 const SHELL_STARTUP = new Set(["BASH_ENV", "ENV", "PROMPT_COMMAND"]);
 // Runtimes and tools that read an environment variable to decide what code to load on start.

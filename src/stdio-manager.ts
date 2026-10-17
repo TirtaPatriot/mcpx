@@ -1,7 +1,7 @@
 import type { Subprocess } from "bun";
 import { dirname } from "node:path";
 import { MCP_PASSTHROUGH_ENV } from "./config";
-import { hardDenyReason } from "./env-policy";
+import { GATEWAY_SETTING_NAMES, hardDenyReason } from "./env-policy";
 import { newSecret, log } from "./utils";
 
 interface PendingRpcRequest {
@@ -49,7 +49,11 @@ export function buildProcessEnv(input: {
   const passthrough = input.passthrough ?? MCP_PASSTHROUGH_ENV;
   const cacheBase = host.CACHE_DIR || (host.DB_PATH ? dirname(host.DB_PATH) + "/cache" : "./data/cache");
 
+  // Bun reads a .env file in the working directory by itself when it starts, which is how a process run
+  // with `bun` or `bunx` could pick up the gateway's own settings. A variable that is already set, even to
+  // an empty string, is never replaced from .env, so the gateway's settings are set empty here.
   const env: Record<string, string> = {
+    ...Object.fromEntries(GATEWAY_SETTING_NAMES.map((name) => [name, ""])),
     PYTHONUNBUFFERED: "1",
     UV_CACHE_DIR: host.UV_CACHE_DIR || `${cacheBase}/uv`,
     GOCACHE: host.GOCACHE || `${cacheBase}/go-build`,
@@ -127,6 +131,7 @@ export function getOrCreateStdioSession(
   envStr: string,
   requestedSessionId?: string,
   clientKey?: string,
+  overrides: Record<string, string> = {},
 ): StdioSession {
   if (requestedSessionId) {
     const existing = getActiveStdioSession(requestedSessionId);
@@ -147,7 +152,7 @@ export function getOrCreateStdioSession(
     }
   }
 
-  const session = spawnStdioSession(serverName, command, argsStr, envStr, requestedSessionId, clientKey);
+  const session = spawnStdioSession(serverName, command, argsStr, envStr, requestedSessionId, clientKey, overrides);
   if (clientKey) {
     clientKeyToSessionId.set(clientKey, session.sessionId);
   }
@@ -161,11 +166,12 @@ export function spawnStdioSession(
   envStr: string,
   existingSessionId?: string,
   clientKey?: string,
+  overrides: Record<string, string> = {},
 ): StdioSession {
   const sessionId = existingSessionId || newSecret().slice(0, 16);
   const finalCmd = resolveCommandAndArgs(command || "bunx", argsStr);
   if (finalCmd.length === 0) finalCmd.push("bunx");
-  const mergedEnv = buildProcessEnv({ serverEnv: parseEnv(envStr) });
+  const mergedEnv = buildProcessEnv({ serverEnv: parseEnv(envStr), overrides });
 
   log("stdio", `🚀 Starting MCP process [${serverName}] (session: ${sessionId}): ${finalCmd.join(" ")}`);
 
@@ -354,6 +360,11 @@ export function closeStdioSession(sessionId: string): void {
   } catch {}
   activeSessions.delete(sessionId);
   if (session.clientKey) clientKeyToSessionId.delete(session.clientKey);
+}
+
+/** Stops every running MCP process, for shutdown and for tests. */
+export function closeAllStdioSessions(): void {
+  for (const id of [...activeSessions.keys()]) closeStdioSession(id);
 }
 
 // Schedule the session to close if the client disconnects (default idle: 15 minutes)
