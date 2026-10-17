@@ -42,6 +42,7 @@ CI runs the same checks plus a Docker build.
 | `src/admin-api.ts` | JSON API behind the dashboard |
 | `web/` | Dashboard: Vite + Preact + TypeScript + Tailwind. `src/tabs/` has one component per tab, `src/api.ts` the fetch helper, `src/ui.tsx` shared pieces. The OAuth consent page is `consent.html` + `src/components/ConsentView.tsx` |
 | `src/web.ts` | Serves the built pages (`web/dist`): the dashboard behind the admin session, and the consent page filled with data |
+| `src/env-policy.ts` | Every rule for overriding MCP environment variables; pure, and imported by the server, the admin API and the dashboard alike |
 | `src/consent-data.ts` | The data contract between the server and the consent page (types only) |
 | `src/utils.ts`, `src/icons.ts` | Helpers |
 | `test/` | Server tests (`bun test`); `test/setup.ts` points the database at a temp directory |

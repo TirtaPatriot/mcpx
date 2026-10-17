@@ -122,6 +122,14 @@ The base environment becomes an allow list of host variables:
 `MCP_PASSTHROUGH_ENV=NAME_A,NAME_B` (a gateway setting) passes additional host variables through.
 It is opt-in and the deny list above still applies to it.
 
+**Bun and `.env`.** Bun reads a `.env` file from its working directory on its own, so a process started
+with `bun` or `bunx` would otherwise pick up the gateway's own settings from the gateway's `.env` even though
+the environment was scrubbed. The gateway's settings (the "gateway's own settings" in the deny list) are
+therefore set to the empty string in the process environment; Bun never replaces a variable that is already
+set. The working directory is left alone, because commands such as `uv run server.py` and `go run main.go`
+use paths relative to it. Other secrets in a `.env` next to the gateway can still reach `bun`-based processes;
+the README says to keep that file out of the working directory or to use Docker.
+
 **Compatibility.** A server that quietly relied on an inherited host variable stops seeing it.
 The fix is to add the variable to that server's `env_vars` or to `MCP_PASSTHROUGH_ENV`. This is
 called out in the README. The dashboard's "Test command" button uses the same environment, so a

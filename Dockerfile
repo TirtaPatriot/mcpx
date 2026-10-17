@@ -3,6 +3,8 @@ FROM oven/bun:alpine AS web
 WORKDIR /build
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
+# The dashboard shares pure modules with the server (env-policy, consent-data), so src is needed here too.
+COPY src ./src
 COPY web ./web
 RUN bun run build
 

@@ -27,6 +27,8 @@ services:
       # 60-second grace period for refresh-token rotation
       REFRESH_GRACE_PERIOD: ${REFRESH_GRACE_PERIOD:-60}
       # true = log each SSE chunk (truncated to 200 characters); false to turn it off
+      # Extra host variables that MCP processes may inherit (comma-separated); empty = none
+      MCP_PASSTHROUGH_ENV: ${MCP_PASSTHROUGH_ENV:-}
       LOG_SSE_CHUNKS: ${LOG_SSE_CHUNKS:-true}
     extra_hosts:
       # Lets the container reach MCP servers running on the host (Linux)

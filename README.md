@@ -102,7 +102,33 @@ Set these in `.env` (see [`.env.example`](.env.example)).
 | `ACCESS_TOKEN_TTL` | `2592000` (30 days) | Access token lifetime, seconds. |
 | `REFRESH_TOKEN_TTL` | `31536000` (1 year) | Refresh token lifetime, seconds. |
 | `REFRESH_GRACE_PERIOD` | `60` | Seconds an old refresh token still works after rotation. |
+| `MCP_PASSTHROUGH_ENV` | none | Comma-separated host variables that MCP processes may inherit (see [Overriding environment variables](#overriding-environment-variables)). |
 | `LOG_SSE_CHUNKS` | `true` | Log SSE chunks (truncated to 200 characters). |
+
+## Overriding environment variables
+
+One MCP server can behave differently for different AI apps. The Dokploy server, for example, can expose a large tool list; Gemini cannot take a payload that big, so Gemini needs `DOKPLOY_TOOL_PRESET=minimal` while Claude can use `full`.
+
+For a server that runs as a command (`bunx`, `uvx`, `go run`, ...), an admin lists which variables may be overridden, and who may change them is then limited to that list:
+
+1. **Server dialog → Overridable variables.** Add `DOKPLOY_TOOL_PRESET` with the allowed values `minimal, standard, full`.
+2. **Per OAuth client.** In the client's dialog, choose a value under *Environment overrides*. Every connection of that client uses it.
+3. **Per connection, in the URL.** The server's **Connect** dialog builds `https://gateway/mcp/dokploy?env.DOKPLOY_TOOL_PRESET=minimal` for apps that only let you edit a URL.
+
+The order is: the server's own `env_vars`, then the client's overrides, then the URL. A wrong URL override is refused with a message naming the variable and the valid values. Connections with different overrides get separate processes.
+
+What can be listed is limited on purpose:
+
+- Names that change which code runs or where traffic goes (`PATH`, `LD_*`, `NODE_*`, `PYTHON*`, `BASH_ENV`, proxy and certificate settings, the gateway's own settings, ...) can never be listed.
+- Names that look like secrets (`KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `CREDENTIAL`) cannot be listed: values sent in a URL end up in browser history and logs.
+- Names that point somewhere or run something (`URL`, `HOST`, `DIR`, `FILE`, `COMMAND`, ...) need an explicit list of allowed values, so a client cannot redirect a server, and the credentials you gave it, to a host of its choosing.
+- A value is at most 256 characters, with no line breaks.
+
+### The environment of an MCP process
+
+MCP processes do **not** inherit the gateway's environment. They get a small base (`PATH`, `HOME`, `LANG`, `TZ`, proxy and certificate settings, cache directories), then the server's `env_vars`. The gateway's own settings (`ADMIN_PASSWORD`, `CLIENT_SECRET`, ...) are set to empty in the process, because Bun reads a `.env` file from the working directory by itself and would otherwise hand them over.
+
+If a server relied on a host variable, add it to that server's `env_vars`, or name it in `MCP_PASSTHROUGH_ENV` (for example `MCP_PASSTHROUGH_ENV=GITHUB_TOKEN`). Prefer `env_vars` for secrets. Other secrets in a `.env` next to the gateway can still be read by processes started with `bun` or `bunx`, so keep that file out of the gateway's working directory, or use Docker, where `.env` is not part of the image.
 
 ## Endpoints
 
