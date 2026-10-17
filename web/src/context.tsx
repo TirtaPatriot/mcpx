@@ -5,10 +5,10 @@ import type { Me } from "./types";
 export type TabId = "overview" | "servers" | "clients" | "users" | "tokens" | "logs" | "settings";
 
 export interface AppContextValue {
-  /** Data akun yang sedang login dan origin publik gateway (dari /api/admin/me). */
+  /** The signed-in account and the gateway public origin (from /api/admin/me). */
   me: Me;
   goTab: (tab: TabId) => void;
-  /** Buka dialog penerbitan token; clientId opsional untuk memilih klien terlebih dahulu. */
+  /** Open the token dialog; clientId optionally preselects a client. */
   openGenToken: (clientId?: string) => void;
   clearTempPasswordWarning: () => void;
 }

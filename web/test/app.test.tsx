@@ -49,7 +49,7 @@ async function waitFor(check: () => boolean, what: string) {
   throw new Error(`timeout waiting for: ${what}\n${text().slice(0, 400)}`);
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
-/** Klik tombol berdasarkan teksnya, lalu tunggu Preact selesai me-render ulang. */
+/** Click a button by its text, then wait for Preact to finish re-rendering. */
 const click = async (label: string) => {
   const btn = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes(label));
   if (!btn) throw new Error(`button not found: ${label}`);
@@ -59,20 +59,20 @@ const click = async (label: string) => {
 
 async function mount() {
   render(<App />, document.getElementById("app")!);
-  await waitFor(() => text().includes("Ringkasan"), "app shell");
+  await waitFor(() => text().includes("Overview"), "app shell");
 }
 
 describe("dashboard", () => {
   test("shows the shell, the user badge and the temporary-password warning", async () => {
     await mount();
     expect(text()).toContain("Administrator");
-    expect(text()).toContain("password sementara");
+    expect(text()).toContain("temporary password");
   });
 
   test("overview loads stats and uses the public origin in the guides", async () => {
     await mount();
     await waitFor(() => text().includes("1.3.0"), "stats");
-    expect(text()).toContain("Hub Integrasi");
+    expect(text()).toContain("AI client integration hub");
     expect(text()).toContain("https://gw.example.com/oauth/authorize");
     await click("Claude Desktop / Code");
     expect(text()).toContain("https://gw.example.com/mcp/dokploy");
@@ -80,7 +80,7 @@ describe("dashboard", () => {
 
   test("servers tab renders rows and escapes HTML in names", async () => {
     await mount();
-    await click("Server MCP");
+    await click("MCP Servers");
     await waitFor(() => text().includes("/mcp/dokploy/*"), "server row");
     expect(text()).toContain("Dokploy <b>MCP</b>");
     expect(document.querySelector("tbody b")).toBeNull();
@@ -89,44 +89,44 @@ describe("dashboard", () => {
 
   test("clients tab hides the secret until revealed", async () => {
     await mount();
-    await click("Klien OAuth");
+    await click("OAuth Clients");
     await waitFor(() => text().includes("claude-desktop"), "client row");
-    expect(text()).toContain("3 sesi aktif");
+    expect(text()).toContain("3 active sessions");
     expect(text()).not.toContain("s3cr3t-value");
-    await click("Lihat");
+    await click("Show");
     await waitFor(() => text().includes("s3cr3t-value"), "revealed secret");
   });
 
   test("tokens, users, logs and settings tabs load their data", async () => {
     await mount();
-    await click("Token & Sesi");
+    await click("Tokens & Sessions");
     await waitFor(() => text().includes("abcdefghijkl..."), "token row");
-    await click("Pengguna");
-    await waitFor(() => text().includes("(Anda)"), "user row");
-    await click("Log Aktivitas");
+    await click("Users");
+    await waitFor(() => text().includes("(you)"), "user row");
+    await click("Activity Log");
     await waitFor(() => text().includes("/health"), "log row");
     expect(text()).toContain("1.2ms");
-    await click("Pengaturan");
+    await click("Settings");
     await waitFor(() => text().includes("https://gw.example.com/health"), "settings links");
   });
 
   test("the add-server dialog opens and switches between HTTP and CLI fields", async () => {
     await mount();
-    await click("Server MCP");
-    await waitFor(() => text().includes("Tambah Server MCP"), "servers tab");
-    await click("Tambah Server MCP");
+    await click("MCP Servers");
+    await waitFor(() => text().includes("Add MCP server"), "servers tab");
+    await click("Add MCP server");
     expect(text()).toContain("Upstream URL");
     await click("CLI / Stdio");
-    expect(text()).toContain("Test Perintah Sekarang");
+    expect(text()).toContain("Test command now");
   });
 
   test("the token dialog lists clients and issues a token", async () => {
     routes["/api/admin/tokens/generate"] = { ok: true, token: "tok_123", expiresAt: 1_900_000_000_000 };
     await mount();
-    await click("Buat Token Akses");
+    await click("Create access token");
     await waitFor(() => text().includes("Claude Desktop (claude-desktop)"), "client option");
-    await click("Terbitkan Token");
-    await waitFor(() => text().includes("Token Akses Berhasil Dibuat"), "result");
+    await click("Issue token");
+    await waitFor(() => text().includes("Access token created"), "result");
     expect(text()).toContain("Bearer tok_123");
     expect(calls).toContain("/api/admin/tokens/generate");
   });

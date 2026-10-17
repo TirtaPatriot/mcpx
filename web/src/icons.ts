@@ -1,6 +1,6 @@
 import type { McpServer, OAuthClient } from "./types";
 
-/** Ikon bawaan server MCP, ditebak dari id dan perintahnya. */
+/** Default icon for an MCP server, guessed from its id and command. */
 export function serverIcon(s: McpServer): string {
   if (s.icon) return s.icon;
   const isCmd = s.server_type === "command";
@@ -15,7 +15,7 @@ export function serverIcon(s: McpServer): string {
   return isCmd ? "/icons/terminal.svg" : "/icons/mcp.svg";
 }
 
-/** Ikon bawaan klien OAuth, ditebak dari id dan redirect URI-nya. */
+/** Default icon for an OAuth client, guessed from its id and redirect URIs. */
 export function clientIcon(c: OAuthClient): string {
   if (c.icon) return c.icon;
   const id = c.id;

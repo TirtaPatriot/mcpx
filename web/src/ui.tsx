@@ -25,7 +25,7 @@ export function Modal(props: {
       <div class={`modal-panel bg-dark-800 border border-dark-700 rounded-2xl ${width} w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto`}>
         <div class="flex items-center justify-between">
           <h3 class="text-base font-semibold text-white flex items-center gap-2">{props.title}</h3>
-          <button type="button" onClick={props.onClose} class="modal-close text-slate-400 hover:text-white text-lg" aria-label="Tutup">
+          <button type="button" onClick={props.onClose} class="modal-close text-slate-400 hover:text-white text-lg" aria-label="Close">
             &times;
           </button>
         </div>
@@ -48,7 +48,7 @@ export function ModalFooter(props: { onCancel: () => void; submitLabel: string; 
   return (
     <div class="flex justify-end gap-2 pt-3 border-t border-dark-700">
       <button type="button" onClick={props.onCancel} class={btnGhost}>
-        Batal
+        Cancel
       </button>
       <button type="submit" disabled={props.disabled} class={props.submitClass ?? btnPrimary}>
         {props.submitLabel}
@@ -69,7 +69,7 @@ export function SectionHeader(props: { title: ComponentChildren; subtitle?: Comp
   );
 }
 
-/** Tabel yang berubah menjadi kartu di layar sempit; isi <td> memakai data-label untuk labelnya. */
+/** Table that turns into cards on narrow screens; each <td> uses data-label for its caption. */
 export function DataTable(props: { head: string[]; children: ComponentChildren; mono?: boolean; compact?: boolean }) {
   const last = props.head.length - 1;
   return (
@@ -79,7 +79,7 @@ export function DataTable(props: { head: string[]; children: ComponentChildren; 
           <thead class={`bg-dark-900/70 border-b border-dark-700 text-slate-400 uppercase tracking-wider text-[10px] ${props.mono ? "font-sans" : ""}`}>
             <tr>
               {props.head.map((h, i) => (
-                <th key={h} class={`py-3 px-4 ${i === last && h === "Aksi" ? "text-right" : ""}`}>
+                <th key={h} class={`py-3 px-4 ${i === last && h === "Actions" ? "text-right" : ""}`}>
                   {h}
                 </th>
               ))}
@@ -119,7 +119,7 @@ export function EnabledPill(props: { enabled: boolean; offLabel: string; onClick
         props.enabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-slate-700 text-slate-400"
       }`}
     >
-      {props.enabled ? "● Aktif" : `○ ${props.offLabel}`}
+      {props.enabled ? "● Active" : `○ ${props.offLabel}`}
     </button>
   );
 }
@@ -139,7 +139,7 @@ export function IconBox(props: { src: string; fallback: string; size?: "sm" | "m
   );
 }
 
-/** Baris "label + nilai + tombol Salin" untuk URL OAuth. */
+/** "Label + value + Copy button" row for OAuth URLs. */
 export function UrlRow(props: { label: string; value: string }) {
   return (
     <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 flex items-center justify-between gap-2">
@@ -152,13 +152,13 @@ export function UrlRow(props: { label: string; value: string }) {
         onClick={() => copyText(props.value)}
         class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600"
       >
-        Salin
+        Copy
       </button>
     </div>
   );
 }
 
-/** Konfigurasi `mcpServers` untuk Claude Desktop / Cursor. */
+/** `mcpServers` config for Claude Desktop / Cursor. */
 export function mcpConfigJson(origin: string, token: string, server = "dokploy"): string {
   return JSON.stringify(
     { mcpServers: { [server]: { url: `${origin}/mcp/${server}`, headers: { Authorization: `Bearer ${token}` } } } },
@@ -173,7 +173,7 @@ export function CodeBlock(props: { title: string; code: string; copyLabel?: stri
       <div class="flex items-center justify-between text-slate-400 font-sans text-[11px]">
         <span>{props.title}</span>
         <button type="button" onClick={() => copyText(props.code)} class="text-blue-400 hover:underline">
-          {props.copyLabel ?? "Salin JSON"}
+          {props.copyLabel ?? "Copy JSON"}
         </button>
       </div>
       <pre class="text-slate-300 text-[11px] overflow-x-auto whitespace-pre">{props.code}</pre>

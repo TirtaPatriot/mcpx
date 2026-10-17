@@ -13,46 +13,46 @@ export function Users() {
 
   const toggle = async (id: string) => {
     const res = await api<{ enabled: boolean }>(`/users/${id}/toggle`, { method: "POST" });
-    showToast(res.enabled ? "Pengguna diaktifkan" : "Pengguna dinonaktifkan");
+    showToast(res.enabled ? "User enabled" : "User disabled");
     load();
   };
   const remove = async (u: User) => {
-    if (!confirm(`Hapus pengguna "${u.username}"? Tindakan ini tidak dapat dibatalkan.`)) return;
+    if (!confirm(`Delete user "${u.username}"? This cannot be undone.`)) return;
     await api(`/users/${u.id}`, { method: "DELETE" });
-    showToast("Pengguna dihapus");
+    showToast("User deleted");
     load();
   };
 
   return (
     <section class="space-y-6">
       <SectionHeader
-        title={<><span>👥</span> Manajemen Pengguna & Tim</>}
-        subtitle="Kelola akun pengguna, peran administrator/user, dan hak akses gateway."
+        title={<><span>👥</span> Users & team</>}
+        subtitle="Manage user accounts, the admin/user role, and gateway access."
       >
         <button type="button" onClick={() => setEditing("new")} class={`${btnPrimary} text-xs flex items-center gap-1.5`}>
-          <span>+</span> Tambah Pengguna
+          <span>+</span> Add user
         </button>
       </SectionHeader>
 
-      <DataTable head={["Pengguna", "Username", "Peran", "Status", "Dibuat", "Aksi"]}>
+      <DataTable head={["User", "Username", "Role", "Status", "Created", "Actions"]}>
         {users === null ? (
-          <EmptyRow cols={6}>Memuat data pengguna...</EmptyRow>
+          <EmptyRow cols={6}>Loading users...</EmptyRow>
         ) : users.length === 0 ? (
-          <EmptyRow cols={6}>Belum ada data pengguna.</EmptyRow>
+          <EmptyRow cols={6}>No users yet.</EmptyRow>
         ) : (
           users.map((u) => (
             <tr key={u.id} class="hover:bg-dark-900/30 transition">
-              <Td label="Pengguna">
+              <Td label="User">
                 <div class="font-medium text-white">
                   {u.name}{" "}
-                  {u.isSelf && <span class="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 ml-1">(Anda)</span>}
+                  {u.isSelf && <span class="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 ml-1">(you)</span>}
                 </div>
                 <div class="text-[11px] text-slate-400 font-mono">ID: {u.id}</div>
               </Td>
               <Td label="Username" class="font-mono text-slate-300">
                 @{u.username}
               </Td>
-              <Td label="Peran">
+              <Td label="Role">
                 {u.role === "admin" ? (
                   <span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono font-semibold uppercase">ADMIN</span>
                 ) : (
@@ -62,28 +62,28 @@ export function Users() {
               <Td label="Status">
                 {u.enabled ? (
                   <span class="text-emerald-400 flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Aktif
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Active
                   </span>
                 ) : (
                   <span class="text-slate-500 flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-slate-500" /> Nonaktif
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-500" /> Disabled
                   </span>
                 )}
               </Td>
-              <Td label="Dibuat" class="text-slate-400">
+              <Td label="Created" class="text-slate-400">
                 {new Date(u.created_at).toLocaleDateString()}
               </Td>
-              <Td label="Aksi" actions>
+              <Td label="Actions" actions>
                 <button type="button" onClick={() => setEditing(u)} class="text-blue-400 hover:underline">
                   Edit
                 </button>
                 {!u.isSelf && (
                   <>
                     <button type="button" onClick={() => toggle(u.id)} class={`${u.enabled ? "text-amber-400" : "text-emerald-400"} hover:underline`}>
-                      {u.enabled ? "Nonaktifkan" : "Aktifkan"}
+                      {u.enabled ? "Disable" : "Enable"}
                     </button>
                     <button type="button" onClick={() => remove(u)} class="text-red-400 hover:underline">
-                      Hapus
+                      Delete
                     </button>
                   </>
                 )}
@@ -99,7 +99,7 @@ export function Users() {
           onClose={() => setEditing(null)}
           onSaved={(created) => {
             setEditing(null);
-            showToast(created ? "Pengguna baru berhasil dibuat" : "Pengguna berhasil diperbarui");
+            showToast(created ? "User created" : "User updated");
             load();
           }}
         />
@@ -130,29 +130,29 @@ function UserModal(props: { user: User | null; onClose: () => void; onSaved: (cr
   };
 
   return (
-    <Modal title={u ? `Edit Pengguna: @${u.username}` : "Tambah Pengguna Baru"} onClose={props.onClose} size="md">
+    <Modal title={u ? `Edit user: @${u.username}` : "Add new user"} onClose={props.onClose} size="md">
       <form onSubmit={save} class="space-y-3 text-xs">
-        <Field label="Username (login)">
-          <input type="text" required disabled={!!u} value={username} onInput={(e) => setUsername(e.currentTarget.value)} placeholder="misal: bobby atau dev-team" class={monoInputCls} />
+        <Field label="Username (used to sign in)">
+          <input type="text" required disabled={!!u} value={username} onInput={(e) => setUsername(e.currentTarget.value)} placeholder="e.g. bobby or dev-team" class={monoInputCls} />
         </Field>
-        <Field label="Nama Lengkap">
-          <input type="text" required value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="misal: Bobby Pratama" class={inputCls} />
+        <Field label="Full name">
+          <input type="text" required value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="e.g. Bobby Pratama" class={inputCls} />
         </Field>
-        <Field label="Peran (Role)">
+        <Field label="Role">
           <select value={role} onChange={(e) => setRole(e.currentTarget.value as "admin" | "user")} class={inputCls}>
-            <option value="user">User Biasa (Akses MCP & Token)</option>
-            <option value="admin">Administrator (Akses Penuh)</option>
+            <option value="user">User (MCP and token access)</option>
+            <option value="admin">Administrator (full access)</option>
           </select>
         </Field>
-        <Field label={u ? "Password Baru (Opsional)" : "Password"}>
-          <input type="password" required={!u} value={password} onInput={(e) => setPassword(e.currentTarget.value)} placeholder="Minimal 4 karakter" class={inputCls} />
-          {u && <p class="text-[10px] text-slate-500 mt-1">Kosongkan jika tidak ingin mengubah password.</p>}
+        <Field label={u ? "New password (optional)" : "Password"}>
+          <input type="password" required={!u} value={password} onInput={(e) => setPassword(e.currentTarget.value)} placeholder="At least 4 characters" class={inputCls} />
+          {u && <p class="text-[10px] text-slate-500 mt-1">Leave empty to keep the current password.</p>}
         </Field>
         <label class="flex items-center gap-2 pt-1 text-slate-300">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} class="rounded bg-dark-900 border-dark-700 text-blue-600 focus:ring-0" />
-          Akun Aktif (Dapat Login & Akses Gateway)
+          Account enabled (can sign in and use the gateway)
         </label>
-        <ModalFooter onCancel={props.onClose} submitLabel="Simpan Pengguna" />
+        <ModalFooter onCancel={props.onClose} submitLabel="Save user" />
       </form>
     </Modal>
   );

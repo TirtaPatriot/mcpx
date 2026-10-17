@@ -29,12 +29,12 @@
   }
 }
 
-/* ── Tabel responsif: di layar sempit tiap baris menjadi kartu; label diambil dari atribut data-label ── */
+/* ── Responsive tables: on narrow screens each row becomes a card; captions come from the data-label attribute ── */
 @media (max-width: 639px) {
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    font-size: 16px !important; /* cegah zoom otomatis di iOS */
+    font-size: 16px !important; /* stop iOS from zooming in on focus */
   }
   button,
   select {
@@ -47,7 +47,7 @@
     bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
-  /* navigasi tab: strip yang menempel di bawah header, bisa digeser */
+  /* tab navigation: a scrollable strip pinned below the header */
   .nav-aside {
     position: sticky;
     top: 4rem;
@@ -75,7 +75,7 @@
     padding: 0.5rem 0.8rem;
   }
 
-  /* grup tombol di header section jadi selebar layar */
+  /* the button group in a section header spans the full width */
   .section-actions {
     width: 100%;
     flex-wrap: wrap;

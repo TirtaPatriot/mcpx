@@ -4,8 +4,8 @@ import { inputCls } from "./ui";
 import "./styles.css";
 
 /**
- * Hanya path internal yang diizinkan sebagai tujuan setelah login (cegah open redirect).
- * Karakter kontrol dan backslash ditolak karena browser menormalkannya menjadi "//host".
+ * Only internal paths are allowed as the post-login destination (prevents open redirects).
+ * Control characters and backslashes are rejected because browsers normalise them into "//host".
  */
 export function safeNext(): string {
   const raw = new URLSearchParams(location.search).get("next") ?? "";
@@ -13,7 +13,7 @@ export function safeNext(): string {
   try {
     const u = new URL(raw, location.origin);
     const out = u.pathname + u.search + u.hash;
-    // Segmen titik dihapus saat parsing ("/.//evil.com" -> "//evil.com"), jadi periksa hasil akhirnya.
+    // Parsing removes dot segments ("/.//evil.com" -> "//evil.com"), so check the final result.
     return u.origin === location.origin && !out.startsWith("//") ? out : "/admin";
   } catch {
     return "/admin";
@@ -37,7 +37,7 @@ function Login() {
         body: JSON.stringify({ username: username.trim(), password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Username atau password salah");
+      if (!res.ok) throw new Error(data.error || "Wrong username or password");
       window.location.href = import.meta.env.DEV ? "/_app/index.html" : safeNext();
     } catch (err) {
       setError((err as Error).message);
@@ -53,7 +53,7 @@ function Login() {
         </div>
         <div>
           <h1 class="text-xl font-bold text-white tracking-tight">MCP Gateway Dashboard</h1>
-          <p class="text-xs text-slate-400 mt-1">Universal OAuth 2.1 & Reverse Proxy untuk Semua AI</p>
+          <p class="text-xs text-slate-400 mt-1">Universal OAuth 2.1 and reverse proxy for every AI client</p>
         </div>
       </div>
 
@@ -68,7 +68,7 @@ function Login() {
             autofocus
             value={username}
             onInput={(e) => setUsername(e.currentTarget.value)}
-            placeholder="Masukkan username akun..."
+            placeholder="Enter your username..."
             class={`${inputCls} px-4 py-3 text-sm placeholder-slate-500 transition font-mono`}
           />
         </div>
@@ -79,11 +79,11 @@ function Login() {
             required
             value={password}
             onInput={(e) => setPassword(e.currentTarget.value)}
-            placeholder="Masukkan password..."
+            placeholder="Enter your password..."
             class={`${inputCls} px-4 py-3 text-sm placeholder-slate-500 transition`}
           />
           <p class="text-[11px] text-slate-500 mt-1.5">
-            Instalasi baru: username <code>admin</code>, password ada di log startup atau variabel <code>ADMIN_PASSWORD</code>.
+            New install: username <code>admin</code>, password in the startup log or the <code>ADMIN_PASSWORD</code> variable.
           </p>
         </div>
         <button
@@ -91,7 +91,7 @@ function Login() {
           disabled={busy}
           class="w-full min-h-12 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl text-sm transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2"
         >
-          {busy ? "Memverifikasi..." : <><span>Masuk ke Dashboard</span> &rarr;</>}
+          {busy ? "Signing in..." : <><span>Sign in to the dashboard</span> &rarr;</>}
         </button>
       </form>
     </div>

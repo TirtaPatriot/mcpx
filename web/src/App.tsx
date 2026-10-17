@@ -13,13 +13,13 @@ import { useToast } from "./toast";
 import type { Me } from "./types";
 
 const TABS: { id: TabId; icon: string; label: string; Component: () => preact.JSX.Element }[] = [
-  { id: "overview", icon: "📊", label: "Ringkasan", Component: Overview },
-  { id: "servers", icon: "🔌", label: "Server MCP", Component: Servers },
-  { id: "clients", icon: "🔑", label: "Klien OAuth", Component: Clients },
-  { id: "users", icon: "👥", label: "Pengguna", Component: Users },
-  { id: "tokens", icon: "🎫", label: "Token & Sesi", Component: Tokens },
-  { id: "logs", icon: "📜", label: "Log Aktivitas", Component: Logs },
-  { id: "settings", icon: "⚙️", label: "Pengaturan", Component: Settings },
+  { id: "overview", icon: "📊", label: "Overview", Component: Overview },
+  { id: "servers", icon: "🔌", label: "MCP Servers", Component: Servers },
+  { id: "clients", icon: "🔑", label: "OAuth Clients", Component: Clients },
+  { id: "users", icon: "👥", label: "Users", Component: Users },
+  { id: "tokens", icon: "🎫", label: "Tokens & Sessions", Component: Tokens },
+  { id: "logs", icon: "📜", label: "Activity Log", Component: Logs },
+  { id: "settings", icon: "⚙️", label: "Settings", Component: Settings },
 ];
 
 const tabFromHash = (): TabId => {
@@ -47,7 +47,7 @@ export function App() {
   const [tab, setTab] = useState<TabId>(tabFromHash);
   const [tempPassword, setTempPassword] = useState(false);
   const [gen, setGen] = useState<{ clientId: string } | null>(null);
-  // Naik setiap kali token baru dibuat, agar tab yang sedang terbuka memuat ulang datanya.
+  // Bumped whenever a token is created so the open tab reloads its data.
   const [refresh, setRefresh] = useState(0);
   const activeBtn = useRef<HTMLButtonElement>(null);
 
@@ -64,7 +64,7 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  // geser strip tab agar tab aktif terlihat di layar sempit
+  // scroll the tab strip so the active tab stays visible on narrow screens
   useEffect(() => activeBtn.current?.scrollIntoView?.({ inline: "center", block: "nearest" }), [tab, me]);
 
   const goTab = (id: TabId) => {
@@ -97,7 +97,7 @@ export function App() {
                 <span class="hidden lg:inline text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + CLI (bunx, uv, go, npx)</span>
               </h1>
               <p class="hidden md:block text-xs text-slate-400 truncate">
-                Universal reverse proxy, process bridge & OAuth 2.1 manager untuk Semua AI (Gemini, Claude, Cursor, ChatGPT, LibreChat, dll.)
+                Universal reverse proxy, process bridge and OAuth 2.1 manager for every AI client (Gemini, Claude, Cursor, ChatGPT, LibreChat, etc.)
               </p>
             </div>
           </div>
@@ -116,7 +116,7 @@ export function App() {
               RFC 8414 Discovery ↗
             </a>
             <button type="button" onClick={logout} class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg transition font-medium">
-              Keluar
+              Sign out
             </button>
           </div>
         </div>
@@ -128,11 +128,11 @@ export function App() {
             <div class="flex items-center gap-2">
               <span class="text-base">⚠️</span>
               <span>
-                Anda masih menggunakan password sementara. Segera ganti password di tab <strong>Pengaturan</strong> demi keamanan.
+                You are still using a temporary password. Change it in the <strong>Settings</strong> tab to keep the gateway secure.
               </span>
             </div>
             <button type="button" onClick={() => goTab("settings")} class="underline hover:text-amber-200">
-              Ganti Sekarang &rarr;
+              Change now &rarr;
             </button>
           </div>
         </div>

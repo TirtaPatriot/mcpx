@@ -40,14 +40,14 @@ export function Servers() {
 
   const toggle = async (id: string) => {
     await api(`/servers/${id}/toggle`, { method: "POST" });
-    showToast("Status server diubah");
+    showToast("Server status changed");
     load();
   };
 
   const remove = async (id: string) => {
-    if (!confirm(`Hapus server MCP "${id}"?`)) return;
+    if (!confirm(`Delete MCP server "${id}"?`)) return;
     await api(`/servers/${id}`, { method: "DELETE" });
-    showToast("Server dihapus");
+    showToast("Server deleted");
     load();
   };
 
@@ -64,23 +64,23 @@ export function Servers() {
   return (
     <section class="space-y-4">
       <SectionHeader
-        title="Daftar Server MCP"
+        title="MCP servers"
         subtitle={
           <>
-            Mendukung server URL (HTTP/SSE) maupun CLI/stdio via <code>bunx</code>, <code>uv / uvx</code>, <code>go run</code>, <code>python</code>, <code>npx</code>
+            Supports URL servers (HTTP/SSE) and CLI/stdio servers via <code>bunx</code>, <code>uv / uvx</code>, <code>go run</code>, <code>python</code>, <code>npx</code>
           </>
         }
       >
         <button type="button" onClick={() => setEditing("new")} class={`${btnPrimary} text-xs px-4 flex items-center gap-1.5`}>
-          <span>+</span> Tambah Server MCP
+          <span>+</span> Add MCP server
         </button>
       </SectionHeader>
 
-      <DataTable head={["Status", "Tipe", "ID & Nama", "Target / Perintah", "Koneksi", "Aksi"]}>
+      <DataTable head={["Status", "Type", "ID & Name", "Target / Command", "Connection", "Actions"]}>
         {servers === null ? (
-          <EmptyRow cols={6}>Memuat server MCP...</EmptyRow>
+          <EmptyRow cols={6}>Loading MCP servers...</EmptyRow>
         ) : servers.length === 0 ? (
-          <EmptyRow cols={6}>Belum ada server MCP. Klik "Tambah Server MCP" untuk menambahkan.</EmptyRow>
+          <EmptyRow cols={6}>No MCP servers yet. Click "Add MCP server" to add one.</EmptyRow>
         ) : (
           servers.map((s) => (
             <ServerRow key={s.id} s={s} ping={pings[s.id]} onToggle={() => toggle(s.id)} onPing={() => ping(s.id)} onEdit={() => setEditing(s)} onDelete={() => remove(s.id)} />
@@ -94,7 +94,7 @@ export function Servers() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
-            showToast("Server MCP disimpan");
+            showToast("MCP server saved");
             load();
           }}
         />
@@ -116,9 +116,9 @@ function ServerRow(props: {
   return (
     <tr class="hover:bg-dark-900/30 transition">
       <Td label="Status">
-        <EnabledPill enabled={s.enabled} offLabel="Mati" onClick={props.onToggle} />
+        <EnabledPill enabled={s.enabled} offLabel="Off" onClick={props.onToggle} />
       </Td>
-      <Td label="Tipe">
+      <Td label="Type">
         {isCmd ? (
           <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">CLI/STDIO</span>
         ) : (
@@ -144,13 +144,13 @@ function ServerRow(props: {
           <span class="text-slate-300 font-mono truncate block max-w-xs">{s.url}</span>
         )}
       </Td>
-      <Td label="Koneksi">
+      <Td label="Connection">
         {!ping ? (
           <button type="button" onClick={props.onPing} class="text-[11px] bg-dark-700 hover:bg-dark-600 border border-dark-600 px-2.5 py-1 rounded-lg text-slate-200 transition">
-            Test Ping
+            Test ping
           </button>
         ) : ping.loading ? (
-          <span class="text-[11px] text-slate-400 animate-pulse">Menguji...</span>
+          <span class="text-[11px] text-slate-400 animate-pulse">Testing...</span>
         ) : ping.failed ? (
           <span class="text-[11px] text-red-400">✗ Error</span>
         ) : ping.result?.ok ? (
@@ -160,16 +160,16 @@ function ServerRow(props: {
           </span>
         ) : (
           <span class="text-[11px] text-red-400 font-mono" title={ping.result?.error || ""}>
-            ✗ Gagal ({ping.result?.latencyMs}ms)
+            ✗ Failed ({ping.result?.latencyMs}ms)
           </span>
         )}
       </Td>
-      <Td label="Aksi" actions>
+      <Td label="Actions" actions>
         <button type="button" onClick={props.onEdit} class="text-blue-400 hover:underline">
           Edit
         </button>
         <button type="button" onClick={props.onDelete} class="text-red-400 hover:underline">
-          Hapus
+          Delete
         </button>
       </Td>
     </tr>
@@ -209,8 +209,8 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
         body: { command, args, env_vars: envVars },
         silent: true,
       });
-      if (res.result.ok) showToast(`Handshake sukses! Latensi: ${res.result.latencyMs}ms`);
-      else showToast(`Gagal: ${res.result.error}`, true);
+      if (res.result.ok) showToast(`Handshake succeeded! Latency: ${res.result.latencyMs}ms`);
+      else showToast(`Failed: ${res.result.error}`, true);
     } catch (err) {
       showToast((err as Error).message, true);
     } finally {
@@ -233,18 +233,18 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
   const chip = "text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300";
 
   return (
-    <Modal title={s ? "Edit Server MCP" : "Tambah Server MCP"} onClose={props.onClose}>
+    <Modal title={s ? "Edit MCP server" : "Add MCP server"} onClose={props.onClose}>
       <form onSubmit={save} class="space-y-3 text-xs">
-        <Field label={<>ID Slug (huruf, angka, dash - misal: <code>dokploy</code> atau <code>filesystem</code>)</>}>
+        <Field label={<>ID slug (letters, digits, dashes, e.g. <code>dokploy</code> or <code>filesystem</code>)</>}>
           <input type="text" required disabled={!!s} value={id} onInput={(e) => setId(e.currentTarget.value)} placeholder="dokploy" class={monoInputCls} />
         </Field>
-        <Field label="Nama Tampilan">
+        <Field label="Display name">
           <input type="text" required value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="Dokploy MCP Server" class={inputCls} />
         </Field>
 
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="text-slate-400">Logo / Icon (Preset atau URL gambar)</label>
+            <label class="text-slate-400">Logo / icon (preset or image URL)</label>
             <div class="flex flex-wrap items-center gap-1">
               {SERVER_ICON_PRESETS.map(([label, path]) => (
                 <button key={path} type="button" onClick={() => setIcon(path)} class={chip}>
@@ -254,17 +254,17 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <input type="text" value={icon} onInput={(e) => setIcon(e.currentTarget.value)} placeholder="/icons/dokploy.svg atau https://..." class={`flex-1 ${monoInputCls}`} />
+            <input type="text" value={icon} onInput={(e) => setIcon(e.currentTarget.value)} placeholder="/icons/dokploy.svg or https://..." class={`flex-1 ${monoInputCls}`} />
             <div class="w-8 h-8 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-center shrink-0 p-1">
               <img src={icon.trim() || "/icons/mcp.svg"} class="w-full h-full object-contain" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/icons/mcp.svg")} />
             </div>
           </div>
         </div>
 
-        <Field label="Tipe Eksekusi">
+        <Field label="Execution type">
           <div class="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setType("http")} class={typeBtn(type === "http", "border-blue-500 bg-blue-600/20")}>
-              <span>🌐</span> URL Upstream (HTTP)
+              <span>🌐</span> Upstream URL (HTTP)
             </button>
             <button type="button" onClick={() => setType("command")} class={typeBtn(type === "command", "border-purple-500 bg-purple-600/20")}>
               <span>⚡</span> CLI / Stdio (bunx, uv, go run, npx)
@@ -274,10 +274,10 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
 
         {type === "http" ? (
           <div class="space-y-3">
-            <Field label={<>Upstream URL (contoh: <code>http://host.docker.internal:3001</code>)</>}>
+            <Field label={<>Upstream URL (e.g. <code>http://host.docker.internal:3001</code>)</>}>
               <input type="url" value={url} onInput={(e) => setUrl(e.currentTarget.value)} placeholder="http://host.docker.internal:3001" class={monoInputCls} />
             </Field>
-            <Field label="Headers Injeksi (JSON, opsional)">
+            <Field label="Injected headers (JSON, optional)">
               <textarea rows={2} value={headers} onInput={(e) => setHeaders(e.currentTarget.value)} placeholder='{"Authorization": "Bearer token-mcp-upstream"}' class={monoInputCls} />
             </Field>
           </div>
@@ -285,7 +285,7 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
           <div class="space-y-3">
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="text-slate-400">Perintah (Command)</label>
+                <label class="text-slate-400">Command</label>
                 <div class="flex flex-wrap gap-1">
                   {Object.keys(COMMAND_PRESETS).map((cmd) => (
                     <button key={cmd} type="button" onClick={() => applyCommandPreset(cmd)} class={`${chip} px-2 hover:text-white`}>
@@ -296,30 +296,30 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
               </div>
               <input type="text" value={command} onInput={(e) => setCommand(e.currentTarget.value)} placeholder="bunx / uvx / go run / python" class={monoInputCls} />
             </div>
-            <Field label={<>Argumen / File / Nama Paket (contoh: <code>-y @dokploy/mcp</code>, <code>mcp-server-git</code>, atau <code>main.go</code>)</>}>
+            <Field label={<>Arguments / file / package name (e.g. <code>-y @dokploy/mcp</code>, <code>mcp-server-git</code>, or <code>main.go</code>)</>}>
               <input type="text" value={args} onInput={(e) => setArgs(e.currentTarget.value)} placeholder="-y @dokploy/mcp" class={monoInputCls} />
             </Field>
-            <Field label="Environment Variables (JSON, contoh: URL & Token Dokploy)">
+            <Field label="Environment variables (JSON, e.g. Dokploy URL and token)">
               <textarea rows={3} value={envVars} onInput={(e) => setEnvVars(e.currentTarget.value)} placeholder='{"DOKPLOY_URL": "https://dokploy.example.com", "DOKPLOY_API_KEY": "xxx"}' class={monoInputCls} />
             </Field>
             <div class="flex items-center justify-between bg-dark-900/60 p-2.5 rounded-xl border border-dark-700">
-              <span class="text-[11px] text-slate-400">Uji handshake sebelum menyimpan:</span>
+              <span class="text-[11px] text-slate-400">Test the handshake before saving:</span>
               <button type="button" disabled={testing} onClick={testCommand} class="text-xs bg-dark-700 hover:bg-dark-600 px-3 py-1 rounded-lg text-slate-200">
-                {testing ? "Menguji Handshake..." : "Test Perintah Sekarang"}
+                {testing ? "Testing handshake..." : "Test command now"}
               </button>
             </div>
           </div>
         )}
 
-        <Field label="Deskripsi">
-          <input type="text" value={description} onInput={(e) => setDescription(e.currentTarget.value)} placeholder="Server MCP Dokploy untuk deployment" class={inputCls} />
+        <Field label="Description">
+          <input type="text" value={description} onInput={(e) => setDescription(e.currentTarget.value)} placeholder="Dokploy MCP server for deployments" class={inputCls} />
         </Field>
         <label class="flex items-center gap-2 pt-1 text-slate-300">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} class="w-4 h-4 rounded bg-dark-900 border-dark-700 text-blue-600 focus:ring-0" />
-          Aktifkan server ini
+          Enable this server
         </label>
 
-        <ModalFooter onCancel={props.onClose} submitLabel="Simpan Server" />
+        <ModalFooter onCancel={props.onClose} submitLabel="Save server" />
       </form>
     </Modal>
   );

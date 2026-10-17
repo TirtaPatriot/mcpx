@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
 
-// Gateway menyajikan hasil build di /_app/*; halaman HTML-nya dijaga auth oleh server (src/web.ts).
+// The gateway serves the build output at /_app/*; the HTML pages are guarded by the admin session (src/web.ts).
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:3000";
 
 export default defineConfig({
@@ -22,7 +22,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // Saat `bun run dev`, API dan aset statis tetap dilayani gateway.
+    // During `bun run dev`, the API and static assets are still served by the gateway.
     proxy: Object.fromEntries(
       ["/api", "/icons", "/logo.png", "/icon.png", "/favicon.ico", "/.well-known"].map((p) => [p, GATEWAY]),
     ),

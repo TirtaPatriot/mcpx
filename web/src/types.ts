@@ -1,4 +1,4 @@
-// Bentuk respons JSON dari /api/admin/* (lihat src/admin-api.ts).
+// Shapes of the JSON responses from /api/admin/* (see src/admin-api.ts).
 
 export interface McpServer {
   id: string;

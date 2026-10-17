@@ -1,18 +1,18 @@
 import { showToast } from "./toast";
 
-/** Halaman login: server menyajikannya di /admin/login; di mode dev (Vite) ada di /_app/login.html. */
+/** Login page: the gateway serves it at /admin/login; in dev mode (Vite) it lives at /_app/login.html. */
 export const LOGIN_URL = import.meta.env.DEV ? "/_app/login.html" : "/admin/login";
 
 export interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
-  /** Jangan tampilkan toast error (pemanggil menanganinya sendiri). */
+  /** Do not show an error toast (the caller handles errors itself). */
   silent?: boolean;
 }
 
 /**
- * Memanggil /api/admin/<path>. Melempar Error berisi pesan dari server jika gagal,
- * dan mengarahkan ke halaman login saat sesi habis (401).
+ * Calls /api/admin/<path>. Throws an Error carrying the server message on failure,
+ * and redirects to the login page when the session has expired (401).
  */
 export async function api<T = Record<string, any>>(path: string, opts: ApiOptions = {}): Promise<T> {
   try {
@@ -27,7 +27,7 @@ export async function api<T = Record<string, any>>(path: string, opts: ApiOption
         window.location.href = LOGIN_URL;
         return new Promise<T>(() => {});
       }
-      throw new Error(data.error || "Terjadi kesalahan");
+      throw new Error(data.error || "Something went wrong");
     }
     return data as T;
   } catch (err) {

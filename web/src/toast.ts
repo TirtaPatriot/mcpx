@@ -32,5 +32,5 @@ export function useToast(): ToastState {
 
 export function copyText(text: string) {
   navigator.clipboard.writeText(text);
-  showToast("Disalin ke clipboard!");
+  showToast("Copied to clipboard!");
 }

@@ -11,9 +11,9 @@ export const PLATFORMS: { id: Platform; label: string; icon: string }[] = [
   { id: "generic", label: "Generic / SSE REST", icon: "/icons/universal.svg" },
 ];
 
-const PLACEHOLDER = "<TOKEN_AKSES>";
+const PLACEHOLDER = "<ACCESS_TOKEN>";
 
-/** Pilihan platform + panduan koneksinya; dipakai di tab Ringkasan dan dialog Panduan AI. */
+/** Platform picker plus its connection guide; used on the Overview tab and in the AI guide dialog. */
 export function PlatformGuide(props: { origin: string; onCreateToken: () => void }) {
   const [platform, setPlatform] = useState<Platform>("gemini");
   const { origin } = props;
@@ -45,18 +45,18 @@ export function PlatformGuide(props: { origin: string; onCreateToken: () => void
             <UrlRow label="Token URL" value={tokenUrl} />
           </div>
           <p class={note}>
-            💡 <em>Mendukung auto-discovery OAuth 2.1 (RFC 8414 & RFC 9728) untuk integrasi Custom Tools & Gems di Google Gemini Web & Mobile.</em>
+            💡 <em>Supports OAuth 2.1 auto-discovery (RFC 8414 &amp; RFC 9728) for Custom Tools and Gems in Google Gemini on web and mobile.</em>
           </p>
         </div>
       )}
 
       {platform === "claude" && (
         <div class="space-y-2">
-          <CodeBlock title="Konfigurasi claude_desktop_config.json:" code={mcpConfigJson(origin, PLACEHOLDER)} />
+          <CodeBlock title="claude_desktop_config.json:" code={mcpConfigJson(origin, PLACEHOLDER)} />
           <div class={`flex items-center justify-between ${note}`}>
-            <span>💡 Gunakan Bearer Token untuk koneksi langsung tanpa browser OAuth flow.</span>
+            <span>💡 Use a Bearer token for a direct connection, without the browser OAuth flow.</span>
             <button type="button" onClick={props.onCreateToken} class="text-purple-400 hover:underline font-medium">
-              + Buat Token Akses untuk Claude
+              + Create access token for Claude
             </button>
           </div>
         </div>
@@ -69,18 +69,18 @@ export function PlatformGuide(props: { origin: string; onCreateToken: () => void
             <UrlRow label="Token URL" value={tokenUrl} />
           </div>
           <p class={note}>
-            💡 <em>Di Custom GPT Actions, pilih auth <strong>OAuth</strong>, masukkan Client ID & Secret dari tab Klien OAuth, dan pilih Basic Auth untuk Token Exchange. Redirect <code>chatgpt.com</code> & <code>openai.com</code> sudah otomatis diizinkan.</em>
+            💡 <em>In Custom GPT Actions choose <strong>OAuth</strong> authentication, enter the Client ID and Secret from the OAuth Clients tab, and pick Basic Auth for the token exchange. Redirects from <code>chatgpt.com</code> and <code>openai.com</code> are allowed automatically.</em>
           </p>
         </div>
       )}
 
       {platform === "cursor" && (
         <div class="space-y-2">
-          <CodeBlock title="Konfigurasi Cursor (.cursor/mcp.json atau Settings > Features > MCP):" code={mcpConfigJson(origin, PLACEHOLDER)} />
+          <CodeBlock title="Cursor config (.cursor/mcp.json or Settings > Features > MCP):" code={mcpConfigJson(origin, PLACEHOLDER)} />
           <div class={`flex items-center justify-between ${note}`}>
-            <span>💡 Cursor mendukung remote MCP tipe SSE dengan header Authorization Bearer.</span>
+            <span>💡 Cursor supports remote SSE MCP servers with an Authorization Bearer header.</span>
             <button type="button" onClick={props.onCreateToken} class="text-purple-400 hover:underline font-medium">
-              + Buat Token Akses untuk Cursor
+              + Create access token for Cursor
             </button>
           </div>
         </div>
@@ -89,12 +89,12 @@ export function PlatformGuide(props: { origin: string; onCreateToken: () => void
       {platform === "generic" && (
         <div class="space-y-2">
           <CodeBlock
-            title="Contoh cURL / SSE Client:"
-            copyLabel="Salin"
+            title="cURL / SSE client example:"
+            copyLabel="Copy"
             code={`curl -N -H "Authorization: Bearer ${PLACEHOLDER}" \\\n  -H "Accept: text/event-stream" \\\n  ${origin}/mcp/<SERVER_NAME>`}
           />
           <p class={note}>
-            💡 <em>Dapat digunakan langsung di LibreChat, Open WebUI, Dify, LangChain, atau agent framework kustom.</em>
+            💡 <em>Works as-is with LibreChat, Open WebUI, Dify, LangChain, or any custom agent framework.</em>
           </p>
         </div>
       )}
