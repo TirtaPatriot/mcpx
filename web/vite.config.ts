@@ -24,7 +24,7 @@ export default defineConfig({
     port: 5173,
     // During `bun run dev`, the API and static assets are still served by the gateway.
     proxy: Object.fromEntries(
-      ["/api", "/icons", "/logo.png", "/icon.png", "/favicon.ico", "/.well-known"].map((p) => [p, GATEWAY]),
+      ["/api", "/icons", "/logo.png", "/icon.png", "/favicon.ico", "/manifest.webmanifest", "/.well-known"].map((p) => [p, GATEWAY]),
     ),
   },
 });

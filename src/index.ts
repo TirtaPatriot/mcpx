@@ -109,6 +109,11 @@ const app = new Elysia()
       headers: { "Content-Type": "image/x-icon", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
+  .get("/manifest.webmanifest", () =>
+    new Response(Bun.file("./public/manifest.webmanifest"), {
+      headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=86400" },
+    }),
+  )
   .get("/logo.png", () => {
     const f = Bun.file("./public/logo.png");
     return new Response(f, {
