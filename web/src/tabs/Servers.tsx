@@ -23,8 +23,7 @@ import {
   filterBy,
   inputCls,
   jsonObjectError,
-  monoInputCls,
-} from "../ui";
+  monoInputCls, Tr } from "../ui";
 
 const DEFAULT_ARGS = ["", "-y @dokploy/mcp", "mcp-server-git", "server.py", "main.go"];
 const COMMAND_PRESETS: Record<string, string> = {
@@ -156,9 +155,9 @@ function ServerRow(props: {
   const { s, ping } = props;
   const isCmd = s.server_type === "command";
   return (
-    <tr class="hover:bg-dark-900/30 transition">
+    <Tr class="hover:bg-dark-900/30 transition">
       <Td label="Status">
-        <EnabledPill enabled={s.enabled} offLabel="Off" onClick={props.onToggle} />
+        <EnabledPill enabled={s.enabled} offLabel="Off" subject={s.name} onClick={props.onToggle} />
       </Td>
       <Td label="Type">
         {isCmd ? (
@@ -216,7 +215,7 @@ function ServerRow(props: {
           menu={[{ label: "Delete server", onClick: props.onDelete, danger: true }]}
         />
       </Td>
-    </tr>
+    </Tr>
   );
 }
 
@@ -291,7 +290,7 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
 
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="text-slate-400">Logo / icon (preset or image URL)</label>
+            <label for="srv-icon" class="text-slate-400">Logo / icon (preset or image URL)</label>
             <div class="flex flex-wrap items-center gap-1">
               {SERVER_ICON_PRESETS.map(([label, path]) => (
                 <button key={path} type="button" onClick={() => setIcon(path)} class={chip}>
@@ -301,19 +300,19 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <input type="text" value={icon} onInput={(e) => setIcon(e.currentTarget.value)} placeholder="/icons/dokploy.svg or https://..." class={`flex-1 ${monoInputCls}`} />
+            <input id="srv-icon" type="text" value={icon} onInput={(e) => setIcon(e.currentTarget.value)} placeholder="/icons/dokploy.svg or https://..." class={`flex-1 ${monoInputCls}`} />
             <div class="w-8 h-8 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-center shrink-0 p-1">
-              <img src={icon.trim() || "/icons/mcp.svg"} class="w-full h-full object-contain" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/icons/mcp.svg")} />
+              <img src={icon.trim() || "/icons/mcp.svg"} alt="" class="w-full h-full object-contain" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/icons/mcp.svg")} />
             </div>
           </div>
         </div>
 
-        <Field label="Execution type">
+        <Field label="Execution type" group>
           <div class="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setType("http")} class={typeBtn(type === "http", "border-blue-500 bg-blue-600/20")}>
+            <button type="button" aria-pressed={type === "http"} onClick={() => setType("http")} class={typeBtn(type === "http", "border-blue-500 bg-blue-600/20")}>
               <span>🌐</span> Upstream URL (HTTP)
             </button>
-            <button type="button" onClick={() => setType("command")} class={typeBtn(type === "command", "border-purple-500 bg-purple-600/20")}>
+            <button type="button" aria-pressed={type === "command"} onClick={() => setType("command")} class={typeBtn(type === "command", "border-purple-500 bg-purple-600/20")}>
               <span>⚡</span> CLI / Stdio (bunx, uv, go run, npx)
             </button>
           </div>
@@ -324,16 +323,15 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
             <Field label={<>Upstream URL (e.g. <code>http://host.docker.internal:3001</code>)</>}>
               <input type="url" value={url} onInput={(e) => setUrl(e.currentTarget.value)} placeholder="http://host.docker.internal:3001" class={monoInputCls} />
             </Field>
-            <Field label="Injected headers (JSON, optional)">
-              <textarea rows={2} value={headers} onInput={(e) => setHeaders(e.currentTarget.value)} aria-invalid={!!headersError} aria-describedby="headers-error" placeholder='{"Authorization": "Bearer token-mcp-upstream"}' class={`${monoInputCls} ${headersError ? "!border-red-500" : ""}`} />
-              <FieldError id="headers-error" message={headersError} />
+            <Field label="Injected headers (JSON, optional)" error={headersError}>
+              <textarea rows={2} value={headers} onInput={(e) => setHeaders(e.currentTarget.value)} placeholder='{"Authorization": "Bearer token-mcp-upstream"}' class={`${monoInputCls} ${headersError ? "!border-red-500" : ""}`} />
             </Field>
           </div>
         ) : (
           <div class="space-y-3">
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="text-slate-400">Command</label>
+                <label for="srv-command" class="text-slate-400">Command</label>
                 <div class="flex flex-wrap gap-1">
                   {Object.keys(COMMAND_PRESETS).map((cmd) => (
                     <button key={cmd} type="button" onClick={() => applyCommandPreset(cmd)} class={`${chip} px-2 hover:text-strong`}>
@@ -342,14 +340,13 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
                   ))}
                 </div>
               </div>
-              <input type="text" value={command} onInput={(e) => setCommand(e.currentTarget.value)} placeholder="bunx / uvx / go run / python" class={monoInputCls} />
+              <input id="srv-command" type="text" value={command} onInput={(e) => setCommand(e.currentTarget.value)} placeholder="bunx / uvx / go run / python" class={monoInputCls} />
             </div>
             <Field label={<>Arguments / file / package name (e.g. <code>-y @dokploy/mcp</code>, <code>mcp-server-git</code>, or <code>main.go</code>)</>}>
               <input type="text" value={args} onInput={(e) => setArgs(e.currentTarget.value)} placeholder="-y @dokploy/mcp" class={monoInputCls} />
             </Field>
-            <Field label="Environment variables (JSON, e.g. Dokploy URL and token)">
-              <textarea rows={3} value={envVars} onInput={(e) => setEnvVars(e.currentTarget.value)} aria-invalid={!!envError} aria-describedby="env-error" placeholder='{"DOKPLOY_URL": "https://dokploy.example.com", "DOKPLOY_API_KEY": "xxx"}' class={`${monoInputCls} ${envError ? "!border-red-500" : ""}`} />
-              <FieldError id="env-error" message={envError} />
+            <Field label="Environment variables (JSON, e.g. Dokploy URL and token)" error={envError}>
+              <textarea rows={3} value={envVars} onInput={(e) => setEnvVars(e.currentTarget.value)} placeholder='{"DOKPLOY_URL": "https://dokploy.example.com", "DOKPLOY_API_KEY": "xxx"}' class={`${monoInputCls} ${envError ? "!border-red-500" : ""}`} />
             </Field>
             <div class="flex items-center justify-between bg-dark-900/60 p-2.5 rounded-xl border border-dark-700">
               <span class="text-[11px] text-slate-400">Test the handshake before saving:</span>
@@ -371,14 +368,6 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
         <ModalFooter onCancel={props.onClose} submitLabel="Save server" disabled={!!(headersError || envError)} />
       </form>
     </Modal>
-  );
-}
-
-function FieldError(props: { id: string; message: string }) {
-  return (
-    <p id={props.id} role="alert" class={`text-[11px] text-red-400 mt-1 ${props.message ? "" : "hidden"}`}>
-      {props.message}
-    </p>
   );
 }
 

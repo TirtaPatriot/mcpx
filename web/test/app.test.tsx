@@ -1,83 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { render } from "preact";
-import { App } from "../src/App";
+import { SERVER, byRole, calls, click, clickEl, mount, press, requests, routes, text, tick, useHarness, waitFor } from "./harness";
 
-const json = (body: unknown, status = 200) =>
-  Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
-
-const SERVER = { id: "dokploy", name: "Dokploy <b>MCP</b>", server_type: "command", url: "", headers: "", command: "bunx", args: "-y @dokploy/mcp", env_vars: "", icon: "", description: "", enabled: true };
-const CLIENT = { id: "claude-desktop", name: "Claude Desktop", secret: "s3cr3t-value", redirect_uris: "", icon: "", enabled: true, active_tokens: { access: 2, refresh: 1 } };
-
-const routes: Record<string, unknown> = {
-  "/api/admin/me": { ok: true, user: { id: "u1", username: "admin", name: "Administrator", role: "admin" }, isDefaultPassword: true, origin: "https://gw.example.com", dbPath: "/data/t.db" },
-  "/api/admin/stats": {
-    ok: true,
-    stats: { servers: { active: 1, total: 2 }, clients: { active: 3, total: 4 }, tokens: { access: 5, refresh: 6 }, users: { active: 7, total: 8 } },
-    system: { uptime: 7200, memory: { rss: 50, heapUsed: 20 }, bunVersion: "1.3.0", runtimes: { uv: true }, dbPath: "/data/t.db" },
-  },
-  "/api/admin/servers": { ok: true, servers: [SERVER] },
-  "/api/admin/clients": { ok: true, clients: [CLIENT] },
-  "/api/admin/users": { ok: true, users: [{ id: "u1", username: "admin", name: "Administrator", role: "admin", enabled: true, created_at: 0, isSelf: true }] },
-  "/api/admin/tokens": { ok: true, accessTokens: [{ token: "abcdefghijklmnop", client_id: "claude-desktop", created_at: 0, expires_at: 1, user_username: "admin", user_name: "Administrator" }], refreshTokens: [] },
-  "/api/admin/logs": { ok: true, logs: [{ timestamp: 0, method: "GET", path: "/health", status: 200, duration_ms: 1.234, info: null }] },
-};
-
-let calls: string[] = [];
-let requests: { method: string; path: string }[] = [];
-const realFetch = globalThis.fetch;
-
-beforeEach(() => {
-  calls = [];
-  requests = [];
-  document.body.innerHTML = '<div id="app"></div>';
-  location.hash = "";
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-    const path = new URL(String(input), "http://localhost").pathname;
-    const method = init?.method ?? "GET";
-    calls.push(path);
-    requests.push({ method, path });
-    if (path in routes) return json(routes[path]);
-    // Writes that have no canned response simply succeed.
-    return method === "GET" ? json({ ok: false, error: `no route ${path}` }, 404) : json({ ok: true });
-  }) as typeof fetch;
-});
-afterEach(() => {
-  render(null, document.getElementById("app")!);
-  globalThis.fetch = realFetch;
-});
-
-const text = () => document.body.textContent ?? "";
-async function waitFor(check: () => boolean, what: string) {
-  for (let i = 0; i < 100; i++) {
-    if (check()) return;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  throw new Error(`timeout waiting for: ${what}\n${text().slice(0, 400)}`);
-}
-const press = async (key: string) => {
-  document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-  await tick();
-};
-const byRole = (role: string, name: string) =>
-  [...document.querySelectorAll<HTMLElement>(`[role="${role}"]`)].find((el) => el.textContent?.includes(name) || el.getAttribute("aria-label")?.includes(name));
-const clickEl = async (el: Element | null | undefined) => {
-  if (!el) throw new Error("element not found");
-  el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  await tick();
-};
-const tick = () => new Promise((r) => setTimeout(r, 0));
-/** Click a button by its text, then wait for Preact to finish re-rendering. */
-const click = async (label: string) => {
-  const btn = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes(label));
-  if (!btn) throw new Error(`button not found: ${label}`);
-  btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  await tick();
-};
-
-async function mount() {
-  render(<App />, document.getElementById("app")!);
-  await waitFor(() => text().includes("Overview"), "app shell");
-}
+useHarness();
 
 describe("dashboard", () => {
   test("shows the shell, the user badge and the temporary-password warning", async () => {
@@ -151,7 +76,7 @@ describe("dashboard", () => {
 
 describe("login redirect target", () => {
   test("only internal paths are accepted", async () => {
-    const { safeNext } = await import("../src/login");
+    const { safeNext } = await import("../src/components/LoginForm");
     const at = (next: string) => {
       history.replaceState(null, "", `/?next=${encodeURIComponent(next)}`);
       return safeNext();
@@ -267,10 +192,10 @@ describe("forms", () => {
   });
 
   test("the sign-in password can be revealed and hidden again", async () => {
-    const { Login } = await import("../src/login");
+    const { Login } = await import("../src/components/LoginForm");
     render(<Login />, document.getElementById("app")!);
     await tick();
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Password"]')!;
+    const input = document.querySelector<HTMLInputElement>("#password")!;
     expect(input.type).toBe("password");
     await click("Show");
     expect(input.type).toBe("text");
@@ -299,7 +224,7 @@ describe("getting started", () => {
     await mount();
     await waitFor(() => text().includes("Connect an AI app"), "overview");
     expect(text()).not.toContain("Get started");
-    await clickEl(document.querySelector('button[aria-label^="OAuth clients:"]'));
+    await clickEl([...document.querySelectorAll("button")].find((b) => b.textContent?.startsWith("OAuth clients")));
     await waitFor(() => location.hash === "#clients", "navigated to clients");
   });
 });
@@ -392,5 +317,76 @@ describe("keyboard shortcuts", () => {
     await key("g");
     await key("c");
     expect(location.hash).toBe("#servers");
+  });
+});
+
+describe("dialog focus", () => {
+  const dialog = () => byRole("dialog", "Add MCP server")!;
+  const focusables = () => [...dialog().querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href]')];
+  const tab = async (shift = false) => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: shift, bubbles: true, cancelable: true }));
+    await tick();
+  };
+
+  async function openAddServer() {
+    await mount();
+    await click("MCP Servers");
+    await waitFor(() => text().includes("/mcp/dokploy/*"), "server row");
+    const opener = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("Add MCP server"))!;
+    opener.focus();
+    await clickEl(opener);
+    return opener;
+  }
+
+  test("opening a dialog moves focus to its first field", async () => {
+    await openAddServer();
+    expect(dialog().contains(document.activeElement)).toBe(true);
+    expect(document.activeElement!.tagName).toBe("INPUT");
+  });
+
+  test("Tab wraps from the last control to the first, and Shift+Tab the other way", async () => {
+    await openAddServer();
+    const list = focusables();
+    list[list.length - 1].focus();
+    await tab();
+    expect(document.activeElement).toBe(list[0]);
+    list[0].focus();
+    await tab(true);
+    expect(document.activeElement).toBe(list[list.length - 1]);
+  });
+
+  test("closing a dialog returns focus to the button that opened it", async () => {
+    const opener = await openAddServer();
+    await press("Escape");
+    expect(byRole("dialog", "Add MCP server")).toBeUndefined();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  test("the page behind a dialog does not scroll", async () => {
+    await openAddServer();
+    expect(document.body.style.overflow).toBe("hidden");
+    await press("Escape");
+    expect(document.body.style.overflow).not.toBe("hidden");
+  });
+
+  test("a section change moves focus to the content and updates the title", async () => {
+    await mount();
+    await click("OAuth Clients");
+    expect(document.activeElement?.id).toBe("main");
+    expect(document.title).toBe("OAuth Clients — MCP X");
+  });
+
+  test("the platform tabs follow the arrow-key pattern", async () => {
+    await mount();
+    const tabs = () => [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
+    expect(tabs()[0].getAttribute("aria-selected")).toBe("true");
+    expect(tabs().filter((t) => t.tabIndex === 0).length).toBe(1);
+    tabs()[0].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await tick();
+    expect(tabs()[1].getAttribute("aria-selected")).toBe("true");
+    expect(document.querySelector('[role="tabpanel"]')!.getAttribute("aria-labelledby")).toBe(tabs()[1].id);
+    tabs()[1].dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    await tick();
+    expect(tabs()[tabs().length - 1].getAttribute("aria-selected")).toBe("true");
   });
 });

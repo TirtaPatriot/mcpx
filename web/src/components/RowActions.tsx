@@ -73,7 +73,7 @@ export function RowActions(props: { subject: string; primary: Action[]; menu: Ac
       {props.primary
         .filter((a) => !a.hidden)
         .map((a) => (
-          <button key={a.label} type="button" onClick={a.onClick} class={`${a.danger ? "text-red-400" : "text-blue-400"} ${link}`}>
+          <button key={a.label} type="button" aria-label={`${a.label} (${props.subject})`} onClick={a.onClick} class={`${a.danger ? "text-red-400" : "text-blue-400"} ${link}`}>
             {a.label}
           </button>
         ))}

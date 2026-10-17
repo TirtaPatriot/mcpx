@@ -47,6 +47,26 @@ CI runs the same checks plus a Docker build.
 | `test/` | Server tests (`bun test`); `test/setup.ts` points the database at a temp directory |
 | `web/test/` | Dashboard tests (`bun run test:web`): components rendered in happy-dom with a mocked `fetch` |
 
+## Accessibility
+
+The dashboard, sign-in and consent pages are built to WCAG 2.2 AA, and the tests enforce it:
+
+- `web/test/a11y.test.tsx` runs [axe-core](https://github.com/dequelabs/axe-core) on every section, dialog and page. A new screen or dialog should be added there.
+- `web/test/theme.test.ts` checks text contrast, including accent text on its tinted background, in both themes. Add new colours to `styles.css` as palette variables, never as literal values.
+
+Use the shared pieces instead of raw elements, because they carry the accessibility with them:
+
+| Need | Use |
+|---|---|
+| A form control with a label | `Field` (ties the label to the control, links errors and hints) |
+| A dialog | `Modal` (focus trap, Escape, focus return) |
+| "Are you sure?" | `useConfirm()`, with a message that says what will happen |
+| Actions on a table row | `RowActions` (everyday actions visible, destructive ones in the menu) |
+| A table | `DataTable` with `Tr` and `Td` (keeps table semantics in the mobile card layout) |
+| A decorative image | `alt=""`; an informative one gets real alt text |
+
+Automated checks cannot judge everything. Before a release, tab through the changed screens, try them in both themes and at phone width, and use a screen reader if you can.
+
 ## Guidelines
 
 - Keep changes focused; one concern per PR.

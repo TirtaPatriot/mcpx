@@ -3,7 +3,7 @@ import { api } from "../api";
 import { useConfirm } from "../components/Confirm";
 import { showToast } from "../toast";
 import type { LogRow } from "../types";
-import { DataTable, EmptyRow, SectionHeader, SkeletonRows, Td, btnGhost } from "../ui";
+import { DataTable, EmptyRow, SectionHeader, SkeletonRows, Td, btnGhost, Tr } from "../ui";
 
 const FILTERS = [
   ["", "All"],
@@ -88,11 +88,12 @@ export function Logs() {
       </SectionHeader>
 
       <div class="flex items-center gap-2 flex-wrap">
-        <div class="flex items-center gap-1 bg-dark-800 p-1 rounded-xl border border-dark-700 text-xs">
+        <div role="group" aria-label="Filter by type" class="flex items-center gap-1 bg-dark-800 p-1 rounded-xl border border-dark-700 text-xs">
           {FILTERS.map(([value, label]) => (
             <button
               key={value}
               type="button"
+              aria-pressed={filter === value}
               onClick={() => setFilter(value)}
               class={`px-2.5 py-1 rounded-lg ${filter === value ? "bg-blue-600 text-white font-medium" : "text-slate-400 hover:text-white"}`}
             >
@@ -121,7 +122,7 @@ export function Logs() {
           />
         ) : (
           logs.map((l, i) => (
-            <tr key={`${l.timestamp}-${i}`} class="hover:bg-dark-900/30 transition text-[11px]">
+            <Tr key={`${l.timestamp}-${i}`} class="hover:bg-dark-900/30 transition text-[11px]">
               <Td label="Time" class="!py-2 text-slate-400 whitespace-nowrap">{new Date(l.timestamp).toLocaleTimeString()}</Td>
               <Td label="Method" class={`!py-2 font-bold ${l.method === "POST" ? "text-indigo-400" : "text-blue-400"}`}>{l.method}</Td>
               <Td label="Path" class="!py-2 text-slate-200 truncate max-w-xs">{l.path}</Td>
@@ -130,7 +131,7 @@ export function Logs() {
               </Td>
               <Td label="Duration" class="!py-2 text-slate-400">{l.duration_ms.toFixed(1)}ms</Td>
               <Td label="Info" class="!py-2 text-slate-400 truncate max-w-xs">{l.info || "-"}</Td>
-            </tr>
+            </Tr>
           ))
         )}
       </DataTable>

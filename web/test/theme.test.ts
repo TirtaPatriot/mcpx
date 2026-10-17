@@ -49,6 +49,28 @@ describe.each([
   }
 });
 
+// Accent text usually sits on a tint of its own colour (a badge is the accent at 10-20% over the surface),
+// which is darker than the surface and lowers the contrast; check that real combination too.
+const ACCENT_500: Record<string, string> = { blue: "#3b82f6", purple: "#a855f7", emerald: "#10b981", amber: "#f59e0b", red: "#ef4444", indigo: "#6366f1" };
+const mix = (fg: string, bg: string, alpha: number) => {
+  const f = [1, 3, 5].map((i) => parseInt(fg.slice(i, i + 2), 16));
+  const b = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
+  return "#" + f.map((v, i) => Math.round(v * alpha + b[i] * (1 - alpha)).toString(16).padStart(2, "0")).join("");
+};
+
+describe.each([
+  ["dark", dark],
+  ["light", light],
+] as const)("%s theme accent text on its own tint (WCAG AA, 4.5:1)", (_name, palette) => {
+  for (const [accent, base] of Object.entries(ACCENT_500)) {
+    for (const surface of SURFACES) {
+      test(`${accent}-400 on ${accent}/20 over ${surface}`, () => {
+        expect(contrast(palette[`${accent}-400`], mix(base, palette[surface], 0.2))).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+});
+
 describe("theme bootstrap", () => {
   test("both pages set the theme before first paint, with the same storage key as theme.ts", () => {
     for (const page of ["index.html", "login.html"]) {

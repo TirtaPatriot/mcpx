@@ -4,7 +4,7 @@ import { useConfirm } from "../components/Confirm";
 import { useApp } from "../context";
 import { showToast } from "../toast";
 import type { OAuthClient, TokenRow } from "../types";
-import { DataTable, EmptyRow, SearchInput, SectionHeader, SkeletonRows, Td, cardCls, filterBy } from "../ui";
+import { DataTable, EmptyRow, SearchInput, SectionHeader, SkeletonRows, Td, cardCls, filterBy, Tr } from "../ui";
 
 function Owner({ t }: { t: TokenRow }) {
   return t.user_username ? (
@@ -108,7 +108,7 @@ export function Tokens() {
             />
           ) : (
             access.map((t) => (
-              <tr key={t.token} class="hover:bg-dark-900/30 transition">
+              <Tr key={t.token} class="hover:bg-dark-900/30 transition">
                 <td data-label="Token" class={mono}>{t.token.slice(0, 12)}...</td>
                 <Td label="Client ID" class="font-medium text-strong">{t.client_id}</Td>
                 <Td label="User"><Owner t={t} /></Td>
@@ -117,7 +117,7 @@ export function Tokens() {
                 <Td label="Actions" actions>
                   <button type="button" onClick={() => revokeToken(t)} class="text-red-400 hover:underline">Revoke</button>
                 </Td>
-              </tr>
+              </Tr>
             ))
           )}
         </DataTable>
@@ -132,7 +132,7 @@ export function Tokens() {
             <EmptyRow cols={6} title={query ? `No refresh token matches "${query}"` : "No refresh tokens"} hint={query ? "Check the spelling or clear the search." : "They appear when an AI client signs in through OAuth."} />
           ) : (
             refresh.map((t) => (
-              <tr key={t.token} class="hover:bg-dark-900/30 transition">
+              <Tr key={t.token} class="hover:bg-dark-900/30 transition">
                 <td data-label="Token" class={mono}>{t.token.slice(0, 12)}...</td>
                 <Td label="Client ID" class="font-medium text-strong">{t.client_id}</Td>
                 <Td label="User"><Owner t={t} /></Td>
@@ -143,7 +143,7 @@ export function Tokens() {
                 <Td label="Actions" actions>
                   <button type="button" onClick={() => revokeToken(t)} class="text-red-400 hover:underline">Revoke</button>
                 </Td>
-              </tr>
+              </Tr>
             ))
           )}
         </DataTable>

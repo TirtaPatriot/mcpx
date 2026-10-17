@@ -39,27 +39,27 @@
   --color-slate-400: #475569;
   --color-slate-500: #5a6a80;
   --color-slate-700: #e2e8f0;
-  --color-blue-300: #1d4ed8;
-  --color-blue-400: #2563eb;
+  --color-blue-300: #1e40af;
+  --color-blue-400: #1d4ed8;
   --color-blue-900: #dbeafe;
-  --color-indigo-400: #4f46e5;
+  --color-indigo-400: #4338ca;
   --color-indigo-900: #e0e7ff;
-  --color-purple-300: #6d28d9;
-  --color-purple-400: #7c3aed;
+  --color-purple-300: #6b21a8;
+  --color-purple-400: #6d28d9;
   --color-purple-900: #ede9fe;
   --color-emerald-200: #064e3b;
-  --color-emerald-300: #065f46;
-  --color-emerald-400: #047857;
+  --color-emerald-300: #064e3b;
+  --color-emerald-400: #065f46;
   --color-emerald-700: #6ee7b7;
   --color-emerald-800: #a7f3d0;
   --color-emerald-900: #d1fae5;
   --color-emerald-950: #ecfdf5;
   --color-amber-200: #78350f;
-  --color-amber-300: #92400e;
-  --color-amber-400: #b45309;
+  --color-amber-300: #78350f;
+  --color-amber-400: #92400e;
   --color-red-200: #991b1b;
-  --color-red-300: #b91c1c;
-  --color-red-400: #d32323;
+  --color-red-300: #991b1b;
+  --color-red-400: #b91c1c;
   --color-red-700: #fca5a5;
   --color-red-900: #fee2e2;
 }
@@ -80,6 +80,11 @@
   }
   button:not(:disabled) {
     cursor: pointer;
+  }
+  /* WCAG 2.2 AA asks for tap targets of at least 24 by 24 CSS pixels. */
+  button {
+    min-height: 1.5rem;
+    min-width: 1.5rem;
   }
   /* Keyboard focus must always be visible; mouse clicks do not draw the ring. */
   :focus-visible {

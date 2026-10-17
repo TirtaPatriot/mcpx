@@ -58,6 +58,7 @@ export function App() {
   const [refresh, setRefresh] = useState(0);
   const [help, setHelp] = useState(false);
   const activeBtn = useRef<HTMLButtonElement>(null);
+  const firstTab = useRef(true);
 
   useEffect(() => {
     api<Me>("/me").then((m) => {
@@ -71,6 +72,15 @@ export function App() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  // Keep the page title in step with the section, and move focus to the content after a change
+  // so keyboard and screen-reader users land on the new section instead of the old button.
+  useEffect(() => {
+    const label = TABS.find((t) => t.id === tab)!.label;
+    document.title = `${label} — MCP X`;
+    if (firstTab.current) firstTab.current = false;
+    else document.getElementById("main")?.focus();
+  }, [tab]);
 
   // scroll the tab strip so the active tab stays visible on narrow screens
   useEffect(() => activeBtn.current?.scrollIntoView?.({ inline: "center", block: "nearest" }), [tab, me]);

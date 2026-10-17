@@ -4,7 +4,7 @@ import { useConfirm } from "../components/Confirm";
 import { RowActions } from "../components/RowActions";
 import { showToast } from "../toast";
 import type { User } from "../types";
-import { DataTable, EmptyRow, Field, Modal, ModalFooter, SearchInput, SectionHeader, SkeletonRows, Td, btnPrimary, filterBy, inputCls, monoInputCls } from "../ui";
+import { DataTable, EmptyRow, Field, Modal, ModalFooter, SearchInput, SectionHeader, SkeletonRows, Td, btnPrimary, filterBy, inputCls, monoInputCls, Tr } from "../ui";
 
 export function Users() {
   const [users, setUsers] = useState<User[] | null>(null);
@@ -65,7 +65,7 @@ export function Users() {
           <EmptyRow cols={6} title={`No user matches "${query}"`} hint="Check the spelling or clear the search." />
         ) : (
           shown.map((u) => (
-            <tr key={u.id} class="hover:bg-dark-900/30 transition">
+            <Tr key={u.id} class="hover:bg-dark-900/30 transition">
               <Td label="User">
                 <div class="font-medium text-strong">
                   {u.name}{" "}
@@ -107,7 +107,7 @@ export function Users() {
                   ]}
                 />
               </Td>
-            </tr>
+            </Tr>
           ))
         )}
       </DataTable>
@@ -163,9 +163,8 @@ function UserModal(props: { user: User | null; onClose: () => void; onSaved: (cr
             <option value="admin">Administrator (full access)</option>
           </select>
         </Field>
-        <Field label={u ? "New password (optional)" : "Password"}>
+        <Field label={u ? "New password (optional)" : "Password"} hint={u ? "Leave empty to keep the current password." : undefined}>
           <input type="password" required={!u} value={password} onInput={(e) => setPassword(e.currentTarget.value)} placeholder="At least 4 characters" class={inputCls} />
-          {u && <p class="text-[10px] text-slate-500 mt-1">Leave empty to keep the current password.</p>}
         </Field>
         <label class="flex items-center gap-2 pt-1 text-slate-300">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} class="rounded bg-dark-900 border-dark-700 text-blue-600 focus:ring-0" />

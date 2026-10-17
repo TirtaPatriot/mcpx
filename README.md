@@ -21,7 +21,7 @@ AI client ─Bearer─▶ /mcp/:serverName/*  ──▶  upstream MCP server
 - **Static API keys**: issue long-lived Bearer tokens for clients without a browser flow (Claude Desktop, Cursor) and copy a ready-made config snippet.
 - **Users and roles**: `admin` and `user` accounts; tokens and sessions are tied to their owner.
 - **Audit log**: every proxy and OAuth request, with status, duration and IP.
-- **Responsive dashboard** for desktop and mobile, installable as an app ("MCP X") through a web manifest.
+- **Responsive, accessible dashboard** for desktop and mobile: light, dark and system themes, keyboard shortcuts, WCAG 2.2 AA checks in CI. Installable as an app ("MCP X") through a web manifest.
 
 ## Quick start
 

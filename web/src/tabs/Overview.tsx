@@ -12,7 +12,6 @@ function StatusItem(props: { label: string; value: number; total?: number; tab: 
       type="button"
       onClick={() => goTab(props.tab)}
       class="text-left px-4 py-3.5 hover:bg-dark-700/40 focus-visible:bg-dark-700/40 transition flex flex-col gap-1"
-      aria-label={`${props.label}: ${props.value}${props.total !== undefined ? ` of ${props.total} active` : ""}. Open ${props.tab}.`}
     >
       <span class="text-xs text-slate-400 flex items-center gap-1.5">
         <span class={`inline-block w-1.5 h-1.5 rounded-full ${props.dot}`} aria-hidden="true" />

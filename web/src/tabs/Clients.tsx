@@ -23,8 +23,7 @@ import {
   filterBy,
   btnPurple,
   inputCls,
-  monoInputCls,
-} from "../ui";
+  monoInputCls, Tr } from "../ui";
 
 const MASK = "••••••••••••••";
 
@@ -127,9 +126,9 @@ export function Clients() {
           shown.map((c) => {
             const sessions = (c.active_tokens?.access || 0) + (c.active_tokens?.refresh || 0);
             return (
-              <tr key={c.id} class="hover:bg-dark-900/30 transition">
+              <Tr key={c.id} class="hover:bg-dark-900/30 transition">
                 <Td label="Status">
-                  <EnabledPill enabled={c.enabled} offLabel="Disabled" onClick={() => toggle(c.id)} />
+                  <EnabledPill enabled={c.enabled} offLabel="Disabled" subject={c.name} onClick={() => toggle(c.id)} />
                 </Td>
                 <Td label="Client ID" class="font-mono font-medium text-blue-400">
                   <div class="flex items-center gap-2.5">
@@ -143,10 +142,10 @@ export function Clients() {
                 <Td label="Secret" class="font-mono">
                   <div class="flex items-center gap-1.5">
                     <span class="text-slate-400 truncate max-w-[130px]">{revealed.has(c.id) ? c.secret : MASK}</span>
-                    <button type="button" aria-pressed={revealed.has(c.id)} onClick={() => toggleSecret(c.id)} class="text-slate-400 hover:text-strong text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
+                    <button type="button" aria-label={`${revealed.has(c.id) ? "Hide" : "Show"} secret of ${c.name}`} onClick={() => toggleSecret(c.id)} class="text-slate-400 hover:text-strong text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
                       {revealed.has(c.id) ? "Hide" : "Show"}
                     </button>
-                    <button type="button" onClick={() => copyText(c.secret)} class="text-slate-400 hover:text-strong text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
+                    <button type="button" aria-label={`Copy secret of ${c.name}`} onClick={() => copyText(c.secret)} class="text-slate-400 hover:text-strong text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
                       Copy
                     </button>
                   </div>
@@ -171,7 +170,7 @@ export function Clients() {
                     ]}
                   />
                 </Td>
-              </tr>
+              </Tr>
             );
           })
         )}
@@ -223,7 +222,7 @@ function ClientModal(props: { client: OAuthClient | null; onClose: () => void; o
         </Field>
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="text-slate-400">Client logo / icon (preset or image URL)</label>
+            <label for="cli-icon" class="text-slate-400">Client logo / icon (preset or image URL)</label>
             <div class="flex items-center gap-1">
               {CLIENT_ICON_PRESETS.map(([label, path]) => (
                 <button key={path} type="button" onClick={() => setIcon(path)} class="text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300">
@@ -233,22 +232,22 @@ function ClientModal(props: { client: OAuthClient | null; onClose: () => void; o
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <input type="text" value={icon} onInput={(e) => setIcon(e.currentTarget.value)} placeholder="/icons/gemini.svg or https://..." class={`flex-1 ${monoInputCls}`} />
+            <input id="cli-icon" type="text" value={icon} onInput={(e) => setIcon(e.currentTarget.value)} placeholder="/icons/gemini.svg or https://..." class={`flex-1 ${monoInputCls}`} />
             <div class="w-8 h-8 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-center shrink-0 p-1">
-              <img src={icon.trim() || "/icons/universal.svg"} class="w-full h-full object-contain" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/icons/universal.svg")} />
+              <img src={icon.trim() || "/icons/universal.svg"} alt="" class="w-full h-full object-contain" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/icons/universal.svg")} />
             </div>
           </div>
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="text-slate-400">Client secret</label>
+            <label for="cli-secret" class="text-slate-400">Client secret</label>
             <button type="button" onClick={() => setSecret(randomHex(32))} class="text-blue-400 hover:underline text-[11px]">
               Generate new secret
             </button>
           </div>
           <div class="flex items-center gap-2">
-            <input type={(showSecret ? "text" : "password") as "text"} required value={secret} onInput={(e) => setSecret(e.currentTarget.value)} aria-label="Client secret" class={monoInputCls} />
-            <button type="button" aria-pressed={showSecret} onClick={() => setShowSecret((v) => !v)} class="shrink-0 text-slate-300 hover:text-strong text-[11px] px-2 py-2 rounded-lg bg-dark-700">
+            <input id="cli-secret" type={(showSecret ? "text" : "password") as "text"} required value={secret} onInput={(e) => setSecret(e.currentTarget.value)} class={monoInputCls} />
+            <button type="button" aria-label={showSecret ? "Hide client secret" : "Show client secret"} onClick={() => setShowSecret((v) => !v)} class="shrink-0 text-slate-300 hover:text-strong text-[11px] px-2 py-2 rounded-lg bg-dark-700">
               {showSecret ? "Hide" : "Show"}
             </button>
           </div>
@@ -275,7 +274,7 @@ function AiGuideModal(props: { client: OAuthClient; onClose: () => void }) {
         <span class="text-[11px] text-slate-500 block font-sans">{label}</span>
         <span class="text-blue-300 break-all">{value}</span>
       </div>
-      <button type="button" onClick={() => copyText(value)} class="text-blue-400 hover:underline text-xs shrink-0">
+      <button type="button" aria-label={`Copy ${label}`} onClick={() => copyText(value)} class="text-blue-400 hover:underline text-xs shrink-0">
         Copy
       </button>
     </div>

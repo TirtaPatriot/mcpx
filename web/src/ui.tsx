@@ -1,4 +1,5 @@
-import type { ComponentChildren } from "preact";
+import { cloneElement, isValidElement, type ComponentChildren, type JSX, type VNode } from "preact";
+import { useId } from "preact/hooks";
 import { Dialog } from "./components/Dialog";
 import { copyText } from "./toast";
 
@@ -25,11 +26,41 @@ export function Modal(props: {
   return <Dialog {...props} />;
 }
 
-export function Field(props: { label: ComponentChildren; children: ComponentChildren }) {
+/**
+ * A labelled form control. The label is tied to the control (so screen readers announce it and
+ * clicking the label focuses it), and `error` is announced and linked through aria-describedby.
+ * Pass exactly one control as the child; use `group` for a set of buttons that share one label.
+ */
+export function Field(props: { label: ComponentChildren; error?: string; hint?: ComponentChildren; group?: boolean; children: ComponentChildren }) {
+  const uid = useId();
+  const describedBy = [props.error ? `${uid}-error` : "", props.hint ? `${uid}-hint` : ""].filter(Boolean).join(" ") || undefined;
+  const child = props.children;
+  const control =
+    !props.group && isValidElement(child)
+      ? cloneElement(child as VNode<Record<string, unknown>>, { id: uid, "aria-describedby": describedBy, "aria-invalid": props.error ? true : undefined })
+      : child;
   return (
-    <div>
-      <label class="block text-slate-400 mb-1">{props.label}</label>
-      {props.children}
+    <div role={props.group ? "group" : undefined} aria-labelledby={props.group ? `${uid}-label` : undefined}>
+      {props.group ? (
+        <span id={`${uid}-label`} class="block text-slate-400 mb-1">
+          {props.label}
+        </span>
+      ) : (
+        <label for={uid} class="block text-slate-400 mb-1">
+          {props.label}
+        </label>
+      )}
+      {control}
+      {props.hint && (
+        <p id={`${uid}-hint`} class="text-[11px] text-slate-500 mt-1">
+          {props.hint}
+        </p>
+      )}
+      {props.error && (
+        <p id={`${uid}-error`} role="alert" class="text-[11px] text-red-400 mt-1">
+          {props.error}
+        </p>
+      )}
     </div>
   );
 }
@@ -65,22 +96,30 @@ export function DataTable(props: { head: string[]; label: string; children: Comp
   return (
     <div class={`${cardCls} overflow-hidden shadow-sm`}>
       <div class="overflow-x-auto">
-        <table class={`rtable w-full text-left text-xs ${props.mono ? "font-mono" : ""}`}>
+        <table role="table" class={`rtable w-full text-left text-xs ${props.mono ? "font-mono" : ""}`}>
           <caption class="sr-only">{props.label}</caption>
-          <thead class={`bg-dark-900/70 border-b border-dark-700 text-slate-400 text-xs font-medium ${props.mono ? "font-sans" : ""}`}>
-            <tr>
+          <thead role="rowgroup" class={`bg-dark-900/70 border-b border-dark-700 text-slate-400 text-xs font-medium ${props.mono ? "font-sans" : ""}`}>
+            <tr role="row">
               {props.head.map((h, i) => (
-                <th key={h} scope="col" class={`py-3 px-4 font-medium ${i === last && h === "Actions" ? "text-right" : ""}`}>
+                <th key={h} scope="col" role="columnheader" class={`py-3 px-4 font-medium ${i === last && h === "Actions" ? "text-right" : ""}`}>
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody class="divide-y divide-dark-700/50">{props.children}</tbody>
+          <tbody role="rowgroup" class="divide-y divide-dark-700/50">{props.children}</tbody>
         </table>
       </div>
     </div>
   );
+}
+
+/**
+ * A table row. On narrow screens the table is restyled into cards with display: block, which
+ * strips the native table semantics in some browsers, so the roles are stated explicitly.
+ */
+export function Tr(props: JSX.IntrinsicElements["tr"]) {
+  return <tr role="row" {...props} />;
 }
 
 /** Placeholder rows shown while a list loads; the table keeps its shape instead of jumping. */
@@ -88,11 +127,11 @@ export function SkeletonRows(props: { cols: number; rows?: number }) {
   return (
     <>
       {Array.from({ length: props.rows ?? 3 }, (_, r) => (
-        <tr key={r} aria-hidden="true">
+        <Tr key={r} aria-hidden="true">
           <td colspan={props.cols} class="py-4 px-4">
             <div class="h-4 rounded bg-dark-700/70 animate-pulse motion-reduce:animate-none" style={{ width: `${88 - r * 14}%` }} />
           </td>
-        </tr>
+        </Tr>
       ))}
     </>
   );
@@ -101,8 +140,8 @@ export function SkeletonRows(props: { cols: number; rows?: number }) {
 /** An empty list is a prompt to act: say what is missing and offer the next step. */
 export function EmptyRow(props: { cols: number; title: string; hint?: ComponentChildren; action?: { label: string; onClick: () => void } }) {
   return (
-    <tr>
-      <td colspan={props.cols} class="p-8 text-center font-sans">
+    <Tr>
+      <td role="cell" colspan={props.cols} class="p-8 text-center font-sans">
         <p class="text-sm font-medium text-slate-200">{props.title}</p>
         {props.hint && <p class="text-xs text-slate-400 mt-1">{props.hint}</p>}
         {props.action && (
@@ -111,7 +150,7 @@ export function EmptyRow(props: { cols: number; title: string; hint?: ComponentC
           </button>
         )}
       </td>
-    </tr>
+    </Tr>
   );
 }
 
@@ -154,22 +193,26 @@ export function jsonObjectError(text: string): string {
 
 export function Td(props: { label?: string; class?: string; actions?: boolean; children?: ComponentChildren }) {
   return (
-    <td data-label={props.label} class={`py-3 px-4 ${props.actions ? "actions text-right space-x-2" : ""} ${props.class ?? ""}`}>
+    <td role="cell" data-label={props.label} class={`py-3 px-4 ${props.actions ? "actions text-right space-x-2" : ""} ${props.class ?? ""}`}>
       {props.children}
     </td>
   );
 }
 
-export function EnabledPill(props: { enabled: boolean; offLabel: string; onClick: () => void }) {
+/** On/off switch drawn as a pill. `subject` names what it controls, for people who cannot see the row. */
+export function EnabledPill(props: { enabled: boolean; offLabel: string; subject: string; onClick: () => void }) {
+  const state = props.enabled ? "Active" : props.offLabel;
   return (
     <button
       type="button"
       onClick={props.onClick}
+      aria-label={`${state}: ${props.subject}. Press to ${props.enabled ? "disable" : "enable"}.`}
       class={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition whitespace-nowrap ${
-        props.enabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-slate-700 text-slate-400"
+        props.enabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-dark-700 text-slate-300 border border-dark-600"
       }`}
     >
-      {props.enabled ? "● Active" : `○ ${props.offLabel}`}
+      <span aria-hidden="true">{props.enabled ? "● " : "○ "}</span>
+      {state}
     </button>
   );
 }
@@ -180,6 +223,7 @@ export function IconBox(props: { src: string; fallback: string; size?: "sm" | "m
     <div class={`${box} rounded-lg bg-dark-700 border border-dark-600 flex items-center justify-center shrink-0 overflow-hidden p-1`}>
       <img
         src={props.src}
+        alt=""
         class="w-full h-full object-contain"
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).src = props.fallback;
@@ -199,6 +243,7 @@ export function UrlRow(props: { label: string; value: string }) {
       </div>
       <button
         type="button"
+        aria-label={`Copy ${props.label}`}
         onClick={() => copyText(props.value)}
         class="shrink-0 text-slate-400 hover:text-strong p-1.5 bg-dark-800 rounded-lg border border-dark-600"
       >
@@ -222,7 +267,7 @@ export function CodeBlock(props: { title: string; code: string; copyLabel?: stri
     <div class="bg-dark-900/80 p-3.5 rounded-xl border border-dark-700 text-xs font-mono space-y-2">
       <div class="flex items-center justify-between text-slate-400 font-sans text-[11px]">
         <span>{props.title}</span>
-        <button type="button" onClick={() => copyText(props.code)} class="text-blue-400 hover:underline">
+        <button type="button" aria-label={`${props.copyLabel ?? "Copy JSON"}: ${props.title.replace(/:$/, "")}`} onClick={() => copyText(props.code)} class="text-blue-400 hover:underline">
           {props.copyLabel ?? "Copy JSON"}
         </button>
       </div>
