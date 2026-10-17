@@ -1,6 +1,6 @@
 # Security Policy
 
-mcpx sits in front of MCP servers and issues OAuth tokens, so security reports are taken seriously.
+MCP X sits in front of MCP servers and issues OAuth tokens, so security reports are taken seriously.
 
 ## Reporting a vulnerability
 

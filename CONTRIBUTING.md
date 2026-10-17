@@ -1,4 +1,4 @@
-# Contributing to mcpx
+# Contributing to MCP X
 
 Thanks for helping out. This guide gets you from clone to pull request.
 

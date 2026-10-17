@@ -1,6 +1,6 @@
 🇬🇧 [English](README.md) · 🇮🇩 Bahasa Indonesia
 
-# mcpx — Universal OAuth 2.1 MCP Gateway + Dashboard Management (Untuk Semua AI)
+# MCP X — Universal OAuth 2.1 MCP Gateway + Dashboard Management (Untuk Semua AI)
 
 Reverse proxy berbasis Bun + ElysiaJS dengan OAuth 2.1 & Bearer Token di depan server MCP lokal, dilengkapi **Web UI Dashboard** dan database **SQLite** (`bun:sqlite` WAL mode) untuk manajemen visual server MCP, klien OAuth, sesi token, dan audit log request.
 

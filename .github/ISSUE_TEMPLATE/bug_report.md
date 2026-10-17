@@ -11,7 +11,7 @@ labels: bug
 **Steps to reproduce**
 
 **Environment**
-- mcpx version / commit:
+- MCP X version / commit:
 - Run with: Docker / `bun run`
 - AI client (Claude, Gemini, ChatGPT, Cursor, ...):
 
