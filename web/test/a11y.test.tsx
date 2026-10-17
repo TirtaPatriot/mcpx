@@ -50,6 +50,20 @@ describe("dialogs and menus", () => {
     await click("CLI / Stdio");
     await expectAccessible("add server (command)");
   });
+  test("add server with overridable variables, one of them invalid", async () => {
+    await open("MCP Servers", "Add MCP server");
+    await click("CLI / Stdio");
+    await click("Add variable");
+    await click("Add variable");
+    const names = [...document.querySelectorAll<HTMLInputElement>("label")].filter((l) => l.textContent === "Variable name").map((l) => document.getElementById(l.getAttribute("for")!) as HTMLInputElement);
+    names[0].value = "DOKPLOY_TOOL_PRESET";
+    names[0].dispatchEvent(new Event("input", { bubbles: true }));
+    names[1].value = "PATH";
+    names[1].dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    expect(document.querySelector('[role="alert"]')).not.toBeNull();
+    await expectAccessible("overridable variables, one invalid");
+  });
   test("connect to a server", async () => {
     await open("MCP Servers", "Connect");
     await expectAccessible("connect dialog");

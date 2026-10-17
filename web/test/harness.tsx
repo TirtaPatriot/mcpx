@@ -24,7 +24,7 @@ export const routes: Record<string, unknown> = {
 
 /** Every request the app made, in order; reset before each test. */
 export const calls: string[] = [];
-export const requests: { method: string; path: string }[] = [];
+export const requests: { method: string; path: string; body?: any }[] = [];
 const realFetch = globalThis.fetch;
 
 /** Registers the per-test setup: an empty page, a fake fetch backed by `routes`, and cleanup. */
@@ -38,7 +38,7 @@ beforeEach(() => {
     const path = new URL(String(input), "http://localhost").pathname;
     const method = init?.method ?? "GET";
     calls.push(path);
-    requests.push({ method, path });
+    requests.push({ method, path, body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined });
     if (path in routes) return json(routes[path]);
     // Writes that have no canned response simply succeed.
     return method === "GET" ? json({ ok: false, error: `no route ${path}` }, 404) : json({ ok: true });

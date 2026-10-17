@@ -2,7 +2,9 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { useConfirm } from "../components/Confirm";
 import { PlatformGuide } from "../components/PlatformGuide";
+import { OverridableEnvEditor } from "../components/OverridableEnvEditor";
 import { RowActions } from "../components/RowActions";
+import { overridableErrors, rowsToJson, specToRows } from "../overridable";
 import { useApp } from "../context";
 import { SERVER_ICON_PRESETS, serverIcon } from "../icons";
 import { copyText, showToast } from "../toast";
@@ -235,9 +237,11 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
   const [description, setDescription] = useState(s?.description ?? "");
   const [enabled, setEnabled] = useState(s?.enabled ?? true);
   const [testing, setTesting] = useState(false);
+  const [overridable, setOverridable] = useState(() => specToRows(s?.overridable_env));
   // Only the fields of the chosen type are validated, since the other ones are hidden.
   const headersError = type === "http" ? jsonObjectError(headers) : "";
   const envError = type === "command" ? jsonObjectError(envVars) : "";
+  const overridableProblem = type === "command" && overridableErrors(overridable).hasErrors;
 
   const applyCommandPreset = (cmd: string) => {
     setCommand(cmd);
@@ -268,7 +272,10 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
 
   const save = async (e: Event) => {
     e.preventDefault();
-    const payload = { id, name, server_type: type, url, headers, command, args, env_vars: envVars, icon: icon.trim(), description, enabled };
+    const payload = {
+      id, name, server_type: type, url, headers, command, args, env_vars: envVars, icon: icon.trim(), description, enabled,
+      ...(type === "command" ? { overridable_env: rowsToJson(overridable) } : {}),
+    };
     if (s) await api(`/servers/${id}`, { method: "PUT", body: payload });
     else await api("/servers", { method: "POST", body: payload });
     props.onSaved();
@@ -350,6 +357,7 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
             <Field label="Environment variables (JSON, e.g. Dokploy URL and token)" error={envError}>
               <textarea rows={3} value={envVars} onInput={(e) => setEnvVars(e.currentTarget.value)} placeholder='{"DOKPLOY_URL": "https://dokploy.example.com", "DOKPLOY_API_KEY": "xxx"}' class={`${monoInputCls} ${envError ? "!border-red-500" : ""}`} />
             </Field>
+            <OverridableEnvEditor rows={overridable} onChange={setOverridable} />
             <div class="flex items-center justify-between bg-dark-900/60 p-2.5 rounded-xl border border-dark-700">
               <span class="text-[11px] text-slate-400">Test the handshake before saving:</span>
               <button type="button" disabled={testing} onClick={testCommand} class="text-xs bg-dark-700 hover:bg-dark-600 px-3 py-1 rounded-lg text-slate-200">
@@ -367,7 +375,7 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
           Enable this server
         </label>
 
-        <ModalFooter onCancel={props.onClose} submitLabel="Save server" disabled={!!(headersError || envError)} />
+        <ModalFooter onCancel={props.onClose} submitLabel="Save server" disabled={!!(headersError || envError || overridableProblem)} />
       </form>
     </Modal>
   );

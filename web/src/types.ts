@@ -9,6 +9,8 @@ export interface McpServer {
   command: string;
   args: string;
   env_vars: string;
+  /** JSON text of the variables a connection may override (see src/env-policy.ts). */
+  overridable_env?: string;
   icon: string;
   description: string;
   enabled: boolean;
