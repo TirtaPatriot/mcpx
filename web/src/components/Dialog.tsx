@@ -80,10 +80,10 @@ export function Dialog(props: {
         class={`modal-panel bg-dark-800 border border-dark-700 rounded-2xl ${width} w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none`}
       >
         <div class="flex items-center justify-between">
-          <h3 id={titleId} class="text-base font-semibold text-white flex items-center gap-2">
+          <h3 id={titleId} class="text-base font-semibold text-strong flex items-center gap-2">
             {props.title}
           </h3>
-          <button type="button" onClick={props.onClose} class="modal-close text-slate-400 hover:text-white text-lg" aria-label="Close">
+          <button type="button" onClick={props.onClose} class="modal-close text-slate-400 hover:text-strong text-lg" aria-label="Close">
             &times;
           </button>
         </div>

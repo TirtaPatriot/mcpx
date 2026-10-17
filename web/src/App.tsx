@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api, LOGIN_URL } from "./api";
 import { ConfirmProvider } from "./components/Confirm";
 import { GenerateTokenModal } from "./components/GenerateTokenModal";
+import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { AppContext, type TabId } from "./context";
 import { Clients } from "./tabs/Clients";
 import { Logs } from "./tabs/Logs";
@@ -54,6 +56,7 @@ export function App() {
   const [gen, setGen] = useState<{ clientId: string } | null>(null);
   // Bumped whenever a token is created so the open tab reloads its data.
   const [refresh, setRefresh] = useState(0);
+  const [help, setHelp] = useState(false);
   const activeBtn = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -81,6 +84,8 @@ export function App() {
     window.location.href = LOGIN_URL;
   };
 
+  useShortcuts(goTab, () => setHelp(true));
+
   if (!me) return <Toast />;
   const Active = TABS.find((t) => t.id === tab)!.Component;
 
@@ -100,14 +105,8 @@ export function App() {
               <img src="/logo.png" alt="MCP X" class="w-full h-full object-contain" />
             </div>
             <div class="min-w-0">
-              <h1 class="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-2 truncate">
-                <span class="truncate">MCP X</span>
-                <span class="hidden md:inline text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">SQLite WAL</span>
-                <span class="hidden lg:inline text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">HTTP + CLI (bunx, uv, go, npx)</span>
-              </h1>
-              <p class="hidden md:block text-xs text-slate-400 truncate">
-                Universal reverse proxy, process bridge and OAuth 2.1 manager for every AI client (Gemini, Claude, Cursor, ChatGPT, LibreChat, etc.)
-              </p>
+              <h1 class="text-base font-bold tracking-tight text-strong truncate">MCP X</h1>
+              <p class="hidden md:block text-xs text-slate-400 truncate">OAuth 2.1 gateway for MCP servers</p>
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -116,14 +115,16 @@ export function App() {
               <span class="font-medium text-slate-200">{me.user.name}</span>
               <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{me.user.role}</span>
             </div>
-            <a
-              href="/.well-known/oauth-authorization-server"
-              target="_blank"
-              rel="noreferrer"
-              class="hidden sm:flex text-xs text-slate-400 hover:text-white transition items-center gap-1 bg-dark-700/60 px-2.5 py-1.5 rounded-lg border border-dark-600"
+            <button
+              type="button"
+              onClick={() => setHelp(true)}
+              aria-label="Keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
+              class="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-strong bg-dark-700/60 border border-dark-600 transition font-mono text-sm"
             >
-              RFC 8414 Discovery ↗
-            </a>
+              ?
+            </button>
+            <ThemeToggle />
             <button type="button" onClick={logout} class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg transition font-medium">
               Sign out
             </button>
@@ -160,7 +161,7 @@ export function App() {
                   aria-current={active ? "page" : undefined}
                   onClick={() => goTab(t.id)}
                   class={`nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-left ${
-                    active ? "bg-dark-800 text-white border border-dark-700" : "text-slate-400 hover:text-white"
+                    active ? "bg-dark-800 text-strong border border-dark-700" : "text-slate-400 hover:text-strong"
                   }`}
                 >
                   <span>{t.icon}</span> {t.label}
@@ -174,6 +175,7 @@ export function App() {
         </main>
       </div>
 
+      {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
       {gen && (
         <GenerateTokenModal
           initialClientId={gen.clientId}

@@ -67,7 +67,7 @@ export function Users() {
           shown.map((u) => (
             <tr key={u.id} class="hover:bg-dark-900/30 transition">
               <Td label="User">
-                <div class="font-medium text-white">
+                <div class="font-medium text-strong">
                   {u.name}{" "}
                   {u.isSelf && <span class="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 ml-1">(you)</span>}
                 </div>

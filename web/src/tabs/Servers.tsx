@@ -171,7 +171,7 @@ function ServerRow(props: {
         <div class="flex items-center gap-3">
           <IconBox src={serverIcon(s)} fallback="/icons/mcp.svg" />
           <div>
-            <div class="font-medium text-white">{s.name}</div>
+            <div class="font-medium text-strong">{s.name}</div>
             <div class="text-[11px] font-mono text-blue-400">/mcp/{s.id}/*</div>
             {s.description && <div class="text-[11px] text-slate-400 mt-0.5">{s.description}</div>}
           </div>
@@ -275,7 +275,7 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
 
   const typeBtn = (active: boolean, color: string) =>
     `py-2 px-3 rounded-xl border font-medium flex items-center justify-center gap-1.5 ${
-      active ? `${color} text-white` : "border-dark-700 bg-dark-900 text-slate-400 hover:text-white"
+      active ? `${color} text-strong` : "border-dark-700 bg-dark-900 text-slate-400 hover:text-strong"
     }`;
   const chip = "text-[10px] bg-dark-700 hover:bg-dark-600 px-1.5 py-0.5 rounded text-slate-300";
 
@@ -336,7 +336,7 @@ function ServerModal(props: { server: McpServer | null; onClose: () => void; onS
                 <label class="text-slate-400">Command</label>
                 <div class="flex flex-wrap gap-1">
                   {Object.keys(COMMAND_PRESETS).map((cmd) => (
-                    <button key={cmd} type="button" onClick={() => applyCommandPreset(cmd)} class={`${chip} px-2 hover:text-white`}>
+                    <button key={cmd} type="button" onClick={() => applyCommandPreset(cmd)} class={`${chip} px-2 hover:text-strong`}>
                       {cmd}
                     </button>
                   ))}

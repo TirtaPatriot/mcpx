@@ -9,11 +9,61 @@
   --color-dark-800: #111827;
   --color-dark-700: #1f2937;
   --color-dark-600: #374151;
+  /* Headings and values: white on the dark theme, near-black on the light one. */
+  --color-strong: #ffffff;
+  /* Tailwind's slate-500 is below 4.5:1 on these surfaces; the hint text that uses it needs more. */
+  --color-slate-500: #7a889d;
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+/*
+ * Light theme. The components use a handful of palette variables, so the light theme only
+ * re-maps those: surfaces (dark-*), the text scale (slate-*), and the accent shades that are
+ * too pale to read on white. Components never need a per-theme class.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-strong: #0f172a;
+  --color-dark-900: #f1f5f9;
+  --color-dark-800: #ffffff;
+  --color-dark-700: #e2e8f0;
+  --color-dark-600: #cbd5e1;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #5a6a80;
+  --color-slate-700: #e2e8f0;
+  --color-blue-300: #1d4ed8;
+  --color-blue-400: #2563eb;
+  --color-blue-900: #dbeafe;
+  --color-indigo-400: #4f46e5;
+  --color-indigo-900: #e0e7ff;
+  --color-purple-300: #6d28d9;
+  --color-purple-400: #7c3aed;
+  --color-purple-900: #ede9fe;
+  --color-emerald-200: #064e3b;
+  --color-emerald-300: #065f46;
+  --color-emerald-400: #047857;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
+  --color-emerald-950: #ecfdf5;
+  --color-amber-200: #78350f;
+  --color-amber-300: #92400e;
+  --color-amber-400: #b45309;
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-red-400: #d32323;
+  --color-red-700: #fca5a5;
+  --color-red-900: #fee2e2;
+}
+
 @layer base {
+  html {
+    color-scheme: dark;
+  }
   html {
     -webkit-text-size-adjust: 100%;
   }
@@ -73,9 +123,9 @@
     margin: 0 -1rem;
     width: calc(100% + 2rem);
     padding: 0.5rem 1rem;
-    background: rgba(11, 15, 23, 0.92);
+    background: color-mix(in srgb, var(--color-dark-900) 92%, transparent);
     backdrop-filter: blur(8px);
-    border-bottom: 1px solid #1f2937;
+    border-bottom: 1px solid var(--color-dark-700);
   }
   .nav-tabs {
     scrollbar-width: none;
@@ -134,7 +184,7 @@
   .rtable td[data-label]::before {
     content: attr(data-label);
     flex-shrink: 0;
-    color: #64748b;
+    color: var(--color-slate-500);
     font-size: 11px;
     font-family: var(--font-sans);
     text-align: left;
@@ -155,7 +205,7 @@
     gap: 0.5rem;
     padding-top: 0.6rem !important;
     margin-top: 0.25rem;
-    border-top: 1px solid rgba(55, 65, 81, 0.5);
+    border-top: 1px solid color-mix(in srgb, var(--color-dark-600) 50%, transparent);
   }
   .rtable td.actions::before {
     display: none;
@@ -164,7 +214,8 @@
   .rtable td.actions a {
     padding: 0.45rem 0.75rem;
     border-radius: 0.6rem;
-    background: rgba(31, 41, 55, 0.8);
+    background: color-mix(in srgb, var(--color-dark-700) 80%, transparent);
+    color: var(--color-slate-200);
   }
 
   /* modal → bottom sheet */

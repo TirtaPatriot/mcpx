@@ -109,8 +109,8 @@ export function GenerateTokenModal(props: { initialClientId: string; onClose: ()
               <span class="text-[10px] font-normal text-emerald-400 font-mono">Expires: {new Date(result.expiresAt).toLocaleDateString()}</span>
             </div>
             <div class="flex items-center gap-2">
-              <input type="text" readOnly value={result.token} class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-white text-xs select-all" />
-              <button type="button" onClick={() => copyText(result.token)} class="shrink-0 bg-dark-700 hover:bg-dark-600 text-white px-3 py-2 rounded-xl">
+              <input type="text" readOnly value={result.token} class="w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 font-mono text-strong text-xs select-all" />
+              <button type="button" onClick={() => copyText(result.token)} class="shrink-0 bg-dark-700 hover:bg-dark-600 text-strong px-3 py-2 rounded-xl">
                 Copy
               </button>
             </div>

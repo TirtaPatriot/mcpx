@@ -3,7 +3,7 @@ import { Dialog } from "./components/Dialog";
 import { copyText } from "./toast";
 
 export const inputCls =
-  "w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500";
+  "w-full bg-dark-900 border border-dark-700 rounded-xl px-3 py-2 text-strong focus:outline-none focus:border-blue-500";
 export const monoInputCls = `${inputCls} font-mono`;
 
 export const btnPrimary =
@@ -51,7 +51,7 @@ export function SectionHeader(props: { title: ComponentChildren; subtitle?: Comp
   return (
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
-        <h2 class="text-base font-semibold text-white flex items-center gap-2">{props.title}</h2>
+        <h2 class="text-base font-semibold text-strong flex items-center gap-2">{props.title}</h2>
         {props.subtitle && <p class="text-xs text-slate-400">{props.subtitle}</p>}
       </div>
       {props.children && <div class="section-actions flex items-center gap-2">{props.children}</div>}
@@ -128,7 +128,7 @@ export function SearchInput(props: { value: string; onInput: (v: string) => void
         value={props.value}
         onInput={(e) => props.onInput(e.currentTarget.value)}
         placeholder={props.placeholder ?? "Search..."}
-        class="w-56 max-w-full bg-dark-800 border border-dark-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+        class="w-56 max-w-full bg-dark-800 border border-dark-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-strong placeholder-slate-500 focus:outline-none focus:border-blue-500"
       />
     </div>
   );
@@ -200,7 +200,7 @@ export function UrlRow(props: { label: string; value: string }) {
       <button
         type="button"
         onClick={() => copyText(props.value)}
-        class="shrink-0 text-slate-400 hover:text-white p-1.5 bg-dark-800 rounded-lg border border-dark-600"
+        class="shrink-0 text-slate-400 hover:text-strong p-1.5 bg-dark-800 rounded-lg border border-dark-600"
       >
         Copy
       </button>

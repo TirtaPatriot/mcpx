@@ -106,7 +106,7 @@ export function Logs() {
           onInput={(e) => setSearch(e.currentTarget.value)}
           aria-label="Search the log"
           placeholder="Search path / request id..."
-          class="bg-dark-800 border border-dark-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          class="bg-dark-800 border border-dark-700 rounded-xl px-3 py-1.5 text-xs text-strong placeholder-slate-500 focus:outline-none focus:border-blue-500"
         />
       </div>
 

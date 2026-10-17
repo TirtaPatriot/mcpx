@@ -137,16 +137,16 @@ export function Clients() {
                     <span>{c.id}</span>
                   </div>
                 </Td>
-                <Td label="Application" class="font-medium text-white">
+                <Td label="Application" class="font-medium text-strong">
                   {c.name}
                 </Td>
                 <Td label="Secret" class="font-mono">
                   <div class="flex items-center gap-1.5">
                     <span class="text-slate-400 truncate max-w-[130px]">{revealed.has(c.id) ? c.secret : MASK}</span>
-                    <button type="button" aria-pressed={revealed.has(c.id)} onClick={() => toggleSecret(c.id)} class="text-slate-400 hover:text-white text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
+                    <button type="button" aria-pressed={revealed.has(c.id)} onClick={() => toggleSecret(c.id)} class="text-slate-400 hover:text-strong text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
                       {revealed.has(c.id) ? "Hide" : "Show"}
                     </button>
-                    <button type="button" onClick={() => copyText(c.secret)} class="text-slate-400 hover:text-white text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
+                    <button type="button" onClick={() => copyText(c.secret)} class="text-slate-400 hover:text-strong text-[11px] px-1.5 py-0.5 rounded bg-dark-700">
                       Copy
                     </button>
                   </div>
@@ -248,7 +248,7 @@ function ClientModal(props: { client: OAuthClient | null; onClose: () => void; o
           </div>
           <div class="flex items-center gap-2">
             <input type={(showSecret ? "text" : "password") as "text"} required value={secret} onInput={(e) => setSecret(e.currentTarget.value)} aria-label="Client secret" class={monoInputCls} />
-            <button type="button" aria-pressed={showSecret} onClick={() => setShowSecret((v) => !v)} class="shrink-0 text-slate-300 hover:text-white text-[11px] px-2 py-2 rounded-lg bg-dark-700">
+            <button type="button" aria-pressed={showSecret} onClick={() => setShowSecret((v) => !v)} class="shrink-0 text-slate-300 hover:text-strong text-[11px] px-2 py-2 rounded-lg bg-dark-700">
               {showSecret ? "Hide" : "Show"}
             </button>
           </div>
@@ -297,7 +297,7 @@ function AiGuideModal(props: { client: OAuthClient; onClose: () => void }) {
         />
       </div>
       <div class="flex justify-end pt-2 border-t border-dark-700">
-        <button type="button" onClick={props.onClose} class="bg-dark-700 hover:bg-dark-600 text-white font-medium px-4 py-2 rounded-xl text-xs transition">
+        <button type="button" onClick={props.onClose} class="bg-dark-700 hover:bg-dark-600 text-strong font-medium px-4 py-2 rounded-xl text-xs transition">
           Close
         </button>
       </div>

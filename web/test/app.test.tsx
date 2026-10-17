@@ -303,3 +303,94 @@ describe("getting started", () => {
     await waitFor(() => location.hash === "#clients", "navigated to clients");
   });
 });
+
+describe("theme", () => {
+  const themeButton = () => document.querySelector<HTMLButtonElement>('button[aria-label^="Theme:"]')!;
+
+  test("the toggle cycles system, light, dark and remembers the choice", async () => {
+    localStorage.removeItem("mcpx-theme");
+    await mount();
+    expect(themeButton().getAttribute("aria-label")).toContain("Theme: System");
+
+    await clickEl(themeButton());
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(localStorage.getItem("mcpx-theme")).toBe("light");
+    expect(themeButton().getAttribute("aria-label")).toContain("Theme: Light");
+
+    await clickEl(themeButton());
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("mcpx-theme")).toBe("dark");
+
+    await clickEl(themeButton());
+    expect(localStorage.getItem("mcpx-theme")).toBeNull();
+    expect(themeButton().getAttribute("aria-label")).toContain("Theme: System");
+  });
+});
+
+describe("keyboard shortcuts", () => {
+  const key = async (k: string, target: EventTarget = document.body) => {
+    target.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
+    await tick();
+  };
+
+  test("g then a letter jumps to a section", async () => {
+    await mount();
+    await key("g");
+    await key("s");
+    expect(location.hash).toBe("#servers");
+    await key("g");
+    await key("c");
+    expect(location.hash).toBe("#clients");
+    await key("g");
+    await key(",");
+    expect(location.hash).toBe("#settings");
+  });
+
+  test("a stray g followed by an unknown key does nothing", async () => {
+    await mount();
+    await key("g");
+    await key("z");
+    expect(location.hash).toBe("");
+  });
+
+  test("/ focuses the search box of the current list", async () => {
+    await mount();
+    await click("MCP Servers");
+    await waitFor(() => !!document.querySelector('input[type="search"]'), "search box");
+    await key("/");
+    expect(document.activeElement).toBe(document.querySelector('input[type="search"]'));
+  });
+
+  test("? lists the shortcuts, and shortcuts are ignored while typing", async () => {
+    await mount();
+    await key("?");
+    expect(byRole("dialog", "Keyboard shortcuts")).toBeDefined();
+    await press("Escape");
+    expect(byRole("dialog", "Keyboard shortcuts")).toBeUndefined();
+
+    await click("MCP Servers");
+    await waitFor(() => !!document.querySelector('input[type="search"]'), "search box");
+    const box = document.querySelector<HTMLInputElement>('input[type="search"]')!;
+    box.focus();
+    await key("g", box);
+    await key("c", box);
+    expect(location.hash).toBe("#servers");
+  });
+
+  test("Shift+/ counts as ? on layouts that report it that way", async () => {
+    await mount();
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "/", shiftKey: true, bubbles: true }));
+    await tick();
+    expect(byRole("dialog", "Keyboard shortcuts")).toBeDefined();
+  });
+
+  test("shortcuts do nothing while a dialog is open", async () => {
+    await mount();
+    await click("MCP Servers");
+    await waitFor(() => text().includes("/mcp/dokploy/*"), "server row");
+    await click("Add MCP server");
+    await key("g");
+    await key("c");
+    expect(location.hash).toBe("#servers");
+  });
+});

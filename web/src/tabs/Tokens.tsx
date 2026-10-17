@@ -78,7 +78,7 @@ export function Tokens() {
             setClientId(e.currentTarget.value);
             load(e.currentTarget.value);
           }}
-          class="bg-dark-800 border border-dark-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+          class="bg-dark-800 border border-dark-700 rounded-xl px-3 py-1.5 text-xs text-strong focus:outline-none focus:border-blue-500"
         >
           <option value="">All clients</option>
           {clients.map((c) => (
@@ -110,7 +110,7 @@ export function Tokens() {
             access.map((t) => (
               <tr key={t.token} class="hover:bg-dark-900/30 transition">
                 <td data-label="Token" class={mono}>{t.token.slice(0, 12)}...</td>
-                <Td label="Client ID" class="font-medium text-white">{t.client_id}</Td>
+                <Td label="Client ID" class="font-medium text-strong">{t.client_id}</Td>
                 <Td label="User"><Owner t={t} /></Td>
                 <Td label="Created" class="text-slate-400">{new Date(t.created_at).toLocaleString()}</Td>
                 <Td label="Expires" class="text-slate-400">{new Date(t.expires_at).toLocaleString()}</Td>
@@ -134,7 +134,7 @@ export function Tokens() {
             refresh.map((t) => (
               <tr key={t.token} class="hover:bg-dark-900/30 transition">
                 <td data-label="Token" class={mono}>{t.token.slice(0, 12)}...</td>
-                <Td label="Client ID" class="font-medium text-white">{t.client_id}</Td>
+                <Td label="Client ID" class="font-medium text-strong">{t.client_id}</Td>
                 <Td label="User"><Owner t={t} /></Td>
                 <Td label="Status">
                   {t.revoked_at ? <span class="text-amber-400">Rotated / revoked</span> : <span class="text-emerald-400">● Valid</span>}

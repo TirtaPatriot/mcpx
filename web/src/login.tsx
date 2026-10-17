@@ -53,7 +53,7 @@ export function Login() {
           <img src="/logo.png" alt="MCP X" class="w-full h-full object-contain" />
         </div>
         <div>
-          <h1 class="text-xl font-bold text-white tracking-tight">MCP X</h1>
+          <h1 class="text-xl font-bold text-strong tracking-tight">MCP X</h1>
           <p class="text-xs text-slate-400 mt-1">Universal OAuth 2.1 and reverse proxy for every AI client</p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export function Login() {
               type="button"
               aria-pressed={show}
               onClick={() => setShow((v) => !v)}
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 hover:text-white px-2 py-1 rounded-md"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 hover:text-strong px-2 py-1 rounded-md"
             >
               {show ? "Hide" : "Show"}
             </button>

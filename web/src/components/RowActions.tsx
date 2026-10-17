@@ -86,7 +86,7 @@ export function RowActions(props: { subject: string; primary: Action[]; menu: Ac
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
-            class="px-2 py-0.5 rounded-lg text-slate-300 hover:text-white hover:bg-dark-700 transition leading-none text-base"
+            class="px-2 py-0.5 rounded-lg text-slate-300 hover:text-strong hover:bg-dark-700 transition leading-none text-base"
           >
             ⋯
           </button>

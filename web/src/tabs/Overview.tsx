@@ -18,7 +18,7 @@ function StatusItem(props: { label: string; value: number; total?: number; tab: 
         <span class={`inline-block w-1.5 h-1.5 rounded-full ${props.dot}`} aria-hidden="true" />
         {props.label}
       </span>
-      <span class="text-2xl font-semibold text-white tabular-nums">
+      <span class="text-2xl font-semibold text-strong tabular-nums">
         {props.value}
         {props.total !== undefined && <span class="text-xs font-normal text-slate-400"> of {props.total} active</span>}
       </span>
@@ -38,7 +38,7 @@ function Step(props: { done: boolean; title: string; hint: string; action: { lab
         {props.done ? "✓" : ""}
       </span>
       <div class="flex-1 min-w-0">
-        <p class={`text-sm font-medium ${props.done ? "text-slate-400 line-through" : "text-white"}`}>
+        <p class={`text-sm font-medium ${props.done ? "text-slate-400 line-through" : "text-strong"}`}>
           {props.title}
           <span class="sr-only">{props.done ? " (done)" : " (to do)"}</span>
         </p>
@@ -99,7 +99,7 @@ export function Overview() {
 
       {data && (!hasServer || !hasAccess) && (
         <div class={`${cardCls} p-5`}>
-          <h2 class="text-base font-semibold text-white">Get started</h2>
+          <h2 class="text-base font-semibold text-strong">Get started</h2>
           <p class="text-xs text-slate-400 mt-0.5 mb-4">Two steps and an AI app can use your MCP server.</p>
           <ol class="space-y-4">
             <Step
@@ -121,7 +121,7 @@ export function Overview() {
       <div class="bg-gradient-to-r from-blue-900/30 via-indigo-900/20 to-purple-900/30 border border-blue-500/20 rounded-2xl p-5 space-y-4">
         <div class="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h2 class="text-base font-semibold text-white">Connect an AI app</h2>
+            <h2 class="text-base font-semibold text-strong">Connect an AI app</h2>
             <p class="text-xs text-slate-300 mt-1">Copy the settings for your app. They already point at your gateway.</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
@@ -154,7 +154,7 @@ export function Overview() {
       </div>
 
       <div class={`${cardCls} p-5`}>
-        <h2 class="text-sm font-semibold text-white mb-3">System</h2>
+        <h2 class="text-sm font-semibold text-strong mb-3">System</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <SysItem label="SQLite database" value={sys?.dbPath ?? "-"} truncate />
           <SysItem label="Uptime" value={sys ? `${(sys.uptime / 3600).toFixed(1)} h (${sys.uptime}s)` : "-"} />
