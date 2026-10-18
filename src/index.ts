@@ -42,6 +42,9 @@ import { adminApi } from "./admin-api";
 import { renderAdminPage, renderLoginPage, renderMessagePage, serveAsset } from "./web";
 import { getSessionUser } from "./auth";
 
+/** Static assets ship inside the package, so resolve them from this file, not the working directory. */
+const PUBLIC_DIR = new URL("../public", import.meta.url).pathname;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Database & cache initialisation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,43 +105,43 @@ const app = new Elysia()
 
   // ── Static Assets (Favicon, Logo & Brand Icons) ───────────────────────────
   .get("/favicon.ico", () => {
-    const f = Bun.file("./public/favicon.ico");
+    const f = Bun.file(`${PUBLIC_DIR}/favicon.ico`);
     return new Response(f, {
       headers: { "Content-Type": "image/x-icon", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/manifest.webmanifest", () =>
-    new Response(Bun.file("./public/manifest.webmanifest"), {
+    new Response(Bun.file(`${PUBLIC_DIR}/manifest.webmanifest`), {
       headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=86400" },
     }),
   )
   .get("/logo.png", () => {
-    const f = Bun.file("./public/logo.png");
+    const f = Bun.file(`${PUBLIC_DIR}/logo.png`);
     return new Response(f, {
       headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/icon.png", () => {
-    const f = Bun.file("./public/icon.png");
+    const f = Bun.file(`${PUBLIC_DIR}/icon.png`);
     return new Response(f, {
       headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/apple-touch-icon.png", () => {
-    const f = Bun.file("./public/logo.png");
+    const f = Bun.file(`${PUBLIC_DIR}/logo.png`);
     return new Response(f, {
       headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/apple-touch-icon-precomposed.png", () => {
-    const f = Bun.file("./public/logo.png");
+    const f = Bun.file(`${PUBLIC_DIR}/logo.png`);
     return new Response(f, {
       headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/icons/:file", ({ params }) => {
     const safeFile = params.file.replace(/[^a-zA-Z0-9._-]/g, "");
-    const f = Bun.file(`./public/icons/${safeFile}`);
+    const f = Bun.file(`${PUBLIC_DIR}/icons/${safeFile}`);
     const ext = safeFile.split(".").pop()?.toLowerCase();
     const mime =
       ext === "svg"
@@ -154,13 +157,13 @@ const app = new Elysia()
   })
   .get("/public/*", ({ request }) => {
     const path = new URL(request.url).pathname.replace(/^\/public\//, "").replace(/\.\./g, "");
-    const f = Bun.file(`./public/${path}`);
+    const f = Bun.file(`${PUBLIC_DIR}/${path}`);
     return new Response(f, {
       headers: { "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });
   })
   .get("/mcp/:serverName/favicon.ico", () => {
-    const f = Bun.file("./public/favicon.ico");
+    const f = Bun.file(`${PUBLIC_DIR}/favicon.ico`);
     return new Response(f, {
       headers: { "Content-Type": "image/x-icon", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
     });

@@ -28,6 +28,13 @@ AI client ─Bearer─▶ /mcp/:serverName/*  ──▶  upstream MCP server
 ### Docker (recommended)
 
 ```bash
+docker run -d --name mcpx -p 3000:3000 -v mcpx-data:/app/data ghcr.io/ekoeryanto/mcpx:latest
+docker logs mcpx            # first start prints the admin password
+```
+
+Or build from source with Compose:
+
+```bash
 git clone https://github.com/ekoeryanto/mcpx.git
 cd mcpx
 cp .env.example .env
@@ -35,7 +42,15 @@ docker compose up -d --build
 docker compose logs -f      # first start prints the admin password
 ```
 
-### Bun
+### bunx
+
+Requires [Bun](https://bun.sh) 1.1+. No clone needed; data is stored in `./data` of the directory you run it from (override with `DB_PATH`).
+
+```bash
+bunx @ekoeryanto/mcpx
+```
+
+### From source
 
 Requires [Bun](https://bun.sh) 1.1+.
 

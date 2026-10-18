@@ -77,3 +77,9 @@ Automated checks cannot judge everything. Before a release, tab through the chan
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `docs:`, ...).
 
 Security issues: see [SECURITY.md](SECURITY.md) and do not file them as public issues.
+
+## Releasing
+
+1. Bump `version` in `package.json`, commit, then tag it: `git tag v1.2.3 && git push origin main v1.2.3`.
+2. The `Release` workflow checks that the tag matches `package.json`, runs the tests, then publishes `@ekoeryanto/mcpx` to npm, pushes `ghcr.io/ekoeryanto/mcpx` (amd64 + arm64) and creates the GitHub release.
+3. It needs an `NPM_TOKEN` secret in the GitHub repository; GHCR uses the built-in `GITHUB_TOKEN`.

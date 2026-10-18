@@ -130,6 +130,21 @@ curl -N -H "Authorization: Bearer <TOKEN_AKSES>" \
 
 ## Cara Menjalankan
 
+### Menggunakan Docker
+
+```bash
+docker run -d --name mcpx -p 3000:3000 -v mcpx-data:/app/data ghcr.io/ekoeryanto/mcpx:latest
+docker logs mcpx            # start pertama mencetak password admin
+```
+
+### Menggunakan bunx
+
+Butuh [Bun](https://bun.sh) 1.1+. Tanpa clone; data disimpan di `./data` pada direktori tempat perintah dijalankan (ubah lewat `DB_PATH`).
+
+```bash
+bunx @ekoeryanto/mcpx
+```
+
 ### Menggunakan Docker Compose (Direkomendasikan)
 
 ```bash
