@@ -17,7 +17,9 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 # Install python3, pip, go and git so Python- and Go-based MCP servers can run
-RUN apk add --no-cache python3 py3-pip go git
+RUN apk add --no-cache python3 py3-pip git \
+    --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community go
+
 
 # Symlink npx & node to the bundled bunx/bun, and python to python3
 RUN ln -sf /usr/local/bin/bunx /usr/local/bin/npx && \
