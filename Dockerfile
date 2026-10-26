@@ -19,8 +19,17 @@ COPY --from=golang:1.24-alpine /usr/local/go /usr/local/go
 # Tambahkan /usr/local/go/bin ke PATH
 ENV PATH="/usr/local/go/bin:${PATH}"
 
-# Install python3, pip, go and git so Python- and Go-based MCP servers can run
-RUN apk add --no-cache python3 py3-pip git
+# Update metadata dulu
+RUN apk update
+
+# Install git terpisah
+RUN apk add --no-cache git ca-certificates
+
+# Install python runtime saja (tanpa pip dulu)
+RUN apk add --no-cache python3
+
+# Install pip jika memang dibutuhkan secara native
+RUN apk add --no-cache py3-pip
 
 # Symlink npx & node to the bundled bunx/bun, and python to python3
 RUN ln -sf /usr/local/bin/bunx /usr/local/bin/npx && \
