@@ -4,7 +4,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY src ./src
 COPY web ./web
-RUN bun run build
+RUN bun --smol run build
 
 # ── Stage 2: the gateway ──
 FROM oven/bun:alpine
