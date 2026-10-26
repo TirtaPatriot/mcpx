@@ -25,7 +25,7 @@ COPY --from=golang:alpine /usr/local/go /usr/local/go
 COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # 3. APK hanya untuk git (tanpa ca-certificates trigger agar terhindar dari signal 9)
-RUN apk add --no-cache git
+RUN apk add --no-cache --no-scripts git
 
 # 4. Direktori global untuk Python runtime & cache (chown ke user bun)
 RUN mkdir -p /opt/uv/python \
