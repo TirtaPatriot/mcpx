@@ -13,9 +13,14 @@ WORKDIR /app
 
 # Copy the official uv & uvx tools from Astral (statically linked musl binaries)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+# Copy toolchain Go resmi versi spesifik / latest
+COPY --from=golang:1.24-alpine /usr/local/go /usr/local/go
+
+# Tambahkan /usr/local/go/bin ke PATH
+ENV PATH="/usr/local/go/bin:${PATH}"
 
 # Install python3, pip, go and git so Python- and Go-based MCP servers can run
-RUN apk add --no-cache python3 py3-pip go git
+RUN apk add --no-cache python3 py3-pip git
 
 # Symlink npx & node to the bundled bunx/bun, and python to python3
 RUN ln -sf /usr/local/bin/bunx /usr/local/bin/npx && \
